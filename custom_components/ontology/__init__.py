@@ -97,7 +97,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
     # full sync completes (User Story 2, FR-*).
     coordinator._record_success()
 
-    await coordinator.async_config_entry_first_refresh()
+    # Run the initial full sync in the background instead of awaiting it
+    # here (FR-013, T038): installations with many entities/relationships
+    # can take longer than Home Assistant's config-entry setup timeout to
+    # sync, and awaiting it inline gets the whole setup cancelled mid-sync.
+    hass.async_create_task(
+        coordinator.async_resync(),
+        name=f"ontology_initial_sync_{entry.entry_id}",
+    )
 
     entry.async_on_unload(async_register_listeners(hass, coordinator))
 
