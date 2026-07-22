@@ -22,23 +22,35 @@ MEMGRAPH_IMAGE = "memgraph/memgraph:latest"
 BOLT_PORT = 7687
 
 
+_BOLT_MAGIC = b"\x60\x60\xb0\x17"
+# Propose Bolt versions 5.4 down to 4.0, mirroring what the neo4j driver sends.
+_BOLT_HANDSHAKE = _BOLT_MAGIC + b"\x00\x04\x04\x00" + b"\x00\x02\x04\x04" + (b"\x00" * 8)
+
+
 def _wait_for_bolt_port(host: str, port: int, timeout: float = 30) -> None:
-    """Block until the Bolt TCP port actually accepts connections.
+    """Block until the Bolt listener actually completes a handshake.
 
     Memgraph emits its "You are running Memgraph" log line slightly before
-    the Bolt listener is ready to complete a handshake, which produces a
-    flaky ``ServiceUnavailable`` on the very first connection attempt.
+    the Bolt listener is ready to complete a handshake. A bare TCP connect
+    can succeed against Docker's port-forwarding layer before the Bolt
+    protocol negotiation itself is serviceable, so this performs the real
+    magic-byte handshake and requires a non-empty version response,
+    retrying until it succeeds (or the timeout elapses).
     """
     deadline = time.monotonic() + timeout
-    last_error: OSError | None = None
+    last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            with socket.create_connection((host, port), timeout=1):
-                return
+            with socket.create_connection((host, port), timeout=1) as sock:
+                sock.sendall(_BOLT_HANDSHAKE)
+                response = sock.recv(4)
+                if len(response) == 4:
+                    return
+                raise ConnectionError("Bolt handshake closed with an incomplete response")
         except OSError as err:
             last_error = err
             time.sleep(0.25)
-    raise TimeoutError(f"Bolt port {host}:{port} not accepting connections") from last_error
+    raise TimeoutError(f"Bolt port {host}:{port} not accepting handshakes") from last_error
 
 
 @pytest.fixture(scope="session")

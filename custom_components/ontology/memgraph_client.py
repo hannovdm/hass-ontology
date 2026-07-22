@@ -79,10 +79,10 @@ class MemgraphClient:
         Used both by config-flow validation (a single attempt, no retry) and
         as the basis for the ongoing health check (User Story 2).
         """
-        await self.connect()
-        assert self._driver is not None
         try:
             async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                await self.connect()
+                assert self._driver is not None
                 await self._driver.verify_connectivity()
         except AuthError as err:
             raise InvalidAuth(redact_exception(err)) from err
