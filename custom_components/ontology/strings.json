@@ -1,0 +1,87 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Memgraph",
+        "description": "Enter the connection details for your local Memgraph instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "database": "Database",
+          "encrypted": "Use encrypted (TLS) connection"
+        }
+      },
+      "reconfigure": {
+        "title": "Update Memgraph connection",
+        "description": "Update the connection details for your local Memgraph instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "database": "Database",
+          "encrypted": "Use encrypted (TLS) connection"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Memgraph. Check the host/port and that Memgraph is running.",
+      "invalid_auth": "Authentication failed. Check the username and password.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "reconfigure_successful": "Connection updated successfully."
+    }
+  },
+  "issues": {
+    "schema_version_mismatch": {
+      "title": "Ontology schema version mismatch",
+      "description": "The ontology schema found in Memgraph (version {found_version}) does not match the version expected by this integration ({expected_version}). The integration will not load and no changes have been made to the graph. Resolve this manually (for example, restore a compatible backup or run a documented migration) before reloading the integration."
+    },
+    "sustained_connection_failure": {
+      "title": "Ontology cannot reach Memgraph",
+      "description": "The ontology integration has failed to synchronize with Memgraph {attempts} times in a row. Check that the local Memgraph service is running and reachable from Home Assistant. This issue will clear automatically once a synchronization succeeds."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ontology_health": { "name": "Health" },
+      "ontology_nodes": { "name": "Nodes" },
+      "ontology_relationships": { "name": "Relationships" },
+      "ontology_last_sync": { "name": "Last sync" },
+      "ontology_last_error": { "name": "Last error" },
+      "ontology_schema_version": { "name": "Schema version" }
+    },
+    "button": {
+      "ontology_rebuild": { "name": "Rebuild" },
+      "ontology_validate": { "name": "Validate" },
+      "ontology_resync": { "name": "Resync" }
+    }
+  },
+  "services": {
+    "rebuild": {
+      "name": "Rebuild",
+      "description": "Clears integration-generated graph data and rebuilds the entire ontology from current Home Assistant registries."
+    },
+    "resync": {
+      "name": "Resync",
+      "description": "Re-reads Home Assistant registries and merges changes into the graph without deleting existing data."
+    },
+    "sync_entity": {
+      "name": "Sync entity",
+      "description": "Refreshes a single entity and its direct relationships in the graph.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "The entity to synchronize."
+        }
+      }
+    },
+    "validate": {
+      "name": "Validate",
+      "description": "Checks graph consistency and schema version without writing any changes."
+    }
+  }
+}

@@ -1,0 +1,9 @@
+rebuild: {}
+resync: {}
+sync_entity:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity: {}
+validate: {}

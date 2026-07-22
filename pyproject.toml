@@ -1,0 +1,43 @@
+[project]
+name = "hass-ontology"
+version = "1.0.0"
+description = "Home Assistant custom integration that syncs HA metadata into a local Memgraph ontology."
+# Production target is Python 3.13 (current Home Assistant core minimum).
+# Relaxed to 3.11 here so local dev/test tooling can install on interpreters
+# that predate 3.13; the integration only ever runs inside HA core's own
+# Python at runtime.
+requires-python = ">=3.11"
+dependencies = [
+    "neo4j>=5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-homeassistant-custom-component",
+    "testcontainers>=4.0",
+    "ruff>=0.6",
+    "black>=24.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["custom_components*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ASYNC"]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

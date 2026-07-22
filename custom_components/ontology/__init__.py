@@ -1,0 +1,178 @@
+"""Home Assistant Ontology Integration.
+
+Synchronizes Home Assistant registry metadata (areas, floors, devices,
+entities, domains, integrations, labels, automations, scenes, scripts) into a
+local Memgraph graph database as an idempotent, versioned ontology.
+"""
+
+from __future__ import annotations
+
+import logging
+
+import voluptuous as vol
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
+
+from .const import (
+    ATTR_ENTITY_ID,
+    CONF_DATABASE,
+    CONF_ENCRYPTED,
+    CONF_HOST,
+    CONF_PASSWORD,
+    CONF_PORT,
+    CONF_USERNAME,
+    DEFAULT_ENCRYPTED,
+    DOMAIN,
+    PLATFORMS,
+    SCHEMA_VERSION,
+    SERVICE_REBUILD,
+    SERVICE_RESYNC,
+    SERVICE_SYNC_ENTITY,
+    SERVICE_VALIDATE,
+)
+from .coordinator import OntologyCoordinator
+from .event_listener import async_register_listeners
+from .graph_builder import get_schema_version
+from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
+from .redact import redact_exception
+from .repairs import (
+    async_clear_schema_mismatch_issue,
+    async_clear_sustained_failure_issue,
+    async_create_schema_mismatch_issue,
+    async_create_sustained_failure_issue,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+type OntologyConfigEntry = ConfigEntry[OntologyCoordinator]
+
+_SYNC_ENTITY_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id})
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> bool:
+    """Set up the Ontology integration from a config entry."""
+    client = MemgraphClient(
+        host=entry.data[CONF_HOST],
+        port=entry.data[CONF_PORT],
+        username=entry.data.get(CONF_USERNAME) or None,
+        password=entry.data.get(CONF_PASSWORD) or None,
+        database=entry.data.get(CONF_DATABASE) or None,
+        encrypted=entry.data.get(CONF_ENCRYPTED, DEFAULT_ENCRYPTED),
+    )
+    try:
+        await client.test_connection()
+    except InvalidAuth as err:
+        await client.close()
+        raise ConfigEntryNotReady(
+            f"Invalid Memgraph credentials: {redact_exception(err)}"
+        ) from err
+    except CannotConnect as err:
+        await client.close()
+        # Transient/unavailable: raising ConfigEntryNotReady keeps HA startup
+        # stable and lets HA's own retry mechanism reload later (FR-002, US2).
+        raise ConfigEntryNotReady(
+            f"Cannot connect to Memgraph: {redact_exception(err)}"
+        ) from err
+
+    # Schema-version safety check (User Story 8, FR-017, T056): never write
+    # to the graph if an existing OntologySchema.version doesn't match ours.
+    existing_version = await get_schema_version(client)
+    if existing_version is not None and existing_version != SCHEMA_VERSION:
+        async_create_schema_mismatch_issue(hass, entry, existing_version, SCHEMA_VERSION)
+        await client.close()
+        raise ConfigEntryNotReady(
+            f"Ontology schema version mismatch: graph has {existing_version}, "
+            f"integration expects {SCHEMA_VERSION}. Resolve manually before retrying."
+        )
+    async_clear_schema_mismatch_issue(hass, entry)
+
+    coordinator = OntologyCoordinator(hass, entry, client)
+    coordinator.on_sustained_failure = lambda: async_create_sustained_failure_issue(hass, entry)
+    coordinator.on_failure_cleared = lambda: async_clear_sustained_failure_issue(hass, entry)
+    entry.runtime_data = coordinator
+    # Connection already validated above: record healthy state up front so
+    # the health sensors (User Story 6) reflect it even before the first
+    # full sync completes (User Story 2, FR-*).
+    coordinator._record_success()
+
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.async_on_unload(async_register_listeners(hass, coordinator))
+
+    _async_register_services(hass)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        await entry.runtime_data.memgraph_client.close()
+        _async_unregister_services(hass)
+    return unload_ok
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> None:
+    """Reload a config entry after options/reconfigure changes (FR-003)."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _loaded_coordinators(hass: HomeAssistant) -> list[OntologyCoordinator]:
+    """Return coordinators for all currently-loaded Ontology config entries."""
+    return [
+        entry.runtime_data
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.state is ConfigEntryState.LOADED
+    ]
+
+
+async def _async_handle_rebuild(call: ServiceCall) -> None:
+    """Handle the `ontology.rebuild` service call (contracts/services.md)."""
+    for coordinator in _loaded_coordinators(call.hass):
+        await coordinator.async_rebuild()
+
+
+async def _async_handle_resync(call: ServiceCall) -> None:
+    """Handle the `ontology.resync` service call (contracts/services.md)."""
+    for coordinator in _loaded_coordinators(call.hass):
+        await coordinator.async_resync()
+
+
+async def _async_handle_sync_entity(call: ServiceCall) -> None:
+    """Handle the `ontology.sync_entity` service call (contracts/services.md)."""
+    entity_id = call.data[ATTR_ENTITY_ID]
+    for coordinator in _loaded_coordinators(call.hass):
+        await coordinator.async_sync_entity(entity_id)
+
+
+async def _async_handle_validate(call: ServiceCall) -> None:
+    """Handle the `ontology.validate` service call (contracts/services.md)."""
+    for coordinator in _loaded_coordinators(call.hass):
+        await coordinator.async_validate()
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register the four ontology services once, regardless of entry count."""
+    if hass.services.has_service(DOMAIN, SERVICE_REBUILD):
+        return
+    hass.services.async_register(DOMAIN, SERVICE_REBUILD, _async_handle_rebuild)
+    hass.services.async_register(DOMAIN, SERVICE_RESYNC, _async_handle_resync)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SYNC_ENTITY, _async_handle_sync_entity, schema=_SYNC_ENTITY_SCHEMA
+    )
+    hass.services.async_register(DOMAIN, SERVICE_VALIDATE, _async_handle_validate)
+
+
+def _async_unregister_services(hass: HomeAssistant) -> None:
+    """Remove the ontology services once the last config entry is unloaded."""
+    if hass.config_entries.async_entries(DOMAIN):
+        return
+    for service in (SERVICE_REBUILD, SERVICE_RESYNC, SERVICE_SYNC_ENTITY, SERVICE_VALIDATE):
+        hass.services.async_remove(DOMAIN, service)
+
