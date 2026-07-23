@@ -3,14 +3,14 @@
 Runs a [Memgraph](https://memgraph.com/) graph database as a Home Assistant
 add-on, so it lives on the same host as Home Assistant OS / Supervised and
 requires no separate server. This is the backing store used by the
-[Home Assistant Ontology](https://github.com/hannov/hass-ontology) custom
+[Home Assistant Ontology](https://github.com/hannovdm/hass-ontology) custom
 integration.
 
 ## Installation
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**.
 2. Click the **⋮** menu (top right) → **Repositories**, and add:
-   `https://github.com/hannov/hass-ontology`
+   `https://github.com/hannovdm/hass-ontology`
 3. Find **Memgraph** in the store list and click **Install**.
 4. Start the add-on. Leave **Start on boot** and **Watchdog** enabled so it
    comes back up automatically after a restart.

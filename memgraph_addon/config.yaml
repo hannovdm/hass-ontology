@@ -5,7 +5,7 @@ description: >-
   Memgraph graph database — the backing store for the Home Assistant Ontology
   integration. Exposes the Bolt protocol on port 7687 and persists graph data
   under the add-on's /data volume so it survives restarts and updates.
-url: "https://github.com/hannov/hass-ontology/tree/main/memgraph_addon"
+url: "https://github.com/hannovdm/hass-ontology/tree/main/memgraph_addon"
 arch:
   - amd64
   - aarch64

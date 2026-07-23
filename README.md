@@ -53,7 +53,7 @@ Home Assistant and your own Memgraph instance.
 ### Memgraph add-on (Home Assistant OS / Supervised only)
 
 1. Go to **Settings → Add-ons → Add-on Store → ⋮ → Repositories** and add
-   `https://github.com/hannov/hass-ontology`.
+   `https://github.com/hannovdm/hass-ontology`.
 2. Install and start the **Memgraph** add-on. See
    [memgraph_addon/README.md](memgraph_addon/README.md) for details.
 

@@ -6,7 +6,7 @@ This add-on runs the official
 [`memgraph/memgraph`](https://hub.docker.com/r/memgraph/memgraph) Docker
 image, unmodified apart from redirecting its storage and log files into the
 add-on's persistent `/data` volume. It provides a local, Bolt-protocol graph
-database for the [Home Assistant Ontology](https://github.com/hannov/hass-ontology)
+database for the [Home Assistant Ontology](https://github.com/hannovdm/hass-ontology)
 integration (or any other Bolt-compatible client).
 
 ## Configuration
@@ -61,7 +61,7 @@ before jumping multiple versions.
 ## Support
 
 Issues specific to this add-on packaging should be filed against
-[hannov/hass-ontology](https://github.com/hannov/hass-ontology/issues).
+[hannovdm/hass-ontology](https://github.com/hannovdm/hass-ontology/issues).
 For issues with Memgraph itself, see the
 [Memgraph documentation](https://memgraph.com/docs) or
 [Memgraph Discord](https://discord.gg/memgraph).
