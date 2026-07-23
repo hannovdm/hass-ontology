@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -23,6 +24,20 @@ class OntologySensorEntityDescription(SensorEntityDescription):
     """Describes an Ontology diagnostic sensor."""
 
     value_fn: Callable[[OntologyState], object]
+
+
+def _last_sync_datetime(state: OntologyState) -> datetime | None:
+    """Parse ``state.last_sync`` (an ISO string, see coordinator._record_success)
+    into an aware ``datetime``.
+
+    A ``SensorDeviceClass.TIMESTAMP`` sensor's ``native_value`` must be a
+    ``datetime`` object, not a string — returning the raw ISO string here
+    causes Home Assistant to silently reject it and show the sensor as
+    unavailable/"not provided", even after a successful sync.
+    """
+    if state.last_sync is None:
+        return None
+    return datetime.fromisoformat(state.last_sync)
 
 
 SENSOR_DESCRIPTIONS: tuple[OntologySensorEntityDescription, ...] = (
@@ -47,7 +62,7 @@ SENSOR_DESCRIPTIONS: tuple[OntologySensorEntityDescription, ...] = (
         key="last_sync",
         translation_key="ontology_last_sync",
         device_class=SensorDeviceClass.TIMESTAMP,
-        value_fn=lambda state: state.last_sync,
+        value_fn=_last_sync_datetime,
     ),
     OntologySensorEntityDescription(
         key="last_error",

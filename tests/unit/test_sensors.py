@@ -4,6 +4,8 @@ last_error/schema_version) reads its value directly from coordinator state
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ontology.const import DOMAIN
@@ -35,7 +37,7 @@ async def test_sensors_reflect_current_coordinator_state(hass, mock_memgraph_cli
     assert sensors["health"].native_value == "ok"
     assert sensors["nodes"].native_value == 42
     assert sensors["relationships"].native_value == 17
-    assert sensors["last_sync"].native_value == "2025-01-01T00:00:00+00:00"
+    assert sensors["last_sync"].native_value == datetime(2025, 1, 1, tzinfo=UTC)
     assert sensors["last_error"].native_value == "none"
     assert sensors["schema_version"].native_value == "1.0.0"
 
