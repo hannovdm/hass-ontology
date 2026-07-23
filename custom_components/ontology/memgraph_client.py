@@ -96,13 +96,29 @@ class MemgraphClient:
     async def run_query(
         self, query: str, parameters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        """Run a single Cypher query and return the result records as dicts."""
-        await self.connect()
-        assert self._driver is not None
-        async with self._driver.session(database=self._database) as session:
-            result = await session.run(query, parameters or {})
-            records = [dict(record) async for record in result]
-            return records
+        """Run a single Cypher query and return the result records as dicts.
+
+        Bounded by ``CONNECTION_TIMEOUT_SECONDS`` so an unreachable or
+        unresponsive host fails fast with ``CannotConnect`` instead of
+        hanging indefinitely and wedging the coordinator's serialization
+        lock (every subsequent sync would otherwise fail immediately with
+        "An ontology sync operation is already in progress" and never
+        recover, even after connectivity is restored).
+        """
+        try:
+            async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                await self.connect()
+                assert self._driver is not None
+                async with self._driver.session(database=self._database) as session:
+                    result = await session.run(query, parameters or {})
+                    records = [dict(record) async for record in result]
+                    return records
+        except AuthError as err:
+            raise InvalidAuth(redact_exception(err)) from err
+        except TimeoutError as err:
+            raise CannotConnect("Connection to Memgraph timed out") from err
+        except ServiceUnavailable as err:
+            raise CannotConnect(redact_exception(err)) from err
 
     async def run_query_with_retry(
         self, query: str, parameters: dict[str, Any] | None = None
