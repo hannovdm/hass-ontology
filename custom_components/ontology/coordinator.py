@@ -103,6 +103,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
         self.state.last_sync = datetime.now(UTC).isoformat()
         if self.on_failure_cleared:
             self.on_failure_cleared()
+        self._notify_state_changed()
 
     def _record_failure(self, err: Exception) -> None:
         self.state.health = HEALTH_ERROR
@@ -113,6 +114,20 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             and self.on_sustained_failure
         ):
             self.on_sustained_failure()
+        self._notify_state_changed()
+
+    def _notify_state_changed(self) -> None:
+        """Push the current state to sensor entities.
+
+        This integration never calls ``async_config_entry_first_refresh``/
+        ``async_refresh`` (the initial sync runs as a background task per
+        T038, and incremental updates bypass the coordinator's own update
+        cycle entirely), so ``DataUpdateCoordinator`` would otherwise never
+        notify its listeners. Without this, the sensor entities freeze at
+        whatever ``self.state`` was when they were first added to hass
+        (typically all-zero counts) and never reflect subsequent syncs.
+        """
+        self.async_set_updated_data(self.state)
 
     async def _refresh_counts(self) -> None:
         """Refresh the node/relationship count sensors (User Story 6)."""
@@ -228,10 +243,12 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             if item["kind"] == kind and item["id"] == target_id:
                 item["attempts"] += 1
                 item["error"] = redact_exception(err)
+                self._notify_state_changed()
                 return
         self.state.failed_updates.append(
             {"kind": kind, "id": target_id, "attempts": 1, "error": redact_exception(err)}
         )
+        self._notify_state_changed()
 
     def _clear_failed_update(self, kind: str, target_id: str) -> None:
         self.state.failed_updates = [
@@ -239,6 +256,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             for item in self.state.failed_updates
             if not (item["kind"] == kind and item["id"] == target_id)
         ]
+        self._notify_state_changed()
 
     async def async_handle_entity_change(self, entity_id: str) -> None:
         """Entry point for debounced `state_changed`/entity-registry events."""
