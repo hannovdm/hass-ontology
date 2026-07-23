@@ -8,12 +8,14 @@ local Memgraph graph database as an idempotent, versioned ontology.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     ATTR_ENTITY_ID,
@@ -25,6 +27,7 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_ENCRYPTED,
     DOMAIN,
+    FAILED_UPDATE_RETRY_INTERVAL_SECONDS,
     PLATFORMS,
     SCHEMA_VERSION,
     SERVICE_REBUILD,
@@ -107,6 +110,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
     )
 
     entry.async_on_unload(async_register_listeners(hass, coordinator))
+
+    @callback
+    def _async_retry_failed_updates(_now: datetime) -> None:
+        """Periodic sweep that drains any queued failed_updates (FR-020).
+
+        A burst of many entities changing state at once (e.g. right after a
+        restart, as other integrations initialize) can exceed the
+        single-pending-slot serialization (FR-013a) and get rejected. This
+        runs automatically so end-users never need to press a button to
+        recover from that.
+        """
+        if coordinator.state.failed_updates:
+            hass.async_create_task(
+                coordinator.async_retry_failed_updates(),
+                name=f"ontology_retry_failed_updates_{entry.entry_id}",
+            )
+
+    entry.async_on_unload(
+        async_track_time_interval(
+            hass,
+            _async_retry_failed_updates,
+            timedelta(seconds=FAILED_UPDATE_RETRY_INTERVAL_SECONDS),
+        )
+    )
 
     _async_register_services(hass)
 

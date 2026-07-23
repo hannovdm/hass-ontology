@@ -35,6 +35,12 @@ INTEGRATION_OWNED_SOURCES = (SOURCE_HOME_ASSISTANT, SOURCE_GENERATED)
 # Debounce window for state_changed events (research.md §5)
 STATE_CHANGE_DEBOUNCE_SECONDS = 3.0
 
+# How often to automatically retry queued failed_updates (FR-020). A burst of
+# many entities changing state at once (e.g. right after a restart) can
+# exceed the single-pending-slot serialization (FR-013a) and get rejected;
+# this periodic sweep drains that backlog without any user action.
+FAILED_UPDATE_RETRY_INTERVAL_SECONDS = 300.0
+
 # Retry/backoff policy for Memgraph operations (research.md §6)
 RETRY_INITIAL_DELAY_SECONDS = 1.0
 RETRY_MAX_DELAY_SECONDS = 60.0
