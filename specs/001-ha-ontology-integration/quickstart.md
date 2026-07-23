@@ -5,7 +5,9 @@ This guide describes how to stand up the prerequisites and validate the feature 
 ## Prerequisites
 
 - A running Home Assistant instance (OS/Supervised/Core) with access to install a `custom_components` integration.
-- A local Memgraph instance reachable over Bolt from the Home Assistant host (e.g., `docker run -p 7687:7687 memgraph/memgraph-platform`).
+- A local Memgraph instance reachable over Bolt from the Home Assistant host. Two supported options:
+  - **Home Assistant OS / Supervised**: install the [Memgraph add-on](../../memgraph_addon/) shipped in this repo (add `https://github.com/hannov/hass-ontology` as an add-on repository under **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, then install and start **Memgraph**). See [memgraph_addon/README.md](../../memgraph_addon/README.md).
+  - **Home Assistant Container / Core**, or any other setup: run Memgraph yourself, e.g. `docker run -p 7687:7687 memgraph/memgraph-platform`.
 - The `ontology` custom component copied into `<config>/custom_components/ontology/`, then Home Assistant restarted (or reloaded if HA supports hot-reload for new custom components).
 
 ## Scenario A — First-time setup and initial sync (validates User Stories 1–4)

@@ -38,15 +38,26 @@ Home Assistant and your own Memgraph instance.
 ## Requirements
 
 - A running Home Assistant instance (OS/Supervised/Core).
-- A local [Memgraph](https://memgraph.com/) instance reachable over Bolt, e.g.:
+- A local [Memgraph](https://memgraph.com/) instance reachable over Bolt. Two options:
+  - **Home Assistant OS / Supervised**: install the bundled
+    [Memgraph add-on](memgraph_addon/) (see below).
+  - **Home Assistant Container / Core**, or any other setup: run Memgraph
+    yourself, e.g.:
 
-  ```sh
-  docker run -p 7687:7687 memgraph/memgraph-platform
-  ```
+    ```sh
+    docker run -p 7687:7687 memgraph/memgraph-platform
+    ```
 
 ## Installation
 
-### HACS (recommended)
+### Memgraph add-on (Home Assistant OS / Supervised only)
+
+1. Go to **Settings → Add-ons → Add-on Store → ⋮ → Repositories** and add
+   `https://github.com/hannov/hass-ontology`.
+2. Install and start the **Memgraph** add-on. See
+   [memgraph_addon/README.md](memgraph_addon/README.md) for details.
+
+### HACS (recommended, for the integration itself)
 
 1. Add this repository as a custom repository in [HACS](https://hacs.xyz/)
    (category: Integration).
@@ -62,7 +73,9 @@ Home Assistant and your own Memgraph instance.
 
 1. Go to **Settings → Devices & Services → Add Integration**, search for
    "Ontology".
-2. Enter the Memgraph `host`, `port`, and credentials (if configured).
+2. Enter the Memgraph `host`, `port`, and credentials (if configured). If
+   using the bundled add-on, use your Home Assistant host's IP address and
+   port `7687`.
 3. Wait for the initial synchronization to complete — `sensor.ontology_health`
    will report healthy once done.
 
