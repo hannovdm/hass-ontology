@@ -1,8 +1,17 @@
 """DataUpdateCoordinator for the Ontology integration.
 
-Serializes all sync operations (full rebuild, resync, single-entity sync,
-validate, and event-driven incremental updates) through a single lock plus a
-one-deep pending queue, per FR-013a / research.md §8.
+The four explicit sync services (rebuild, resync, single-entity sync,
+validate) are serialized through a single lock plus a one-deep pending
+queue, rejecting a third+ concurrent request (FR-013a / research.md §8 /
+contracts/services.md).
+
+Event-driven incremental updates (registry changes, debounced primary-state
+changes) share the same underlying lock so a write is never concurrent with
+a full sync, but they wait their turn instead of being rejected: real
+installations routinely have many different entities change primary state
+within the same few seconds, and treating that as an error only pushed the
+same contention into failed_updates for a later retry to re-race (FR-011,
+FR-020).
 """
 
 from __future__ import annotations
@@ -115,7 +124,9 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
     async def _run_serialized(self, func: Any, *args: Any, **kwargs: Any) -> None:
         """Serialize execution through a single lock plus a one-deep pending
         slot: a second concurrent request is queued, a third is rejected
-        (FR-013a, research.md §8)."""
+        (FR-013a, research.md §8). Used only by the four explicit sync
+        services (rebuild/resync/sync_entity/validate) - see
+        `_run_incremental` for event-driven updates."""
         if self._lock.locked():
             if self._waiting:
                 raise OperationInProgress("An ontology sync operation is already in progress")
@@ -126,6 +137,20 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
                 await func(*args, **kwargs)
         finally:
             self._waiting = False
+
+    async def _run_incremental(self, func: Any, *args: Any, **kwargs: Any) -> None:
+        """Serialize a registry/state-change-driven incremental update through
+        the same lock as the heavy sync services, but wait for a turn instead
+        of instantly rejecting.
+
+        Unlike `_run_serialized`, this has no one-deep pending-slot limit:
+        `asyncio.Lock` is FIFO, so any number of concurrently-arriving
+        incremental updates simply queue up and run one at a time, without
+        ever raising `OperationInProgress` or starving a pending heavy
+        operation.
+        """
+        async with self._lock:
+            await func(*args, **kwargs)
 
     # -- Full-graph operations (User Story 4) -----------------------------
 
@@ -218,7 +243,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
     async def async_handle_entity_change(self, entity_id: str) -> None:
         """Entry point for debounced `state_changed`/entity-registry events."""
         try:
-            await self._run_serialized(self._execute_entity_sync, entity_id)
+            await self._run_incremental(self._execute_entity_sync, entity_id)
         except Exception as err:  # noqa: BLE001 - tracked, never dropped (FR-020)
             self._track_failed_update("entity", entity_id, err)
         else:
@@ -227,7 +252,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
     async def async_handle_device_change(self, device_id: str) -> None:
         """Entry point for device-registry update/remove events."""
         try:
-            await self._run_serialized(
+            await self._run_incremental(
                 graph_builder.update_device, self.hass, self.memgraph_client, device_id
             )
         except Exception as err:  # noqa: BLE001
@@ -238,7 +263,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
     async def async_handle_area_change(self, area_id: str) -> None:
         """Entry point for area-registry update/remove events."""
         try:
-            await self._run_serialized(
+            await self._run_incremental(
                 graph_builder.update_area, self.hass, self.memgraph_client, area_id
             )
         except Exception as err:  # noqa: BLE001
