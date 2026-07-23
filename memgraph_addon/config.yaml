@@ -19,5 +19,12 @@ ports_description:
     Bolt protocol port used by the Ontology integration and any other
     Bolt-compatible client (e.g. Memgraph Lab, mgconsole).
 watchdog: "tcp://[HOST]:7687"
+# Grants access to the Supervisor REST API (via the SUPERVISOR_TOKEN env var)
+# so run.sh can look up its own hostname and announce itself to Home
+# Assistant via the Discovery API, letting the Ontology integration
+# auto-configure its Memgraph connection instead of requiring manual entry.
+hassio_api: true
+discovery:
+  - ontology
 options: {}
 schema: {}

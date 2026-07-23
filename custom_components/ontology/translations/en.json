@@ -24,6 +24,18 @@
           "database": "Database",
           "encrypted": "Use encrypted (TLS) connection"
         }
+      },
+      "hassio_confirm": {
+        "title": "Memgraph add-on discovered",
+        "description": "Home Assistant found the Memgraph add-on running. Confirm the connection details below.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "database": "Database",
+          "encrypted": "Use encrypted (TLS) connection"
+        }
       }
     },
     "error": {

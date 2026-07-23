@@ -8,6 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
+from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import (
     CONF_DATABASE,
@@ -75,6 +76,10 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._discovery_data: dict[str, Any] = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -112,6 +117,44 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=_schema(user_input or dict(reconfigure_entry.data)),
+            errors=errors,
+        )
+
+    async def async_step_hassio(
+        self, discovery_info: HassioServiceInfo
+    ) -> ConfigFlowResult:
+        """Handle discovery of a Memgraph add-on via the Supervisor.
+
+        The Memgraph add-on announces itself to the Supervisor Discovery API
+        with ``service: "ontology"``, which Home Assistant routes here since
+        it matches this integration's domain (see homeassistant.components.
+        hassio.discovery). We never auto-create the entry from this step —
+        the user must confirm via `async_step_hassio_confirm` first.
+        """
+        config = discovery_info.config
+        host = config.get(CONF_HOST)
+        port = config.get(CONF_PORT, DEFAULT_PORT)
+        await self.async_set_unique_id(f"{host}:{port}")
+        self._abort_if_unique_id_configured()
+        self._discovery_data = {CONF_HOST: host, CONF_PORT: port}
+        return await self.async_step_hassio_confirm()
+
+    async def async_step_hassio_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm setup discovered from the Memgraph add-on."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data = {**self._discovery_data, **user_input}
+            errors = await self._async_try_connect(data)
+            if not errors:
+                return self.async_create_entry(title=data[CONF_HOST], data=data)
+            return self.async_show_form(
+                step_id="hassio_confirm", data_schema=_schema(data), errors=errors
+            )
+        return self.async_show_form(
+            step_id="hassio_confirm",
+            data_schema=_schema(self._discovery_data),
             errors=errors,
         )
 
