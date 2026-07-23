@@ -81,6 +81,10 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle the initial `user` setup step (contracts/config-flow.md)."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            await self.async_set_unique_id(
+                f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
+            )
+            self._abort_if_unique_id_configured()
             errors = await self._async_try_connect(user_input)
             if not errors:
                 return self.async_create_entry(

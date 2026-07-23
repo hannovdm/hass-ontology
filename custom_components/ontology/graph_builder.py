@@ -20,6 +20,7 @@ from homeassistant.helpers import label_registry as lr
 
 from .const import (
     AUTOMATION_DOMAIN,
+    DOMAIN,
     HOME_SINGLETON_ID,
     LABEL_AREA,
     LABEL_AUTOMATION,
@@ -219,6 +220,13 @@ async def collect_entities(
     domains: set[str] = set()
     integrations: set[str] = set()
     for entity in registry.entities.values():
+        if entity.platform == DOMAIN:
+            # Skip the integration's own diagnostic sensors/buttons: syncing
+            # our own churn (health/node-count updates on every sync) back
+            # into the graph is noise, and previously left stale duplicate
+            # Entity nodes behind when HA renamed them (e.g. sensor.health_3)
+            # after a config-entry collision.
+            continue
         await _write_entity_node_and_relationships(hass, client, entity.entity_id)
         domains.add(entity.entity_id.split(".", 1)[0])
         if entity.platform:
@@ -424,7 +432,11 @@ async def update_entity(hass: HomeAssistant, client: MemgraphClient, entity_id: 
     removal rather than raising (edge case, spec.md Edge Cases / T045a).
     """
     registry = er.async_get(hass)
-    if registry.entities.get(entity_id) is None and hass.states.get(entity_id) is None:
+    entry = registry.entities.get(entity_id)
+    if entry is not None and entry.platform == DOMAIN:
+        _LOGGER.debug("Skipping %s: belongs to the Ontology integration itself", entity_id)
+        return
+    if entry is None and hass.states.get(entity_id) is None:
         await _delete_node(client, LABEL_ENTITY, entity_id)
         return
     await _write_entity_node_and_relationships(hass, client, entity_id)

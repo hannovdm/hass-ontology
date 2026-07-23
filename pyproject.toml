@@ -1,6 +1,6 @@
 [project]
 name = "hass-ontology"
-version = "1.0.0"
+version = "1.0.3"
 description = "Home Assistant custom integration that syncs HA metadata into a local Memgraph ontology."
 # Production target is Python 3.13 (current Home Assistant core minimum).
 # Relaxed to 3.11 here so local dev/test tooling can install on interpreters
