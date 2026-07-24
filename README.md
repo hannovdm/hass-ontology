@@ -25,15 +25,36 @@ Home Assistant and your own Memgraph instance.
   or adding/removing/renaming an entity updates only the affected node(s),
   without a full rebuild. Rapid state changes are debounced.
 - **Services**: `ontology.rebuild`, `ontology.resync`, `ontology.sync_entity`,
-  `ontology.validate`.
+  `ontology.validate`, `ontology.query`, `ontology.refresh_semantics`,
+  `ontology.export_overrides`, `ontology.import_overrides`.
 - **Sensors** for sync health, node/relationship counts, last sync time,
   last error, and schema version.
-- **Diagnostics** with connection status, element counts, and schema version
+- **Diagnostics** with connection status, element counts, semantic
+  classification counts, open validation finding counts, and schema version
   — credentials and secrets are always redacted.
 - **Schema-version safety** — a mismatched graph schema version blocks setup
   and raises a repair issue rather than silently proceeding.
 - **Outage resilience** — a sustained connection failure raises a repair issue
   that automatically clears once the connection recovers.
+- **Semantic classification** — entities are classified into semantic types
+  (e.g. lighting, climate, security) to support richer querying and validation.
+- **Read-only query service** (`ontology.query`) — run validated, deny-listed
+  Cypher queries against the graph directly from a service call, with results
+  capped and truncation reported.
+- **Ontology validation** — detects graph consistency issues (orphaned nodes,
+  missing relationships, schema drift) and surfaces them as categorized,
+  severity-ranked findings.
+- **User overrides** — export and re-import user-authored graph relationships
+  (e.g. manual groupings) as a versioned, redacted JSON payload, independent
+  of discovery-driven data.
+- **Dashboard sync** — Lovelace dashboard/card structure is synchronized into
+  the graph so dashboards can be queried like any other part of the ontology.
+- **Backend API** (`websocket_api`) — read-only `ontology/area_context`,
+  `ontology/entity_context`, and `ontology/search` commands for building
+  frontend tooling (e.g. the sidebar panel) or ad-hoc Developer Tools queries.
+- **Sidebar panel** — an optional "Ontology" sidebar panel to browse areas,
+  devices, and entities and search the graph, backed entirely by the
+  `websocket_api` commands above.
 
 ## Requirements
 

@@ -26,13 +26,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from . import graph_builder
+from . import graph_builder, overrides, query_service, semantic_classifier, validation
 from .const import (
+    CONF_AUTO_CLASSIFY,
+    DEFAULT_AUTO_CLASSIFY,
     DOMAIN,
     HEALTH_ERROR,
     HEALTH_OK,
     HEALTH_UNAVAILABLE,
-    SCHEMA_VERSION,
     SUSTAINED_FAILURE_THRESHOLD,
 )
 from .memgraph_client import MemgraphClient
@@ -66,6 +67,7 @@ class OntologyState:
     schema_version: str | None = None
     consecutive_failures: int = 0
     failed_updates: list[dict[str, Any]] = field(default_factory=list)
+    validation_findings: dict[str, int] = field(default_factory=dict)
 
 
 class OperationInProgress(Exception):
@@ -167,13 +169,44 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
         async with self._lock:
             await func(*args, **kwargs)
 
+    async def async_run_operation(self, func: Any, *args: Any, **kwargs: Any) -> Any:
+        """Run an arbitrary operation through the same single-pending-slot
+        serialization as rebuild/resync/sync_entity/validate (FR-013a).
+
+        Generic entry point reused by classify/query/validate/refresh/
+        import-export (User Stories 1, 2, 5, 6, 7) so none of them ever run
+        concurrently with each other, with rebuild/resync, or with an
+        in-flight incremental update (contracts/services.md).
+        """
+        result_box: dict[str, Any] = {}
+
+        async def _wrapped(*a: Any, **kw: Any) -> None:
+            result_box["value"] = await func(*a, **kw)
+
+        await self._run_serialized(_wrapped, *args, **kwargs)
+        return result_box.get("value")
+
     # -- Full-graph operations (User Story 4) -----------------------------
 
     async def _execute_full_sync(self, *, clear_first: bool) -> None:
         try:
+            overrides_payload: dict[str, Any] | None = None
             if clear_first:
+                # `clear_generated_graph` deletes every `home_assistant`/
+                # `generated` sourced node via DETACH DELETE, which also
+                # removes any `source = "user"` override relationship
+                # incident to that node (a relationship cannot outlive its
+                # endpoints). Round-trip overrides across the clear so
+                # rebuild preservation stays unconditional (FR-006, FR-025,
+                # Constitution Principle V).
+                overrides_payload = await overrides.async_export_overrides(self.memgraph_client)
                 await graph_builder.clear_generated_graph(self.memgraph_client)
-            await graph_builder.build_full_graph(self.hass, self.memgraph_client)
+            auto_classify = self.entry.options.get(CONF_AUTO_CLASSIFY, DEFAULT_AUTO_CLASSIFY)
+            await graph_builder.build_full_graph(
+                self.hass, self.memgraph_client, auto_classify=auto_classify
+            )
+            if overrides_payload is not None:
+                await overrides.async_import_overrides(self.memgraph_client, overrides_payload)
             self.state.schema_version = await graph_builder.get_schema_version(self.memgraph_client)
             await self._refresh_counts()
         except Exception as err:  # noqa: BLE001
@@ -220,10 +253,9 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             await self.memgraph_client.test_connection()
             current_version = await graph_builder.get_schema_version(self.memgraph_client)
             self.state.schema_version = current_version
-            if current_version is not None and current_version != SCHEMA_VERSION:
-                raise ValueError(
-                    f"Schema version mismatch: graph={current_version} expected={SCHEMA_VERSION}"
-                )
+            self.state.validation_findings = await validation.async_run_validation(
+                self.hass, self.memgraph_client
+            )
         except Exception as err:  # noqa: BLE001
             self._record_failure(err)
             raise
@@ -231,8 +263,51 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             self._record_success()
 
     async def async_validate(self) -> None:
-        """Check connectivity/schema-version consistency without writing (FR-016)."""
+        """Run the full 9-category validation engine (FR-014, User Story 5).
+
+        Never raises solely due to a schema-version mismatch: `schema_mismatch`
+        is now one ordinary finding among nine, not a fatal condition (this
+        supersedes v1's connectivity-only check per contracts/services.md).
+        """
         await self._run_serialized(self._execute_validate)
+
+    # -- Semantic classification (User Story 1/6) ---------------------------
+
+    async def async_classify(self) -> int:
+        """Run a full-graph classification pass (User Story 1)."""
+        return await self.async_run_operation(
+            semantic_classifier.async_classify_entities, self.hass, self.memgraph_client
+        )
+
+    async def async_refresh_semantics(self, entity_id: str | None = None) -> int:
+        """Recalculate inferred classifications for one entity or all (User Story 6)."""
+        return await self.async_run_operation(
+            semantic_classifier.async_refresh_semantics, self.hass, self.memgraph_client, entity_id
+        )
+
+    # -- Read-only query service (User Story 2) ------------------------------
+
+    async def async_query(
+        self, cypher: str, parameters: dict[str, Any] | None = None, limit: int | None = None
+    ) -> dict[str, Any]:
+        """Validate and execute a read-only Cypher query (User Story 2)."""
+        return await self.async_run_operation(
+            query_service.execute_query, self.memgraph_client, cypher, parameters, limit
+        )
+
+    # -- User-managed overrides export/import (User Story 7) ----------------
+
+    async def async_export_overrides(self) -> dict[str, Any]:
+        """Export every `source = "user"` override relationship (User Story 7)."""
+        return await self.async_run_operation(
+            overrides.async_export_overrides, self.memgraph_client
+        )
+
+    async def async_import_overrides(self, payload: Any) -> int:
+        """Validate and import a previously exported overrides payload (User Story 7)."""
+        return await self.async_run_operation(
+            overrides.async_import_overrides, self.memgraph_client, payload
+        )
 
     # -- Event-driven incremental updates (User Story 5) --------------------
 

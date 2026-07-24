@@ -16,9 +16,13 @@ DEFAULT_PORT = 7687
 DEFAULT_DATABASE = ""
 DEFAULT_ENCRYPTED = False
 
+# Options-flow keys (v2)
+CONF_AUTO_CLASSIFY = "auto_classify"
+DEFAULT_AUTO_CLASSIFY = True
+
 # Ontology schema version (Constitution Principle VI). Bump whenever labels,
 # relationship types, required properties, or graph semantics change.
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "2.0.0"
 SCHEMA_SINGLETON_ID = "home_assistant_ontology"
 HOME_SINGLETON_ID = "home"
 
@@ -63,6 +67,81 @@ SERVICE_SYNC_ENTITY = "sync_entity"
 SERVICE_VALIDATE = "validate"
 ATTR_ENTITY_ID = "entity_id"
 
+# Services (contracts/services.md v2 additions)
+SERVICE_QUERY = "query"
+SERVICE_REFRESH_SEMANTICS = "refresh_semantics"
+SERVICE_EXPORT_OVERRIDES = "export_overrides"
+SERVICE_IMPORT_OVERRIDES = "import_overrides"
+ATTR_CYPHER = "cypher"
+ATTR_PARAMETERS = "parameters"
+ATTR_LIMIT = "limit"
+ATTR_PAYLOAD = "payload"
+
+# ontology.query row-limit defaults (FR-018, FR-021)
+DEFAULT_QUERY_LIMIT = 100
+MAX_QUERY_LIMIT = 1000
+
+# ontology/search default result cap (contracts/websocket-api.md)
+DEFAULT_SEARCH_LIMIT = 50
+
+# Cypher keywords rejected by the read-only query safety validator
+# (Constitution Principle X, research.md §3). Matched case-insensitively,
+# word-boundary, after comments/string literals are stripped.
+QUERY_DENYLIST_KEYWORDS = (
+    "CREATE",
+    "MERGE",
+    "DELETE",
+    "DETACH",
+    "SET",
+    "REMOVE",
+    "DROP",
+    "LOAD CSV",
+    "CALL DBMS",
+    "CALL MG",
+    "CALL ALGO",
+)
+
+# Override export/import payload version (research.md §7)
+OVERRIDES_EXPORT_VERSION = 1
+
+# Validation finding categories (data-model.md ValidationFinding, research.md §6)
+FINDING_MISSING_AREA = "missing_area"
+FINDING_MISSING_DEVICE = "missing_device"
+FINDING_ORPHAN_ENTITY = "orphan_entity"
+FINDING_ORPHAN_DEVICE = "orphan_device"
+FINDING_DUPLICATE_ENTITY = "duplicate_entity"
+FINDING_UNAVAILABLE_CRITICAL_ENTITY = "unavailable_critical_entity"
+FINDING_INVALID_RELATIONSHIP = "invalid_relationship"
+FINDING_SCHEMA_MISMATCH = "schema_mismatch"
+FINDING_MISSING_SEMANTIC_CLASSIFICATION = "missing_semantic_classification"
+
+VALIDATION_FINDING_CATEGORIES = (
+    FINDING_MISSING_AREA,
+    FINDING_MISSING_DEVICE,
+    FINDING_ORPHAN_ENTITY,
+    FINDING_ORPHAN_DEVICE,
+    FINDING_DUPLICATE_ENTITY,
+    FINDING_UNAVAILABLE_CRITICAL_ENTITY,
+    FINDING_INVALID_RELATIONSHIP,
+    FINDING_SCHEMA_MISMATCH,
+    FINDING_MISSING_SEMANTIC_CLASSIFICATION,
+)
+
+# ValidationFinding severities/status (data-model.md ValidationFinding)
+SEVERITY_INFO = "info"
+SEVERITY_WARNING = "warning"
+SEVERITY_ERROR = "error"
+
+FINDING_STATUS_OPEN = "open"
+FINDING_STATUS_RESOLVED = "resolved"
+
+# websocket_api command types (contracts/websocket-api.md, US3)
+WS_TYPE_AREA_CONTEXT = "ontology/area_context"
+WS_TYPE_ENTITY_CONTEXT = "ontology/entity_context"
+WS_TYPE_SEARCH = "ontology/search"
+ATTR_AREA_ID = "area_id"
+ATTR_QUERY = "query"
+
 # Health states (contracts/diagnostics.md)
 HEALTH_OK = "ok"
 HEALTH_ERROR = "error"
@@ -95,6 +174,42 @@ REL_PROVIDED_BY = "PROVIDED_BY"
 REL_HAS_LABEL = "HAS_LABEL"
 REL_REFERENCES = "REFERENCES"
 REL_CONTROLS = "CONTROLS"
+
+# Node labels (data-model.md v2 additions)
+LABEL_SEMANTIC_TYPE = "SemanticType"
+LABEL_GAS_CYLINDER = "GasCylinder"
+LABEL_VEHICLE = "Vehicle"
+LABEL_ENERGY_ASSET = "EnergyAsset"
+LABEL_SECURITY_DEVICE = "SecurityDevice"
+LABEL_OCCUPANCY_SENSOR = "OccupancySensor"
+LABEL_CLIMATE_DEVICE = "ClimateDevice"
+LABEL_NETWORK_DEVICE = "NetworkDevice"
+LABEL_BATTERY_POWERED_DEVICE = "BatteryPoweredDevice"
+LABEL_DASHBOARD = "Dashboard"
+LABEL_DASHBOARD_CARD = "DashboardCard"
+LABEL_VALIDATION_FINDING = "ValidationFinding"
+
+# All semantic asset labels (1:1 with the classified Entity, data-model.md)
+SEMANTIC_TYPE_LABELS = (
+    LABEL_GAS_CYLINDER,
+    LABEL_VEHICLE,
+    LABEL_ENERGY_ASSET,
+    LABEL_SECURITY_DEVICE,
+    LABEL_OCCUPANCY_SENSOR,
+    LABEL_CLIMATE_DEVICE,
+    LABEL_NETWORK_DEVICE,
+    LABEL_BATTERY_POWERED_DEVICE,
+)
+
+# Relationship types (data-model.md v2 additions)
+REL_CLASSIFIED_AS = "CLASSIFIED_AS"
+REL_MEASURED_BY = "MEASURED_BY"
+REL_LOCATED_IN = "LOCATED_IN"
+REL_OBSERVED_BY = "OBSERVED_BY"
+REL_CONTAINS_CARD = "CONTAINS_CARD"
+REL_DISPLAYS_ENTITY = "DISPLAYS_ENTITY"
+REL_RELATES_TO = "RELATES_TO"
+REL_OVERRIDE_OF = "OVERRIDE_OF"
 
 # Domains treated as "scriptable" entities that reference other entities
 AUTOMATION_DOMAIN = "automation"

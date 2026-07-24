@@ -93,7 +93,66 @@
     },
     "validate": {
       "name": "Validate",
-      "description": "Checks graph consistency and schema version without writing any changes."
+      "description": "Checks graph consistency and schema version without writing any changes. Evaluates all validation categories and records findings; does not run automatically after resync/rebuild."
+    },
+    "query": {
+      "name": "Query",
+      "description": "Runs a read-only Cypher query against the ontology graph. Write-intent queries are rejected before execution.",
+      "fields": {
+        "cypher": {
+          "name": "Cypher",
+          "description": "A read-only Cypher query."
+        },
+        "parameters": {
+          "name": "Parameters",
+          "description": "Named query parameters."
+        },
+        "limit": {
+          "name": "Limit",
+          "description": "Maximum number of rows to return (default 100, maximum 1000)."
+        }
+      }
+    },
+    "refresh_semantics": {
+      "name": "Refresh semantics",
+      "description": "Re-runs semantic classification for one entity, or for all entities if none is given.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "If provided, re-run classification for only this entity."
+        }
+      }
+    },
+    "export_overrides": {
+      "name": "Export overrides",
+      "description": "Exports all user-managed semantic overrides as a versioned JSON payload."
+    },
+    "import_overrides": {
+      "name": "Import overrides",
+      "description": "Imports a previously-exported overrides payload. Fails closed on any unsupported version or invalid entry.",
+      "fields": {
+        "payload": {
+          "name": "Payload",
+          "description": "A payload previously produced by Export overrides."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update Memgraph connection",
+        "description": "Update the connection details for your local Memgraph instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "database": "Database",
+          "encrypted": "Use encrypted (TLS) connection",
+          "auto_classify": "Automatically classify entities into semantic types"
+        }
+      }
     }
   }
 }

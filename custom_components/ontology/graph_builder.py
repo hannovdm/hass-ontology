@@ -346,11 +346,18 @@ async def collect_integrations(client: MemgraphClient, integrations: set[str]) -
 # ---------------------------------------------------------------------------
 
 
-async def build_full_graph(hass: HomeAssistant, client: MemgraphClient) -> dict[str, Any]:
+async def build_full_graph(
+    hass: HomeAssistant, client: MemgraphClient, auto_classify: bool = True
+) -> dict[str, Any]:
     """Run all discovery `collect_*` functions and write the full ontology.
 
     Idempotent: safe to call repeatedly (data-model.md, Constitution Principle
     III/VI) since every write is a `MERGE` keyed on `ha_id`.
+
+    When `auto_classify` is True (FR-004 default), a semantic classification
+    pass (User Story 1) runs after discovery. Dashboard/card sync (User
+    Story 3 supporting data, FR-047-FR-050) always runs and is tolerant of
+    failures - an unloadable dashboard never fails the overall sync.
     """
     await ensure_home_node(client)
     await collect_floors(hass, client)
@@ -365,6 +372,19 @@ async def build_full_graph(hass: HomeAssistant, client: MemgraphClient) -> dict[
     script_ids = await collect_scripts(hass, client)
     await ensure_schema_node(client)
 
+    classified = 0
+    if auto_classify:
+        from . import semantic_classifier
+
+        classified = await semantic_classifier.async_classify_entities(hass, client)
+
+    try:
+        from . import dashboard_sync
+
+        await dashboard_sync.async_sync_dashboards(hass, client)
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning("Dashboard sync failed; continuing without it", exc_info=True)
+
     return {
         "entities": len(entity_ids),
         "domains": len(domains),
@@ -372,6 +392,7 @@ async def build_full_graph(hass: HomeAssistant, client: MemgraphClient) -> dict[
         "automations": len(automation_ids),
         "scenes": len(scene_ids),
         "scripts": len(script_ids),
+        "classified": classified,
     }
 
 

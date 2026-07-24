@@ -120,6 +120,38 @@ class MemgraphClient:
         except ServiceUnavailable as err:
             raise CannotConnect(redact_exception(err)) from err
 
+    async def run_query_limited(
+        self, query: str, parameters: dict[str, Any] | None, limit: int
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Run a query, streaming results and stopping early at `limit` rows.
+
+        Returns `(rows, truncated)` where `truncated` is True if at least
+        one additional row existed beyond `limit` (User Story 2, FR-018/
+        FR-021). Used by the read-only query service and websocket search so
+        an unexpectedly large result set never has to be materialized in
+        full before being cut down.
+        """
+        try:
+            async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                await self.connect()
+                assert self._driver is not None
+                async with self._driver.session(database=self._database) as session:
+                    result = await session.run(query, parameters or {})
+                    rows: list[dict[str, Any]] = []
+                    truncated = False
+                    async for record in result:
+                        if len(rows) >= limit:
+                            truncated = True
+                            break
+                        rows.append(dict(record))
+                    return rows, truncated
+        except AuthError as err:
+            raise InvalidAuth(redact_exception(err)) from err
+        except TimeoutError as err:
+            raise CannotConnect("Connection to Memgraph timed out") from err
+        except ServiceUnavailable as err:
+            raise CannotConnect(redact_exception(err)) from err
+
     async def run_query_with_retry(
         self, query: str, parameters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:

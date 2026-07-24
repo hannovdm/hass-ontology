@@ -11,12 +11,14 @@ from homeassistant.core import callback
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import (
+    CONF_AUTO_CLASSIFY,
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_USERNAME,
+    DEFAULT_AUTO_CLASSIFY,
     DEFAULT_DATABASE,
     DEFAULT_ENCRYPTED,
     DEFAULT_PORT,
@@ -178,18 +180,35 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
         return OntologyOptionsFlow()
 
 
+def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Build the connection-details schema plus the v2 auto-classify toggle
+    (FR-004), pre-filled from `defaults` (entry data merged with options)."""
+    defaults = defaults or {}
+    schema_dict = dict(_schema(defaults).schema)
+    schema_dict[
+        vol.Optional(
+            CONF_AUTO_CLASSIFY, default=defaults.get(CONF_AUTO_CLASSIFY, DEFAULT_AUTO_CLASSIFY)
+        )
+    ] = bool
+    return vol.Schema(schema_dict)
+
+
 class OntologyOptionsFlow(OptionsFlow):
-    """Options flow mirroring the reconfigure step (FR-003)."""
+    """Options flow mirroring the reconfigure step (FR-003), plus the v2
+    automatic semantic classification on/off toggle (FR-004)."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle updating the connection via the options flow."""
+        """Handle updating the connection and auto-classify option."""
         errors: dict[str, str] = {}
-        current = dict(self.config_entry.data)
+        current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
+            connection_data = {
+                key: value for key, value in user_input.items() if key != CONF_AUTO_CLASSIFY
+            }
             try:
-                await _validate_connection(user_input)
+                await _validate_connection(connection_data)
             except InvalidAuth:
                 errors = {"base": "invalid_auth"}
             except CannotConnect:
@@ -199,7 +218,13 @@ class OntologyOptionsFlow(OptionsFlow):
                 errors = {"base": "unknown"}
             if not errors:
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=user_input
+                    self.config_entry,
+                    data=connection_data,
+                    options={
+                        CONF_AUTO_CLASSIFY: user_input.get(
+                            CONF_AUTO_CLASSIFY, DEFAULT_AUTO_CLASSIFY
+                        )
+                    },
                 )
                 await self.hass.config_entries.async_reload(
                     self.config_entry.entry_id
@@ -207,6 +232,6 @@ class OntologyOptionsFlow(OptionsFlow):
                 return self.async_create_entry(title="", data={})
         return self.async_show_form(
             step_id="init",
-            data_schema=_schema(user_input or current),
+            data_schema=_options_schema(user_input or current),
             errors=errors,
         )

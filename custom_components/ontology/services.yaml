@@ -7,3 +7,33 @@ sync_entity:
       selector:
         entity: {}
 validate: {}
+query:
+  fields:
+    cypher:
+      required: true
+      selector:
+        text: {}
+    parameters:
+      required: false
+      selector:
+        object: {}
+    limit:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+refresh_semantics:
+  fields:
+    entity_id:
+      required: false
+      selector:
+        entity: {}
+export_overrides: {}
+import_overrides:
+  fields:
+    payload:
+      required: true
+      selector:
+        object: {}

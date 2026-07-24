@@ -8,17 +8,31 @@ local Memgraph graph database as an idempotent, versioned ontology.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta
 
 import voluptuous as vol
+from homeassistant.components import panel_custom
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
+from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 
+from . import websocket_api
 from .const import (
+    ATTR_CYPHER,
     ATTR_ENTITY_ID,
+    ATTR_LIMIT,
+    ATTR_PARAMETERS,
+    ATTR_PAYLOAD,
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
@@ -30,7 +44,11 @@ from .const import (
     FAILED_UPDATE_RETRY_INTERVAL_SECONDS,
     PLATFORMS,
     SCHEMA_VERSION,
+    SERVICE_EXPORT_OVERRIDES,
+    SERVICE_IMPORT_OVERRIDES,
+    SERVICE_QUERY,
     SERVICE_REBUILD,
+    SERVICE_REFRESH_SEMANTICS,
     SERVICE_RESYNC,
     SERVICE_SYNC_ENTITY,
     SERVICE_VALIDATE,
@@ -39,6 +57,8 @@ from .coordinator import OntologyCoordinator
 from .event_listener import async_register_listeners
 from .graph_builder import get_schema_version
 from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
+from .overrides import OverrideImportRejected
+from .query_service import QueryRejected
 from .redact import redact_exception
 from .repairs import (
     async_clear_schema_mismatch_issue,
@@ -51,7 +71,20 @@ _LOGGER = logging.getLogger(__name__)
 
 type OntologyConfigEntry = ConfigEntry[OntologyCoordinator]
 
+PANEL_URL_PATH = "ontology"
+PANEL_JS_URL = "/ontology_static/ontology-panel.js"
+PANEL_JS_PATH = os.path.join(os.path.dirname(__file__), "panel", "ontology-panel.js")
+
 _SYNC_ENTITY_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id})
+_REFRESH_SEMANTICS_SCHEMA = vol.Schema({vol.Optional(ATTR_ENTITY_ID): cv.entity_id})
+_QUERY_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_CYPHER): str,
+        vol.Optional(ATTR_PARAMETERS): dict,
+        vol.Optional(ATTR_LIMIT): int,
+    }
+)
+_IMPORT_OVERRIDES_SCHEMA = vol.Schema({vol.Required(ATTR_PAYLOAD): dict})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> bool:
@@ -136,6 +169,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
     )
 
     _async_register_services(hass)
+    websocket_api.async_register_commands(hass)
+    await _async_register_panel(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
@@ -155,6 +190,33 @@ async def async_unload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) ->
 async def async_reload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> None:
     """Reload a config entry after options/reconfigure changes (FR-003)."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_register_panel(hass: HomeAssistant) -> None:
+    """Register the optional Ontology sidebar panel (User Story 8, T054).
+
+    Safe to call once regardless of loaded-entry count: guarded so the
+    static path and `panel_custom` registration only happen once.
+    """
+    if hass.data.setdefault(f"{DOMAIN}_panel_registered", False):
+        return
+    if hass.http is None:
+        # No HTTP component available (e.g. minimal test harness); skip panel
+        # registration rather than failing config entry setup.
+        return
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(PANEL_JS_URL, PANEL_JS_PATH, cache_headers=False)]
+    )
+    await panel_custom.async_register_panel(
+        hass,
+        webcomponent_name="ontology-panel",
+        frontend_url_path=PANEL_URL_PATH,
+        module_url=PANEL_JS_URL,
+        sidebar_title="Ontology",
+        sidebar_icon="mdi:graph-outline",
+        require_admin=True,
+    )
+    hass.data[f"{DOMAIN}_panel_registered"] = True
 
 
 def _loaded_coordinators(hass: HomeAssistant) -> list[OntologyCoordinator]:
@@ -191,8 +253,48 @@ async def _async_handle_validate(call: ServiceCall) -> None:
         await coordinator.async_validate()
 
 
+async def _async_handle_refresh_semantics(call: ServiceCall) -> None:
+    """Handle the `ontology.refresh_semantics` service call (contracts/services.md)."""
+    entity_id = call.data.get(ATTR_ENTITY_ID)
+    for coordinator in _loaded_coordinators(call.hass):
+        await coordinator.async_refresh_semantics(entity_id)
+
+
+async def _async_handle_query(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.query` service call (contracts/services.md)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return {"rows": [], "truncated": False, "row_count": 0}
+    try:
+        return await coordinators[0].async_query(
+            call.data[ATTR_CYPHER], call.data.get(ATTR_PARAMETERS), call.data.get(ATTR_LIMIT)
+        )
+    except QueryRejected as err:
+        raise ServiceValidationError(str(err)) from err
+
+
+async def _async_handle_export_overrides(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.export_overrides` service call (contracts/services.md)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return {"version": 1, "exported_at": None, "overrides": []}
+    return await coordinators[0].async_export_overrides()
+
+
+async def _async_handle_import_overrides(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.import_overrides` service call (contracts/services.md)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return {"imported_count": 0}
+    try:
+        imported_count = await coordinators[0].async_import_overrides(call.data[ATTR_PAYLOAD])
+    except OverrideImportRejected as err:
+        raise ServiceValidationError(str(err)) from err
+    return {"imported_count": imported_count}
+
+
 def _async_register_services(hass: HomeAssistant) -> None:
-    """Register the four ontology services once, regardless of entry count."""
+    """Register the ontology services once, regardless of entry count."""
     if hass.services.has_service(DOMAIN, SERVICE_REBUILD):
         return
     hass.services.async_register(DOMAIN, SERVICE_REBUILD, _async_handle_rebuild)
@@ -201,12 +303,47 @@ def _async_register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SYNC_ENTITY, _async_handle_sync_entity, schema=_SYNC_ENTITY_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_VALIDATE, _async_handle_validate)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REFRESH_SEMANTICS,
+        _async_handle_refresh_semantics,
+        schema=_REFRESH_SEMANTICS_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_QUERY,
+        _async_handle_query,
+        schema=_QUERY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_OVERRIDES,
+        _async_handle_export_overrides,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_IMPORT_OVERRIDES,
+        _async_handle_import_overrides,
+        schema=_IMPORT_OVERRIDES_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
 
 
 def _async_unregister_services(hass: HomeAssistant) -> None:
     """Remove the ontology services once the last config entry is unloaded."""
     if hass.config_entries.async_entries(DOMAIN):
         return
-    for service in (SERVICE_REBUILD, SERVICE_RESYNC, SERVICE_SYNC_ENTITY, SERVICE_VALIDATE):
+    for service in (
+        SERVICE_REBUILD,
+        SERVICE_RESYNC,
+        SERVICE_SYNC_ENTITY,
+        SERVICE_VALIDATE,
+        SERVICE_REFRESH_SEMANTICS,
+        SERVICE_QUERY,
+        SERVICE_EXPORT_OVERRIDES,
+        SERVICE_IMPORT_OVERRIDES,
+    ):
         hass.services.async_remove(DOMAIN, service)
 
