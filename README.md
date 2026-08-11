@@ -26,7 +26,10 @@ Home Assistant and your own Memgraph instance.
   without a full rebuild. Rapid state changes are debounced.
 - **Services**: `ontology.rebuild`, `ontology.resync`, `ontology.sync_entity`,
   `ontology.validate`, `ontology.query`, `ontology.refresh_semantics`,
-  `ontology.export_overrides`, `ontology.import_overrides`.
+  `ontology.export_overrides`, `ontology.import_overrides`,
+  `ontology.search`, `ontology.area_context`, `ontology.device_context`,
+  `ontology.entity_context`, `ontology.automation_dependencies`,
+  `ontology.impact_analysis`, `ontology.export_context`.
 - **Sensors** for sync health, node/relationship counts, last sync time,
   last error, and schema version.
 - **Diagnostics** with connection status, element counts, semantic
@@ -55,6 +58,28 @@ Home Assistant and your own Memgraph instance.
 - **Sidebar panel** — an optional "Ontology" sidebar panel to browse areas,
   devices, and entities and search the graph, backed entirely by the
   `websocket_api` commands above.
+- **Predefined query tools** — bounded, transport-agnostic services
+  (`ontology.search`, `ontology.area_context`, `ontology.device_context`,
+  `ontology.entity_context`, `ontology.automation_dependencies`) shared by
+  every access channel below (Assist, MCP, and direct service calls).
+- **Ask Home Assistant Assist** — native Assist intents (no LLM required) let
+  you ask conversational questions like "what automations depend on the
+  kitchen light?" or "what devices are in the office?".
+- **Impact analysis** (`ontology.impact_analysis`) — bounded entity/device/area
+  traversal that answers "what would be affected if I changed/removed this?",
+  aggregating related automations, scripts, scenes, dashboards, and semantic
+  assets.
+- **Local AI context export** (`ontology.export_context`) — allow-listed JSON
+  context documents (area, entity, device, automation, impact, whole-home) for
+  local AI agents, with zero secrets/tokens/credentials ever included.
+- **Local MCP-compatible endpoint** — an opt-in (disabled by default), local-only,
+  token-authenticated JSON-RPC endpoint (`/api/ontology/mcp`) exposing the same
+  bounded, read-only tools to local MCP clients. Enable it via the integration's
+  options and regenerate its access token any time via the
+  `button.regenerate_mcp_token` control entity.
+- **Audit and diagnostics for agent access** — every Assist query and MCP tool
+  call is recorded (redacted, no raw prompts/tokens, 30-day retention) and
+  summarized in diagnostics.
 
 ## Requirements
 

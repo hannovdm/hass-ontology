@@ -1,0 +1,11 @@
+{
+  "sessionId": "46ce7e6c-a636-3d81-384f-523ae7da9155",
+  "traceId": "trace-46ce7e6c-2026-08-11",
+  "startedAt": "2026-08-11T10:23:41.464Z",
+  "eventCount": 3,
+  "agents": [],
+  "rings": [],
+  "traceFile": "trace.jsonl",
+  "errors": 0,
+  "warnings": 0
+}

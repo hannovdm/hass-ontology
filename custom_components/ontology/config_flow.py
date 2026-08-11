@@ -15,12 +15,14 @@ from .const import (
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
+    CONF_MCP_ENABLED,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_USERNAME,
     DEFAULT_AUTO_CLASSIFY,
     DEFAULT_DATABASE,
     DEFAULT_ENCRYPTED,
+    DEFAULT_MCP_ENABLED,
     DEFAULT_PORT,
     DOMAIN,
 )
@@ -182,12 +184,18 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
 
 def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Build the connection-details schema plus the v2 auto-classify toggle
-    (FR-004), pre-filled from `defaults` (entry data merged with options)."""
+    (FR-004) and the v3 MCP-enabled toggle (FR-023, default off), pre-filled
+    from `defaults` (entry data merged with options)."""
     defaults = defaults or {}
     schema_dict = dict(_schema(defaults).schema)
     schema_dict[
         vol.Optional(
             CONF_AUTO_CLASSIFY, default=defaults.get(CONF_AUTO_CLASSIFY, DEFAULT_AUTO_CLASSIFY)
+        )
+    ] = bool
+    schema_dict[
+        vol.Optional(
+            CONF_MCP_ENABLED, default=defaults.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED)
         )
     ] = bool
     return vol.Schema(schema_dict)
@@ -205,7 +213,9 @@ class OntologyOptionsFlow(OptionsFlow):
         current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
             connection_data = {
-                key: value for key, value in user_input.items() if key != CONF_AUTO_CLASSIFY
+                key: value
+                for key, value in user_input.items()
+                if key not in (CONF_AUTO_CLASSIFY, CONF_MCP_ENABLED)
             }
             try:
                 await _validate_connection(connection_data)
@@ -223,7 +233,10 @@ class OntologyOptionsFlow(OptionsFlow):
                     options={
                         CONF_AUTO_CLASSIFY: user_input.get(
                             CONF_AUTO_CLASSIFY, DEFAULT_AUTO_CLASSIFY
-                        )
+                        ),
+                        CONF_MCP_ENABLED: user_input.get(
+                            CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED
+                        ),
                     },
                 )
                 await self.hass.config_entries.async_reload(

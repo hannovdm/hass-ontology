@@ -69,7 +69,8 @@
     "button": {
       "ontology_rebuild": { "name": "Rebuild" },
       "ontology_validate": { "name": "Validate" },
-      "ontology_resync": { "name": "Resync" }
+      "ontology_resync": { "name": "Resync" },
+      "ontology_regenerate_mcp_token": { "name": "Regenerate MCP token" }
     }
   },
   "services": {
@@ -136,6 +137,58 @@
           "description": "A payload previously produced by Export overrides."
         }
       }
+    },
+    "search": {
+      "name": "Search",
+      "description": "Searches the ontology graph for areas, devices, or entities matching a term.",
+      "fields": {
+        "term": { "name": "Term", "description": "Text to search for." },
+        "limit": { "name": "Limit", "description": "Maximum number of results (default 100, maximum 1000)." }
+      }
+    },
+    "area_context": {
+      "name": "Area context",
+      "description": "Returns an area's devices, entities, and known relationships.",
+      "fields": {
+        "area": { "name": "Area", "description": "Area id or name." }
+      }
+    },
+    "device_context": {
+      "name": "Device context",
+      "description": "Returns a device's exposed entities, area, and known relationships.",
+      "fields": {
+        "device": { "name": "Device", "description": "Device id or name." }
+      }
+    },
+    "entity_context": {
+      "name": "Entity context",
+      "description": "Returns an entity's device, area, domain, integration, semantic classifications, and direct dependencies.",
+      "fields": {
+        "entity": { "name": "Entity", "description": "Entity id or name." }
+      }
+    },
+    "automation_dependencies": {
+      "name": "Automation dependencies",
+      "description": "Returns automations related to a given entity, with a reason where available.",
+      "fields": {
+        "entity": { "name": "Entity", "description": "Entity id or name." }
+      }
+    },
+    "impact_analysis": {
+      "name": "Impact analysis",
+      "description": "Runs bounded impact analysis for an entity, device, or area, returning affected automations, scripts, scenes, dashboards, and semantic assets.",
+      "fields": {
+        "target_type": { "name": "Target type", "description": "Scope of the analysis: entity, device, or area." },
+        "target": { "name": "Target", "description": "Id or name of the target." }
+      }
+    },
+    "export_context": {
+      "name": "Export context",
+      "description": "Builds an allow-listed JSON context document for local AI agents. Never includes tokens, passwords, or other sensitive configuration.",
+      "fields": {
+        "export_type": { "name": "Export type", "description": "One of area, entity, device, automation, impact, whole_home." },
+        "target": { "name": "Target", "description": "Id or name of the target (not required for whole_home)." }
+      }
     }
   },
   "options": {
@@ -150,7 +203,8 @@
           "password": "Password",
           "database": "Database",
           "encrypted": "Use encrypted (TLS) connection",
-          "auto_classify": "Automatically classify entities into semantic types"
+          "auto_classify": "Automatically classify entities into semantic types",
+          "mcp_enabled": "Enable local MCP-compatible endpoint (disabled by default)"
         }
       }
     }

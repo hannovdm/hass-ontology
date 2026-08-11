@@ -6,12 +6,15 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import mcp_server
+from .const import BUTTON_KEY_REGENERATE_MCP_TOKEN, CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED
 from .coordinator import OntologyCoordinator
 
 
@@ -20,6 +23,17 @@ class OntologyButtonEntityDescription(ButtonEntityDescription):
     """Describes an Ontology control button."""
 
     press_fn: Callable[[OntologyCoordinator], Coroutine[Any, Any, None]]
+
+
+async def _async_regenerate_mcp_token(coordinator: OntologyCoordinator) -> None:
+    """Regenerate the MCP local access token and surface it once (research.md §3)."""
+    token = await mcp_server.async_regenerate_token(coordinator.hass, coordinator.entry.entry_id)
+    persistent_notification.async_create(
+        coordinator.hass,
+        f"New Ontology MCP access token: {token}\n\nThis token will not be shown again.",
+        title="Ontology MCP token regenerated",
+        notification_id=f"ontology_mcp_token_{coordinator.entry.entry_id}",
+    )
 
 
 BUTTON_DESCRIPTIONS: tuple[OntologyButtonEntityDescription, ...] = (
@@ -40,15 +54,23 @@ BUTTON_DESCRIPTIONS: tuple[OntologyButtonEntityDescription, ...] = (
     ),
 )
 
+MCP_BUTTON_DESCRIPTION = OntologyButtonEntityDescription(
+    key=BUTTON_KEY_REGENERATE_MCP_TOKEN,
+    translation_key="ontology_regenerate_mcp_token",
+    press_fn=_async_regenerate_mcp_token,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Ontology control buttons."""
     coordinator: OntologyCoordinator = entry.runtime_data
+    descriptions = list(BUTTON_DESCRIPTIONS)
+    if entry.options.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED):
+        descriptions.append(MCP_BUTTON_DESCRIPTION)
     async_add_entities(
-        OntologyButton(coordinator, entry, description)
-        for description in BUTTON_DESCRIPTIONS
+        OntologyButton(coordinator, entry, description) for description in descriptions
     )
 
 

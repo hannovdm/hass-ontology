@@ -37,3 +37,71 @@ import_overrides:
       required: true
       selector:
         object: {}
+search:
+  fields:
+    term:
+      required: true
+      selector:
+        text: {}
+    limit:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+area_context:
+  fields:
+    area:
+      required: true
+      selector:
+        text: {}
+device_context:
+  fields:
+    device:
+      required: true
+      selector:
+        text: {}
+entity_context:
+  fields:
+    entity:
+      required: true
+      selector:
+        text: {}
+automation_dependencies:
+  fields:
+    entity:
+      required: true
+      selector:
+        text: {}
+impact_analysis:
+  fields:
+    target_type:
+      required: true
+      selector:
+        select:
+          options:
+            - entity
+            - device
+            - area
+    target:
+      required: true
+      selector:
+        text: {}
+export_context:
+  fields:
+    export_type:
+      required: true
+      selector:
+        select:
+          options:
+            - area
+            - entity
+            - device
+            - automation
+            - impact
+            - whole_home
+    target:
+      required: false
+      selector:
+        text: {}

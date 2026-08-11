@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "storeFormat": "jsonl",
+  "rotation": {
+    "indexMaxBytes": 1048576,
+    "traceMaxEvents": 50000
+  },
+  "ingestion": {
+    "debugLogPath": "",
+    "autoIngestOnSessionEnd": true,
+    "autoIngestOnSessionStart": false
+  },
+  "retention": {
+    "maxAgeDays": 90,
+    "maxStoreMB": 100
+  }
+}

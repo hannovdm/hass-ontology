@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timedelta
 
 import voluptuous as vol
-from homeassistant.components import panel_custom
+from homeassistant.components import panel_custom, persistent_notification
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import (
@@ -26,30 +26,64 @@ from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 
-from . import websocket_api
+from . import (
+    agent_audit,
+    context_export,
+    impact_analysis,
+    intent_handlers,
+    mcp_server,
+    query_tools,
+    websocket_api,
+)
 from .const import (
+    AGENT_AUDIT_SWEEP_INTERVAL_SECONDS,
+    ATTR_AREA,
     ATTR_CYPHER,
+    ATTR_DEVICE,
+    ATTR_ENTITY,
     ATTR_ENTITY_ID,
+    ATTR_EXPORT_TYPE,
     ATTR_LIMIT,
     ATTR_PARAMETERS,
     ATTR_PAYLOAD,
+    ATTR_TARGET,
+    ATTR_TARGET_TYPE,
+    ATTR_TERM,
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
+    CONF_MCP_ENABLED,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_USERNAME,
     DEFAULT_ENCRYPTED,
+    DEFAULT_MCP_ENABLED,
     DOMAIN,
+    EXPORT_TYPES,
     FAILED_UPDATE_RETRY_INTERVAL_SECONDS,
+    IMPACT_SCOPES,
     PLATFORMS,
+    RESULT_TYPE_AREA_CONTEXT,
+    RESULT_TYPE_AUTOMATION_DEPENDENCIES,
+    RESULT_TYPE_DEVICE_CONTEXT,
+    RESULT_TYPE_ENTITY_CONTEXT,
+    RESULT_TYPE_EXPORT_CONTEXT,
+    RESULT_TYPE_IMPACT_ANALYSIS,
+    RESULT_TYPE_SEARCH,
     SCHEMA_VERSION,
+    SERVICE_AREA_CONTEXT,
+    SERVICE_AUTOMATION_DEPENDENCIES,
+    SERVICE_DEVICE_CONTEXT,
+    SERVICE_ENTITY_CONTEXT,
+    SERVICE_EXPORT_CONTEXT,
     SERVICE_EXPORT_OVERRIDES,
+    SERVICE_IMPACT_ANALYSIS,
     SERVICE_IMPORT_OVERRIDES,
     SERVICE_QUERY,
     SERVICE_REBUILD,
     SERVICE_REFRESH_SEMANTICS,
     SERVICE_RESYNC,
+    SERVICE_SEARCH,
     SERVICE_SYNC_ENTITY,
     SERVICE_VALIDATE,
 )
@@ -85,6 +119,26 @@ _QUERY_SCHEMA = vol.Schema(
     }
 )
 _IMPORT_OVERRIDES_SCHEMA = vol.Schema({vol.Required(ATTR_PAYLOAD): dict})
+
+# v3 predefined query tool / impact analysis / context export schemas
+# (contracts/services.md v3 additions).
+_SEARCH_SCHEMA = vol.Schema({vol.Required(ATTR_TERM): str, vol.Optional(ATTR_LIMIT): int})
+_AREA_CONTEXT_SCHEMA = vol.Schema({vol.Required(ATTR_AREA): str})
+_DEVICE_CONTEXT_SCHEMA = vol.Schema({vol.Required(ATTR_DEVICE): str})
+_ENTITY_CONTEXT_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY): str})
+_AUTOMATION_DEPENDENCIES_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY): str})
+_IMPACT_ANALYSIS_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_TARGET_TYPE): vol.In(IMPACT_SCOPES),
+        vol.Required(ATTR_TARGET): str,
+    }
+)
+_EXPORT_CONTEXT_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_EXPORT_TYPE): vol.In(EXPORT_TYPES),
+        vol.Optional(ATTR_TARGET): str,
+    }
+)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> bool:
@@ -168,8 +222,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
         )
     )
 
+    @callback
+    def _async_prune_agent_audit(_now: datetime) -> None:
+        """Periodic sweep pruning Assist/MCP audit records past retention (FR-036)."""
+        hass.async_create_task(
+            agent_audit.async_prune_expired(hass, entry.entry_id),
+            name=f"ontology_prune_agent_audit_{entry.entry_id}",
+        )
+
+    entry.async_on_unload(
+        async_track_time_interval(
+            hass,
+            _async_prune_agent_audit,
+            timedelta(seconds=AGENT_AUDIT_SWEEP_INTERVAL_SECONDS),
+        )
+    )
+
     _async_register_services(hass)
     websocket_api.async_register_commands(hass)
+    intent_handlers.async_register_intents(hass)
+    if entry.options.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED):
+        await _async_register_mcp_view(hass, entry)
     await _async_register_panel(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -190,6 +263,28 @@ async def async_unload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) ->
 async def async_reload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> None:
     """Reload a config entry after options/reconfigure changes (FR-003)."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_register_mcp_view(hass: HomeAssistant, entry: OntologyConfigEntry) -> None:
+    """Register the opt-in MCP endpoint view (FR-023, User Story 7).
+
+    Generates (or reuses) the entry's local access token; on first
+    generation, surfaces it once via a persistent notification
+    (research.md §3) since it is never shown again afterwards.
+    """
+    if hass.http is None:
+        return
+    token, created = await mcp_server.async_get_or_create_token(hass, entry.entry_id)
+    if created:
+        persistent_notification.async_create(
+            hass,
+            f"Local MCP access token generated for the Ontology integration:\n\n{token}\n\n"
+            "This token will not be shown again. Regenerate it any time via the "
+            "'Regenerate MCP token' button if it is lost or compromised.",
+            title="Ontology MCP token generated",
+            notification_id=f"ontology_mcp_token_{entry.entry_id}",
+        )
+    hass.http.register_view(mcp_server.OntologyMcpView(hass, entry))
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
@@ -293,6 +388,74 @@ async def _async_handle_import_overrides(call: ServiceCall) -> ServiceResponse:
     return {"imported_count": imported_count}
 
 
+async def _async_handle_search(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.search` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(call.data[ATTR_TERM], RESULT_TYPE_SEARCH)
+    return await query_tools.search(
+        coordinators[0].memgraph_client, call.data[ATTR_TERM], call.data.get(ATTR_LIMIT)
+    )
+
+
+async def _async_handle_area_context(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.area_context` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(call.data[ATTR_AREA], RESULT_TYPE_AREA_CONTEXT)
+    return await query_tools.area_context(coordinators[0].memgraph_client, call.data[ATTR_AREA])
+
+
+async def _async_handle_device_context(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.device_context` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(call.data[ATTR_DEVICE], RESULT_TYPE_DEVICE_CONTEXT)
+    return await query_tools.device_context(coordinators[0].memgraph_client, call.data[ATTR_DEVICE])
+
+
+async def _async_handle_entity_context(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.entity_context` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(call.data[ATTR_ENTITY], RESULT_TYPE_ENTITY_CONTEXT)
+    return await query_tools.entity_context(coordinators[0].memgraph_client, call.data[ATTR_ENTITY])
+
+
+async def _async_handle_automation_dependencies(call: ServiceCall) -> ServiceResponse:
+    """Handle `ontology.automation_dependencies` (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(
+            call.data[ATTR_ENTITY], RESULT_TYPE_AUTOMATION_DEPENDENCIES
+        )
+    return await query_tools.automation_dependencies(
+        coordinators[0].memgraph_client, call.data[ATTR_ENTITY]
+    )
+
+
+async def _async_handle_impact_analysis(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.impact_analysis` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(call.data[ATTR_TARGET], RESULT_TYPE_IMPACT_ANALYSIS)
+    return await impact_analysis.analyze(
+        coordinators[0].memgraph_client, call.data[ATTR_TARGET_TYPE], call.data[ATTR_TARGET]
+    )
+
+
+async def _async_handle_export_context(call: ServiceCall) -> ServiceResponse:
+    """Handle the `ontology.export_context` service call (contracts/services.md v3 additions)."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.not_found_result(
+            call.data.get(ATTR_TARGET) or "whole_home", RESULT_TYPE_EXPORT_CONTEXT
+        )
+    return await context_export.export(
+        coordinators[0].memgraph_client, call.data[ATTR_EXPORT_TYPE], call.data.get(ATTR_TARGET)
+    )
+
+
 def _async_register_services(hass: HomeAssistant) -> None:
     """Register the ontology services once, regardless of entry count."""
     if hass.services.has_service(DOMAIN, SERVICE_REBUILD):
@@ -329,6 +492,55 @@ def _async_register_services(hass: HomeAssistant) -> None:
         schema=_IMPORT_OVERRIDES_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEARCH,
+        _async_handle_search,
+        schema=_SEARCH_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_AREA_CONTEXT,
+        _async_handle_area_context,
+        schema=_AREA_CONTEXT_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DEVICE_CONTEXT,
+        _async_handle_device_context,
+        schema=_DEVICE_CONTEXT_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ENTITY_CONTEXT,
+        _async_handle_entity_context,
+        schema=_ENTITY_CONTEXT_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_AUTOMATION_DEPENDENCIES,
+        _async_handle_automation_dependencies,
+        schema=_AUTOMATION_DEPENDENCIES_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_IMPACT_ANALYSIS,
+        _async_handle_impact_analysis,
+        schema=_IMPACT_ANALYSIS_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_CONTEXT,
+        _async_handle_export_context,
+        schema=_EXPORT_CONTEXT_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
 
 
 def _async_unregister_services(hass: HomeAssistant) -> None:
@@ -344,6 +556,13 @@ def _async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_QUERY,
         SERVICE_EXPORT_OVERRIDES,
         SERVICE_IMPORT_OVERRIDES,
+        SERVICE_SEARCH,
+        SERVICE_AREA_CONTEXT,
+        SERVICE_DEVICE_CONTEXT,
+        SERVICE_ENTITY_CONTEXT,
+        SERVICE_AUTOMATION_DEPENDENCIES,
+        SERVICE_IMPACT_ANALYSIS,
+        SERVICE_EXPORT_CONTEXT,
     ):
         hass.services.async_remove(DOMAIN, service)
 

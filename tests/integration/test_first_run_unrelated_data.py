@@ -37,3 +37,24 @@ async def test_first_run_sync_leaves_unrelated_data_untouched(
 
     home_rows = await memgraph_client.run_query("MATCH (h:Home) RETURN count(h) AS c")
     assert home_rows[0]["c"] == 1
+
+
+async def test_setup_succeeds_with_no_external_ai_runtime_reachable(
+    hass, memgraph_container
+) -> None:
+    """T070 (FR-031, FR-032, SC-007): `async_setup_entry` never depends on the
+    reachability of any external local AI runtime - v3's Assist intents,
+    impact analysis, context export, and (disabled-by-default) MCP endpoint
+    are all pure Memgraph/HA-registry reads, never callers of any AI runtime.
+    Startup succeeds with zero failures attributable to v3 even though
+    nothing resembling an "AI runtime" is running anywhere in this test."""
+    from custom_components.ontology.const import CONF_HOST, CONF_PORT
+
+    host = memgraph_container.get_container_host_ip()
+    port = int(memgraph_container.get_exposed_port(7687))
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: host, CONF_PORT: port})
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state.value == "loaded"

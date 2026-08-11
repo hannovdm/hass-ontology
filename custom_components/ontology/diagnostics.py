@@ -11,12 +11,15 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
+from . import agent_audit
 from .const import (
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
+    CONF_MCP_ENABLED,
     CONF_PORT,
     CONF_USERNAME,
+    DEFAULT_MCP_ENABLED,
     FINDING_STATUS_OPEN,
     LABEL_ENTITY,
     LABEL_SEMANTIC_TYPE,
@@ -77,4 +80,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: Any) ->
         "last_error": state.last_error,
         "consecutive_failures": state.consecutive_failures,
         "failed_updates": state.failed_updates,
+        "mcp_enabled": entry.options.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED),
+        # Redacted Assist/MCP audit summary (User Story 8, FR-028): counts by
+        # event/status only - never raw entries containing prompts (FR-029).
+        "agent_audit_summary": await agent_audit.async_summarize(hass, entry.entry_id),
     }

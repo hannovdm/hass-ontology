@@ -1,0 +1,44 @@
+language: "en"
+intents:
+  OntologyAutomationDependencies:
+    data:
+      - sentences:
+          - "what automations depend on {entity}"
+          - "what uses {entity}"
+          - "what depends on {entity}"
+  OntologyAreaContents:
+    data:
+      - sentences:
+          - "what devices are in {area}"
+          - "what's in the {area}"
+          - "what is in the {area}"
+  OntologyEntityContext:
+    data:
+      - sentences:
+          - "what is {entity} connected to"
+          - "tell me about {entity}"
+  OntologyDeviceContext:
+    data:
+      - sentences:
+          - "what is the device {device} connected to"
+          - "tell me about the device {device}"
+  OntologyImpactAnalysis:
+    data:
+      - sentences:
+          - "what would be affected if {entity} was removed"
+          - "what depends on {entity} if it stopped working"
+  OntologySearch:
+    data:
+      - sentences:
+          - "search the ontology for {term}"
+          - "find {term} in the ontology"
+
+lists:
+  entity:
+    wildcard: true
+  area:
+    wildcard: true
+  device:
+    wildcard: true
+  term:
+    wildcard: true

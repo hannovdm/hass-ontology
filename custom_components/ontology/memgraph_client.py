@@ -11,8 +11,9 @@ import asyncio
 import logging
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncGraphDatabase
+from neo4j import AsyncDriver, AsyncGraphDatabase, Record
 from neo4j.exceptions import AuthError, ServiceUnavailable
+from neo4j.graph import Node, Path, Relationship
 
 from .const import (
     CONNECTION_TIMEOUT_SECONDS,
@@ -27,6 +28,56 @@ _LOGGER = logging.getLogger(__name__)
 
 class CannotConnect(Exception):
     """Raised when the client cannot reach Memgraph (network/refused/timeout)."""
+
+
+def _serialize_value(value: Any) -> Any:
+    """Recursively convert a raw Bolt-driver value into a JSON-serializable one.
+
+    ``ontology.query`` lets callers ``RETURN`` whole nodes/relationships/paths
+    (e.g. ``MATCH (e:Entity) RETURN e``), which the ``neo4j`` driver decodes
+    into ``Node``/``Relationship``/``Path`` graph objects rather than plain
+    dicts. Home Assistant's service-response machinery JSON-encodes the
+    return value, and those graph objects (along with temporal types like
+    ``DateTime``/``Duration``) are not JSON-serializable, which previously
+    surfaced to the caller as an opaque "Invalid JSON in response" error.
+    """
+    if isinstance(value, Node):
+        return {
+            "element_id": value.element_id,
+            "labels": sorted(value.labels),
+            "properties": {k: _serialize_value(v) for k, v in value.items()},
+        }
+    if isinstance(value, Relationship):
+        return {
+            "element_id": value.element_id,
+            "type": value.type,
+            "start_node_element_id": (
+                value.start_node.element_id if value.start_node is not None else None
+            ),
+            "end_node_element_id": (
+                value.end_node.element_id if value.end_node is not None else None
+            ),
+            "properties": {k: _serialize_value(v) for k, v in value.items()},
+        }
+    if isinstance(value, Path):
+        return {
+            "nodes": [_serialize_value(node) for node in value.nodes],
+            "relationships": [_serialize_value(rel) for rel in value.relationships],
+        }
+    if isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_serialize_value(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if hasattr(value, "iso_format"):  # neo4j.time Date/Time/DateTime/Duration
+        return value.iso_format()
+    return str(value)  # fallback (e.g. spatial Point types)
+
+
+def _serialize_record(record: Record) -> dict[str, Any]:
+    """Convert a driver `Record` into a plain, JSON-serializable dict."""
+    return {key: _serialize_value(value) for key, value in record.items()}
 
 
 class InvalidAuth(Exception):
@@ -111,7 +162,7 @@ class MemgraphClient:
                 assert self._driver is not None
                 async with self._driver.session(database=self._database) as session:
                     result = await session.run(query, parameters or {})
-                    records = [dict(record) async for record in result]
+                    records = [_serialize_record(record) async for record in result]
                     return records
         except AuthError as err:
             raise InvalidAuth(redact_exception(err)) from err
@@ -143,7 +194,7 @@ class MemgraphClient:
                         if len(rows) >= limit:
                             truncated = True
                             break
-                        rows.append(dict(record))
+                        rows.append(_serialize_record(record))
                     return rows, truncated
         except AuthError as err:
             raise InvalidAuth(redact_exception(err)) from err

@@ -216,3 +216,131 @@ AUTOMATION_DOMAIN = "automation"
 SCENE_DOMAIN = "scene"
 SCRIPT_DOMAIN = "script"
 
+# --- v3: Assist, MCP, impact analysis, local AI readiness -----------------
+
+# Services (contracts/services.md v3 additions)
+SERVICE_SEARCH = "search"
+SERVICE_AREA_CONTEXT = "area_context"
+SERVICE_DEVICE_CONTEXT = "device_context"
+SERVICE_ENTITY_CONTEXT = "entity_context"
+SERVICE_AUTOMATION_DEPENDENCIES = "automation_dependencies"
+SERVICE_IMPACT_ANALYSIS = "impact_analysis"
+SERVICE_EXPORT_CONTEXT = "export_context"
+
+ATTR_TERM = "term"
+ATTR_AREA = "area"
+ATTR_DEVICE = "device"
+ATTR_ENTITY = "entity"
+ATTR_TARGET_TYPE = "target_type"
+ATTR_TARGET = "target"
+ATTR_EXPORT_TYPE = "export_type"
+
+# Options-flow key: opt-in local MCP-compatible endpoint (research.md §8,
+# FR-023). Must default to False - the endpoint MUST be disabled on fresh
+# install/upgrade (SC-003).
+CONF_MCP_ENABLED = "mcp_enabled"
+DEFAULT_MCP_ENABLED = False
+
+# `homeassistant.helpers.storage.Store` key prefixes (research.md §3, §4).
+# Each is suffixed with the config entry's `entry_id` to scope the file per
+# entry, mirroring how the MCP token/audit log are described in data-model.md
+# §5. These are plain local JSON files, never Memgraph nodes (FR-035).
+MCP_TOKEN_STORE_KEY_PREFIX = "ontology_mcp_token_"
+MCP_TOKEN_STORE_VERSION = 1
+AGENT_AUDIT_STORE_KEY_PREFIX = "ontology_agent_audit_"
+AGENT_AUDIT_STORE_VERSION = 1
+
+# Redacted Assist/MCP audit log retention window (FR-036). Applied on every
+# append and via the periodic sweep (research.md §4).
+AGENT_AUDIT_RETENTION_DAYS = 30
+AGENT_AUDIT_SWEEP_INTERVAL_SECONDS = 3600.0
+
+# Bounded-depth impact-analysis traversal hop limit (research.md §5). Kept
+# small and fixed (no user-configurable traversal depth) so SC-005's <3s
+# target is achievable on a several-thousand-node graph.
+IMPACT_ANALYSIS_ENTITY_HOP_LIMIT = 2
+
+# Result-shape discriminators for the shared `ToolResult` envelope
+# (data-model.md §2).
+RESULT_TYPE_SEARCH = "search"
+RESULT_TYPE_AREA_CONTEXT = "area_context"
+RESULT_TYPE_DEVICE_CONTEXT = "device_context"
+RESULT_TYPE_ENTITY_CONTEXT = "entity_context"
+RESULT_TYPE_AUTOMATION_DEPENDENCIES = "automation_dependencies"
+RESULT_TYPE_IMPACT_ANALYSIS = "impact_analysis"
+RESULT_TYPE_QUERY = "query"
+RESULT_TYPE_EXPORT_CONTEXT = "export_context"
+RESULT_TYPE_NOT_FOUND = "not_found"
+
+# Impact-analysis scopes (data-model.md §3)
+IMPACT_SCOPE_ENTITY = "entity"
+IMPACT_SCOPE_DEVICE = "device"
+IMPACT_SCOPE_AREA = "area"
+IMPACT_SCOPES = (IMPACT_SCOPE_ENTITY, IMPACT_SCOPE_DEVICE, IMPACT_SCOPE_AREA)
+
+# Context-export types (contracts/services.md `ontology.export_context`)
+EXPORT_TYPE_AREA = "area"
+EXPORT_TYPE_ENTITY = "entity"
+EXPORT_TYPE_DEVICE = "device"
+EXPORT_TYPE_AUTOMATION = "automation"
+EXPORT_TYPE_IMPACT = "impact"
+EXPORT_TYPE_WHOLE_HOME = "whole_home"
+EXPORT_TYPES = (
+    EXPORT_TYPE_AREA,
+    EXPORT_TYPE_ENTITY,
+    EXPORT_TYPE_DEVICE,
+    EXPORT_TYPE_AUTOMATION,
+    EXPORT_TYPE_IMPACT,
+    EXPORT_TYPE_WHOLE_HOME,
+)
+
+# Allow-list field projection table (data-model.md §4). Extending this
+# requires updating both `context_export.py` and this table - fields not
+# listed here are never included in an export document, regardless of
+# whether they exist on the underlying node (FR-020, SC-002).
+CONTEXT_EXPORT_ALLOWED_FIELDS: dict[str, tuple[str, ...]] = {
+    LABEL_AREA: ("ha_id", "name", "floor_id"),
+    LABEL_DEVICE: ("ha_id", "name", "manufacturer", "model", "area_id"),
+    LABEL_ENTITY: (
+        "ha_id",
+        "name",
+        "domain",
+        "device_class",
+        "unit_of_measurement",
+        "area_id",
+        "device_id",
+        "source",
+    ),
+    LABEL_AUTOMATION: ("ha_id", "name", "mode"),
+    LABEL_SCENE: ("ha_id", "name"),
+    LABEL_SCRIPT: ("ha_id", "name"),
+    LABEL_SEMANTIC_TYPE: ("ha_id", "asset_type", "entity_id"),
+    LABEL_VALIDATION_FINDING: ("finding_type", "severity", "target_id", "message"),
+    LABEL_DASHBOARD: ("ha_id", "title"),
+    LABEL_DASHBOARD_CARD: ("ha_id", "title"),
+}
+
+# MCP endpoint (research.md §2, contracts/mcp-endpoint.md)
+MCP_ENDPOINT_URL = "/api/ontology/mcp"
+MCP_TOOL_NAMES = (
+    "search",
+    "entity_context",
+    "area_context",
+    "device_context",
+    "automation_dependencies",
+    "impact_analysis",
+    "query",
+    "export_context",
+)
+
+# Agent-audit event names (data-model.md §5)
+AUDIT_EVENT_ASSIST_QUERY = "assist_query"
+AUDIT_EVENT_MCP_TOOL_CALL = "mcp_tool_call"
+AUDIT_EVENT_MCP_WRITE_REJECTED = "mcp_write_rejected"
+AUDIT_EVENT_MCP_AUTH_REJECTED = "mcp_auth_rejected"
+AUDIT_EVENT_IMPACT_ANALYSIS = "impact_analysis"
+AUDIT_EVENT_CONTEXT_EXPORT = "context_export"
+
+# button.py control entity for MCP token regeneration (research.md §3)
+BUTTON_KEY_REGENERATE_MCP_TOKEN = "regenerate_mcp_token"
+
