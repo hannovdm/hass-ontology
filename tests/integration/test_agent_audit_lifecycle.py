@@ -55,7 +55,7 @@ async def test_assist_query_records_exactly_one_assist_query_record(
         hass,
         platform="test",
         intent_type=handler.intent_type,
-        slots={"area": {"value": "Audit Area"}},
+        slots={"ontology_area": {"value": "Audit Area"}},
         text_input=None,
         context=Context(),
         language="en",

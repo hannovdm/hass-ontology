@@ -27,6 +27,10 @@ from .const import (
     AUDIT_EVENT_MCP_AUTH_REJECTED,
     AUDIT_EVENT_MCP_TOOL_CALL,
     AUDIT_EVENT_MCP_WRITE_REJECTED,
+    CONF_MCP_ALLOWED_NETWORKS,
+    CONF_MCP_ENABLED,
+    DEFAULT_MCP_ALLOWED_NETWORKS,
+    DEFAULT_MCP_ENABLED,
     EXPORT_TYPES,
     IMPACT_SCOPES,
     MCP_ENDPOINT_URL,
@@ -36,7 +40,7 @@ from .const import (
     RESULT_TYPE_QUERY,
 )
 from .memgraph_client import MemgraphClient
-from .query_service import QueryRejected, execute_query
+from .query_service import QueryRejected, execute_query, find_denylisted_keyword
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -148,6 +152,22 @@ def _is_local_remote(remote: str | None) -> bool:
     return any(address in network for network in _LOCAL_NETWORKS)
 
 
+def _is_remote_allowed(remote: str | None, configured_networks: str) -> bool:
+    """Check HA's trusted-proxy-resolved remote against configured CIDRs."""
+    if not remote:
+        return False
+    try:
+        address = ipaddress.ip_address(remote)
+        networks = [
+            ipaddress.ip_network(value.strip(), strict=False)
+            for value in configured_networks.split(",")
+            if value.strip()
+        ]
+    except ValueError:
+        return False
+    return any(address in network for network in networks)
+
+
 def _jsonrpc_result(request_id: Any, result: Any) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
@@ -191,7 +211,26 @@ class OntologyMcpView(HomeAssistantView):
         await agent_audit.async_append_record(self._hass, self._entry.entry_id, record)
 
     async def post(self, request: web.Request) -> web.Response:
-        if not _is_local_remote(request.remote):
+        if not self._entry.options.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED):
+            return web.json_response({"error": "Not Found"}, status=404)
+
+        configured_networks = self._entry.options.get(
+            CONF_MCP_ALLOWED_NETWORKS, DEFAULT_MCP_ALLOWED_NETWORKS
+        )
+        # Home Assistant's forwarded middleware has already replaced
+        # request.remote only when X-Forwarded-For came through a trusted proxy.
+        if not _is_remote_allowed(request.remote, configured_networks):
+            await self._async_audit(
+                {
+                    "event": AUDIT_EVENT_MCP_AUTH_REJECTED,
+                    "tool": None,
+                    "client_id": request.remote or "unknown",
+                    "status": "rejected",
+                    "result_count": None,
+                    "error_category": "network_not_allowed",
+                    "timestamp": agent_audit.now_iso(),
+                }
+            )
             return web.json_response({"error": "Forbidden: not a local request"}, status=403)
 
         token = await async_get_token(self._hass, self._entry.entry_id)
@@ -214,6 +253,17 @@ class OntologyMcpView(HomeAssistantView):
         try:
             payload = await request.json()
         except (ValueError, json.JSONDecodeError):
+            await self._async_audit(
+                {
+                    "event": AUDIT_EVENT_MCP_TOOL_CALL,
+                    "tool": None,
+                    "client_id": request.remote or "unknown",
+                    "status": "error",
+                    "result_count": None,
+                    "error_category": "parse_error",
+                    "timestamp": agent_audit.now_iso(),
+                }
+            )
             return web.json_response(_jsonrpc_error(None, -32700, "Parse error"), status=400)
 
         method = payload.get("method")
@@ -228,6 +278,17 @@ class OntologyMcpView(HomeAssistantView):
             return await self._handle_tools_call(
                 request, request_id, client, payload.get("params") or {}
             )
+        await self._async_audit(
+            {
+                "event": AUDIT_EVENT_MCP_TOOL_CALL,
+                "tool": None,
+                "client_id": request.remote or "unknown",
+                "status": "rejected",
+                "result_count": None,
+                "error_category": "unknown_method",
+                "timestamp": agent_audit.now_iso(),
+            }
+        )
         return web.json_response(
             _jsonrpc_error(request_id, -32601, f"Unknown method {method!r}"), status=400
         )
@@ -250,6 +311,7 @@ class OntologyMcpView(HomeAssistantView):
                     client, cypher, arguments.get("parameters"), arguments.get("limit")
                 )
             except QueryRejected as err:
+                rejected_operation = find_denylisted_keyword(cypher)
                 await self._async_audit(
                     {
                         "event": AUDIT_EVENT_MCP_WRITE_REJECTED,
@@ -258,6 +320,7 @@ class OntologyMcpView(HomeAssistantView):
                         "status": "rejected",
                         "result_count": None,
                         "error_category": "write_intent_detected",
+                        "rejected_operation": rejected_operation,
                         "timestamp": agent_audit.now_iso(),
                     }
                 )
@@ -265,39 +328,75 @@ class OntologyMcpView(HomeAssistantView):
                     _jsonrpc_error(request_id, -32000, str(err)), status=400
                 )
             tool_result = query_tools.build_tool_result(cypher, RESULT_TYPE_QUERY, result)
-        elif name == "search":
-            tool_result = await query_tools.search(
-                client, arguments.get("term", ""), arguments.get("limit")
-            )
-        elif name == "area_context":
-            tool_result = await query_tools.area_context(client, arguments.get("area", ""))
-        elif name == "device_context":
-            tool_result = await query_tools.device_context(client, arguments.get("device", ""))
-        elif name == "entity_context":
-            tool_result = await query_tools.entity_context(client, arguments.get("entity", ""))
-        elif name == "automation_dependencies":
-            tool_result = await query_tools.automation_dependencies(
-                client, arguments.get("entity", "")
-            )
-        elif name == "impact_analysis":
-            tool_result = await impact_analysis.analyze(
-                client, arguments.get("target_type", ""), arguments.get("target", "")
-            )
-        elif name == "export_context":
-            tool_result = await context_export.export(
-                client, arguments.get("export_type", ""), arguments.get("target")
-            )
         else:
-            return web.json_response(
-                _jsonrpc_error(request_id, -32601, f"Unknown tool {name!r}"), status=400
-            )
+            try:
+                if name == "search":
+                    tool_result = await query_tools.search(
+                        client, arguments.get("term", ""), arguments.get("limit")
+                    )
+                elif name == "area_context":
+                    tool_result = await query_tools.area_context(client, arguments.get("area", ""))
+                elif name == "device_context":
+                    tool_result = await query_tools.device_context(
+                        client, arguments.get("device", "")
+                    )
+                elif name == "entity_context":
+                    tool_result = await query_tools.entity_context(
+                        client, arguments.get("entity", "")
+                    )
+                elif name == "automation_dependencies":
+                    tool_result = await query_tools.automation_dependencies(
+                        client, arguments.get("entity", "")
+                    )
+                elif name == "impact_analysis":
+                    tool_result = await impact_analysis.analyze(
+                        client, arguments.get("target_type", ""), arguments.get("target", "")
+                    )
+                elif name == "export_context":
+                    tool_result = await context_export.export(
+                        client, arguments.get("export_type", ""), arguments.get("target")
+                    )
+                else:
+                    await self._async_audit(
+                        {
+                            "event": AUDIT_EVENT_MCP_TOOL_CALL,
+                            "tool": name,
+                            "client_id": client_id,
+                            "status": "rejected",
+                            "result_count": None,
+                            "error_category": "unknown_tool",
+                            "timestamp": agent_audit.now_iso(),
+                        }
+                    )
+                    return web.json_response(
+                        _jsonrpc_error(request_id, -32601, f"Unknown tool {name!r}"), status=400
+                    )
+            except Exception as err:
+                await self._async_audit(
+                    {
+                        "event": AUDIT_EVENT_MCP_TOOL_CALL,
+                        "tool": name,
+                        "client_id": client_id,
+                        "status": "error",
+                        "result_count": 0,
+                        "error_category": type(err).__name__,
+                        "timestamp": agent_audit.now_iso(),
+                    }
+                )
+                return web.json_response(
+                    _jsonrpc_error(request_id, -32603, "Internal error"), status=500
+                )
 
         await self._async_audit(
             {
                 "event": AUDIT_EVENT_MCP_TOOL_CALL,
                 "tool": name,
                 "client_id": client_id,
-                "status": "ok",
+                "status": (
+                    "not_found"
+                    if tool_result.get("result_type") == "not_found"
+                    else "ok"
+                ),
                 "result_count": query_tools.count_results(tool_result.get("result")),
                 "error_category": None,
                 "timestamp": agent_audit.now_iso(),

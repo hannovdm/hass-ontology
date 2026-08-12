@@ -20,6 +20,19 @@ from .const import (
     AGENT_AUDIT_STORE_KEY_PREFIX,
     AGENT_AUDIT_STORE_VERSION,
 )
+from .redact import redact_value
+
+_COMMON_FIELDS = frozenset(
+    {"event", "status", "result_count", "error_category", "timestamp"}
+)
+_EVENT_FIELDS = {
+    "assist_query": _COMMON_FIELDS | {"intent"},
+    "mcp_tool_call": _COMMON_FIELDS | {"tool", "client_id"},
+    "mcp_write_rejected": _COMMON_FIELDS | {"tool", "client_id", "rejected_operation"},
+    "mcp_auth_rejected": _COMMON_FIELDS | {"tool", "client_id"},
+    "impact_analysis": _COMMON_FIELDS | {"scope", "has_dependencies"},
+    "context_export": _COMMON_FIELDS | {"export_type"},
+}
 
 
 def now_iso() -> str:
@@ -53,7 +66,9 @@ async def async_append_record(hass: HomeAssistant, entry_id: str, record: dict[s
     records: list[dict[str, Any]] = list(await store.async_load() or [])
     now = datetime.now(UTC)
     records = [r for r in records if not _is_expired(r, now)]
-    records.append(record)
+    allowed_fields = _EVENT_FIELDS.get(str(record.get("event")), _COMMON_FIELDS)
+    safe_record = redact_value({key: record[key] for key in allowed_fields if key in record})
+    records.append(safe_record)
     await store.async_save(records)
 
 

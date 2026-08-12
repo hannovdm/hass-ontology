@@ -358,3 +358,21 @@ With multiple developers:
 - No v3 task introduces a new PyPI dependency; `homeassistant.helpers.intent` and `homeassistant.components.http` are Home Assistant core components (plan.md Technical Context, research.md §1-§2)
 - v3 introduces zero new Memgraph node labels, relationship types, or a `SCHEMA_VERSION` bump — every graph-touching task above is read-only (data-model.md §1)
 - T074 remains unchecked: it requires manually walking through quickstart.md Scenarios A-H against a live Home Assistant instance with the integration installed via its UI (Developer Tools service calls, the Assist conversation UI, a real MCP client) - the same "needs a live running Home Assistant instance" limitation recorded for v1/v2's equivalent manual-validation task. Every scenario's underlying behavior is otherwise covered by automated unit/contract/integration tests (each test file's docstring cross-references its quickstart Scenario letter).
+
+## Phase 12: Convergence
+
+- [X] T078 CRITICAL enforce recursive key-pattern and value redaction across query-tool results, MCP responses, context-export projections, and raw-query target metadata, with hostile secret-value tests, per Constitution II, FR-006, FR-020, FR-027, and SC-002 (partial)
+- [X] T079 CRITICAL enforce an allow-listed and recursively redacted storage boundary in `custom_components/ontology/agent_audit.py`, with tests that submit raw utterances, credentials, and secret-looking values, per Constitution II, FR-029, and SC-002 (partial)
+- [X] T080 Enforce the current MCP enablement option for every request and cover enabled-to-disabled config-entry reload so a previously registered route cannot serve tools per FR-023, SC-003, and plan: MCP toggle (contradicts)
+- [X] T081 Bound every predefined context and dependency collection, propagate truncation warnings, and test high-fanout payload limits per FR-006 and US1/AC5 (partial)
+- [X] T082 Report specific incomplete or unavailable relationship warnings from area, device, entity, and automation-dependency query operations per FR-005 and US1/AC5 (partial)
+- [X] T083 Include automation relationship reasons, area entities grouped by device, and device, area, domain, integration, classifications, and direct dependencies in Assist responses per FR-008, FR-009, FR-010, and US2/AC1-3 (partial)
+- [X] T084 Replace unbounded impact collections and sequential device/area fan-out with bounded aggregate traversal plus truncation metadata, and verify the three-second responsiveness budget under high fan-out per FR-018 and SC-005 (partial)
+- [X] T085 Resolve and incorporate each device's current area relationship in device impact analysis, including an area-move regression test, per FR-014 and US4/AC2 (partial)
+- [X] T086 Synchronize direct entity area overrides as `Entity-[:HAS_AREA]->Area` relationships and cover them in area context and impact analysis per FR-002, FR-015, and plan: direct area entities (partial)
+- [X] T087 Export all available direct entity, device, and automation relationships, including entity domain, integration, and semantic classifications, with allow-listed projections per FR-022 and US6/AC2 (partial)
+- [X] T088 Restrict MCP requests to an explicitly configured local network boundary using trusted-proxy-aware client resolution, with proxied external-client rejection tests, per FR-024 (partial)
+- [X] T089 Complete audit coverage for Assist queries, all MCP success/rejection/error paths, impact analysis, and context export, recording accurate status, count, error category, and rejected operation type per FR-028, FR-030, US8/AC1-3, and T068 (partial)
+- [X] T090 Add real-Memgraph integration coverage proving scripts, scenes, dashboards, and semantic assets for entity, device, and area impact results per FR-013, FR-014, FR-015, Constitution VII, T028, T033, and T037 (missing)
+- [X] T091 Implement a compact, bounded whole-home context summary with truncation metadata and high-cardinality tests per US6/AC3 and plan: compact whole-home export (partial)
+- [X] T092 Replace fixed-path Assist sentence overwrites with a collision-safe managed installation strategy that preserves user-authored custom sentences per plan: bundled Assist sentences and delivery boundary (unrequested)

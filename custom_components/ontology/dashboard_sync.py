@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, valid_entity_id
 
 from .const import (
     LABEL_DASHBOARD,
@@ -36,7 +36,10 @@ def _iter_cards(config: dict[str, Any]) -> list[tuple[int, int, dict[str, Any]]]
     """Flatten a Lovelace dashboard config's views into (view_i, card_i, card)."""
     cards: list[tuple[int, int, dict[str, Any]]] = []
     for view_index, view in enumerate(config.get("views") or []):
-        for card_index, card in enumerate(view.get("cards") or []):
+        view_cards = list(view.get("cards") or [])
+        for section in view.get("sections") or []:
+            view_cards.extend(section.get("cards") or [])
+        for card_index, card in enumerate(view_cards):
             cards.append((view_index, card_index, card))
     return cards
 
@@ -44,14 +47,19 @@ def _iter_cards(config: dict[str, Any]) -> list[tuple[int, int, dict[str, Any]]]
 def _card_entity_ids(card: dict[str, Any]) -> list[str]:
     """Best-effort extraction of entity ids referenced by one card's config."""
     entity_ids: list[str] = []
-    single = card.get("entity")
-    if isinstance(single, str):
-        entity_ids.append(single)
-    for entry in card.get("entities") or []:
-        if isinstance(entry, str):
-            entity_ids.append(entry)
-        elif isinstance(entry, dict) and isinstance(entry.get("entity"), str):
-            entity_ids.append(entry["entity"])
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            if valid_entity_id(value) and value not in entity_ids:
+                entity_ids.append(value)
+        elif isinstance(value, dict):
+            for nested_value in value.values():
+                collect(nested_value)
+        elif isinstance(value, list):
+            for nested_value in value:
+                collect(nested_value)
+
+    collect(card)
     return entity_ids
 
 

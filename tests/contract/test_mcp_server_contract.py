@@ -24,7 +24,9 @@ class _FakeRequest:
 async def _make_view(hass, entry_id: str, client=None):
     token, _ = await mcp_server.async_get_or_create_token(hass, entry_id)
     entry = SimpleNamespace(
-        entry_id=entry_id, runtime_data=SimpleNamespace(memgraph_client=client or AsyncMock())
+        entry_id=entry_id,
+        options={"mcp_enabled": True, "mcp_allowed_networks": "127.0.0.0/8"},
+        runtime_data=SimpleNamespace(memgraph_client=client or AsyncMock()),
     )
     return mcp_server.OntologyMcpView(hass, entry), token
 

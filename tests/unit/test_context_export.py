@@ -4,6 +4,8 @@ is never present, even if it exists on the underlying node)."""
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from custom_components.ontology import context_export
@@ -15,6 +17,8 @@ from custom_components.ontology.const import (
     LABEL_DASHBOARD_CARD,
     LABEL_DEVICE,
     LABEL_ENTITY,
+    LABEL_DOMAIN,
+    LABEL_INTEGRATION,
     LABEL_SCENE,
     LABEL_SCRIPT,
     LABEL_SEMANTIC_TYPE,
@@ -28,6 +32,8 @@ from custom_components.ontology.const import (
         LABEL_AREA,
         LABEL_DEVICE,
         LABEL_ENTITY,
+        LABEL_DOMAIN,
+        LABEL_INTEGRATION,
         LABEL_AUTOMATION,
         LABEL_SCENE,
         LABEL_SCRIPT,
@@ -67,3 +73,55 @@ def test_semantic_asset_instance_node_projected_via_semantic_type_allow_list() -
 
 def test_project_returns_none_for_none_node() -> None:
     assert context_export.project(None, LABEL_AREA) is None
+
+
+async def test_entity_export_includes_all_direct_relationships() -> None:
+    client = AsyncMock()
+    client.run_query = AsyncMock(
+        return_value=[
+            {
+                "e": {"ha_id": "light.office"},
+                "d": {"ha_id": "device-1", "name": "Office light"},
+                "area": {"ha_id": "office", "name": "Office"},
+                "dom": {"ha_id": "light"},
+                "integ": {"ha_id": "hue", "name": "Hue"},
+                "semantic_types": ["Lighting"],
+                "dependents": ["automation.office"],
+            }
+        ]
+    )
+
+    tool_result = await context_export.export(client, "entity", "light.office")
+
+    relationship_types = {
+        relationship["type"] for relationship in tool_result["result"]["relationships"]
+    }
+    assert relationship_types == {
+        "HAS_ENTITY",
+        "HAS_AREA",
+        "IN_DOMAIN",
+        "PROVIDED_BY",
+        "CLASSIFIED_AS",
+        "REFERENCES",
+    }
+    assert "password" not in str(tool_result)
+
+
+async def test_whole_home_export_is_bounded_with_truncation_metadata() -> None:
+    client = AsyncMock()
+    client.run_query_limited = AsyncMock(
+        side_effect=[
+            ([{"d": {"ha_id": f"device-{index}"}} for index in range(100)], True),
+            ([], False),
+            ([], False),
+            ([], False),
+            ([], False),
+        ]
+    )
+
+    tool_result = await context_export.export(client, "whole_home")
+
+    assert len(tool_result["result"]["devices"]) == 100
+    assert tool_result["result"]["truncated"] is True
+    assert tool_result["result"]["truncated_collections"] == ["devices"]
+    assert "devices truncated to 100 items" in tool_result["warnings"]

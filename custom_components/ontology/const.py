@@ -240,6 +240,8 @@ ATTR_EXPORT_TYPE = "export_type"
 # install/upgrade (SC-003).
 CONF_MCP_ENABLED = "mcp_enabled"
 DEFAULT_MCP_ENABLED = False
+CONF_MCP_ALLOWED_NETWORKS = "mcp_allowed_networks"
+DEFAULT_MCP_ALLOWED_NETWORKS = "127.0.0.0/8, ::1/128"
 
 # `homeassistant.helpers.storage.Store` key prefixes (research.md §3, §4).
 # Each is suffixed with the config entry's `entry_id` to scope the file per
@@ -311,6 +313,8 @@ CONTEXT_EXPORT_ALLOWED_FIELDS: dict[str, tuple[str, ...]] = {
         "device_id",
         "source",
     ),
+    LABEL_DOMAIN: ("ha_id",),
+    LABEL_INTEGRATION: ("ha_id", "name"),
     LABEL_AUTOMATION: ("ha_id", "name", "mode"),
     LABEL_SCENE: ("ha_id", "name"),
     LABEL_SCRIPT: ("ha_id", "name"),

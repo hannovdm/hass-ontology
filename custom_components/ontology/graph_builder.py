@@ -11,6 +11,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from homeassistant.components.automation import entities_in_automation
+from homeassistant.components.script import entities_in_script
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -246,6 +248,9 @@ async def _write_entity_node_and_relationships(
     domain = entity_id.split(".", 1)[0]
 
     props: dict[str, Any] = {"name": name}
+    if entry is not None:
+        props["device_id"] = entry.device_id
+        props["area_id"] = entry.area_id
     if state is not None:
         props["state"] = state.state
         props["state_updated_at"] = state.last_changed.isoformat()
@@ -264,6 +269,16 @@ async def _write_entity_node_and_relationships(
     else:
         _LOGGER.debug("Entity %s has no device; skipping HAS_ENTITY", entity_id)
 
+    await client.run_query_with_retry(
+        f"MATCH (e:{LABEL_ENTITY} {{ha_id: $entity_id}})-[r:{REL_HAS_AREA}]->(:{LABEL_AREA}) "
+        "WHERE r.source = $source DELETE r",
+        {"entity_id": entity_id, "source": SOURCE_HOME_ASSISTANT},
+    )
+    if entry.area_id:
+        await merge_relationship(
+            client, LABEL_ENTITY, entity_id, REL_HAS_AREA, LABEL_AREA, entry.area_id
+        )
+
     if entry.platform:
         await merge_node(client, LABEL_INTEGRATION, entry.platform, {"name": entry.platform})
         await merge_relationship(
@@ -278,9 +293,28 @@ async def _write_entity_node_and_relationships(
         )
 
 
-def _referenced_entity_ids(hass: HomeAssistant, entity_id: str) -> list[str]:
+def _referenced_entity_ids(hass: HomeAssistant, domain: str, entity_id: str) -> list[str]:
     """Best-effort extraction of entities referenced by an automation/scene/
-    script, from its current state attributes (data-model.md, US3)."""
+    script (data-model.md, US3).
+
+    Automation and script entities do NOT expose referenced entities via
+    state attributes - their `extra_state_attributes` only ever contain
+    `last_triggered`/`mode`/`current`/`max` (see `homeassistant.components.
+    automation.AutomationEntity.extra_state_attributes` and `homeassistant.
+    components.script.ScriptEntity.extra_state_attributes`). The actual
+    referenced-entity set lives on the in-memory entity object's
+    `referenced_entities` property, reachable only via each component's own
+    public helper function - reading `state.attributes.get("entity_id")` for
+    those two domains always silently returned an empty list, so
+    `ontology.automation_dependencies`/Assist "what automations depend on
+    X" never found anything. Scenes are the one domain whose state
+    attributes genuinely do include `entity_id`, so that lightweight path
+    is kept for scenes.
+    """
+    if domain == AUTOMATION_DOMAIN:
+        return list(entities_in_automation(hass, entity_id))
+    if domain == SCRIPT_DOMAIN:
+        return list(entities_in_script(hass, entity_id))
     state = hass.states.get(entity_id)
     if state is None:
         return []
@@ -302,7 +336,7 @@ async def _collect_referencing_domain(
     for state in hass.states.async_all(domain):
         name = state.attributes.get("friendly_name", state.entity_id)
         await merge_node(client, label, state.entity_id, {"name": name})
-        for referenced_id in _referenced_entity_ids(hass, state.entity_id):
+        for referenced_id in _referenced_entity_ids(hass, domain, state.entity_id):
             await merge_relationship(
                 client, label, state.entity_id, rel_type, LABEL_ENTITY, referenced_id
             )

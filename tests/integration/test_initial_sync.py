@@ -29,6 +29,7 @@ async def test_initial_sync_creates_expected_nodes_and_relationships(
     entity = er.async_get(hass).async_get_or_create(
         "light", "test_platform", "kitchen-light-unique-id", device_id=device.id
     )
+    er.async_get(hass).async_update_entity(entity.entity_id, area_id=area.id)
     hass.states.async_set(entity.entity_id, "on")
     await hass.async_block_till_done()
 
@@ -61,6 +62,13 @@ async def test_initial_sync_creates_expected_nodes_and_relationships(
         {"device_id": device.id, "entity_id": entity.entity_id},
     )
     assert has_entity_rows[0]["c"] == 1
+
+    entity_area_rows = await memgraph_client.run_query(
+        "MATCH (:Entity {ha_id: $entity_id})-[:HAS_AREA]->(:Area {ha_id: $area_id}) "
+        "RETURN count(*) AS c",
+        {"entity_id": entity.entity_id, "area_id": area.id},
+    )
+    assert entity_area_rows[0]["c"] == 1
 
     schema_rows = await memgraph_client.run_query(
         "MATCH (s:OntologySchema) RETURN s.version AS version"

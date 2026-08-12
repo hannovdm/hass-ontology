@@ -60,7 +60,11 @@ def test_is_local_remote(remote: str | None, expected: bool) -> None:
 
 
 async def test_non_local_request_rejected_with_403(hass) -> None:
-    entry = SimpleNamespace(entry_id="entry3", runtime_data=SimpleNamespace(memgraph_client=None))
+    entry = SimpleNamespace(
+        entry_id="entry3",
+        options={"mcp_enabled": True, "mcp_allowed_networks": "192.168.1.0/24"},
+        runtime_data=SimpleNamespace(memgraph_client=None),
+    )
     view = mcp_server.OntologyMcpView(hass, entry)
     request = _FakeRequest(remote="8.8.8.8")
 
@@ -68,10 +72,44 @@ async def test_non_local_request_rejected_with_403(hass) -> None:
     assert response.status == 403
 
 
+async def test_request_time_disabled_option_returns_404(hass) -> None:
+    entry = SimpleNamespace(
+        entry_id="disabled-entry",
+        options={"mcp_enabled": False},
+        runtime_data=SimpleNamespace(memgraph_client=AsyncMock()),
+    )
+    view = mcp_server.OntologyMcpView(hass, entry)
+
+    response = await view.post(_FakeRequest(remote="127.0.0.1"))
+
+    assert response.status == 404
+
+
+async def test_resolved_external_proxy_client_is_rejected(hass) -> None:
+    entry = SimpleNamespace(
+        entry_id="proxied-entry",
+        options={"mcp_enabled": True, "mcp_allowed_networks": "192.168.1.0/24"},
+        runtime_data=SimpleNamespace(memgraph_client=AsyncMock()),
+    )
+    view = mcp_server.OntologyMcpView(hass, entry)
+    request = _FakeRequest(
+        remote="192.168.2.9",
+        headers={"X-Forwarded-For": "192.168.1.20"},
+    )
+
+    response = await view.post(request)
+
+    assert response.status == 403
+
+
 async def test_missing_or_invalid_token_rejected_with_401_and_no_tool_executes(hass) -> None:
     await mcp_server.async_get_or_create_token(hass, "entry4")
     client = AsyncMock()
-    entry = SimpleNamespace(entry_id="entry4", runtime_data=SimpleNamespace(memgraph_client=client))
+    entry = SimpleNamespace(
+        entry_id="entry4",
+        options={"mcp_enabled": True},
+        runtime_data=SimpleNamespace(memgraph_client=client),
+    )
     view = mcp_server.OntologyMcpView(hass, entry)
     request = _FakeRequest(
         remote="127.0.0.1",
@@ -97,7 +135,11 @@ async def test_query_tool_write_intent_rejected_before_execution(hass, cypher: s
     token, _ = await mcp_server.async_get_or_create_token(hass, "entry5")
     client = AsyncMock()
     client.run_query_limited = AsyncMock(return_value=([], False))
-    entry = SimpleNamespace(entry_id="entry5", runtime_data=SimpleNamespace(memgraph_client=client))
+    entry = SimpleNamespace(
+        entry_id="entry5",
+        options={"mcp_enabled": True},
+        runtime_data=SimpleNamespace(memgraph_client=client),
+    )
     view = mcp_server.OntologyMcpView(hass, entry)
     request = _FakeRequest(
         remote="127.0.0.1",
@@ -116,4 +158,40 @@ async def test_query_tool_write_intent_rejected_before_execution(hass, cypher: s
     client.run_query_limited.assert_not_awaited()
 
     records = await mcp_server.agent_audit.async_get_records(hass, "entry5")
-    assert any(r["event"] == "mcp_write_rejected" for r in records)
+    write_record = next(r for r in records if r["event"] == "mcp_write_rejected")
+    assert write_record["rejected_operation"] in {"CREATE", "DELETE"}
+
+
+async def test_tool_dispatch_error_is_audited(hass, monkeypatch) -> None:
+    token, _ = await mcp_server.async_get_or_create_token(hass, "error-entry")
+    entry = SimpleNamespace(
+        entry_id="error-entry",
+        options={"mcp_enabled": True},
+        runtime_data=SimpleNamespace(memgraph_client=AsyncMock()),
+    )
+    view = mcp_server.OntologyMcpView(hass, entry)
+    monkeypatch.setattr(
+        mcp_server.query_tools,
+        "search",
+        AsyncMock(side_effect=RuntimeError("password=do-not-store")),
+    )
+
+    response = await view.post(
+        _FakeRequest(
+            remote="127.0.0.1",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "search", "arguments": {"term": "light"}},
+            },
+        )
+    )
+
+    assert response.status == 500
+    records = await mcp_server.agent_audit.async_get_records(hass, "error-entry")
+    assert records[-1]["event"] == "mcp_tool_call"
+    assert records[-1]["status"] == "error"
+    assert records[-1]["error_category"] == "RuntimeError"
+    assert "do-not-store" not in str(records[-1])

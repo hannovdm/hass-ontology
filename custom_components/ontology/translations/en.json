@@ -204,7 +204,8 @@
           "database": "Database",
           "encrypted": "Use encrypted (TLS) connection",
           "auto_classify": "Automatically classify entities into semantic types",
-          "mcp_enabled": "Enable local MCP-compatible endpoint (disabled by default)"
+          "mcp_enabled": "Enable local MCP-compatible endpoint (disabled by default)",
+          "mcp_allowed_networks": "MCP allowed networks (comma-separated CIDRs)"
         }
       }
     }

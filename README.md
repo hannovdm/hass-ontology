@@ -12,6 +12,74 @@ domains, integrations, and labels — and synchronizes it into a local
 No cloud dependency: all discovery and synchronization happens locally between
 Home Assistant and your own Memgraph instance.
 
+## What is Ontology
+
+An **ontology** is a structured model that defines the key concepts in a domain and the relationships between them. Think of it as a shared vocabulary combined with a map of how things are connected. For example, in an energy company, an ontology might define assets, wells, pipelines, maintenance activities, and employees, and specify how each relates to the others. Unlike a simple database schema, an ontology captures meaning and context, enabling systems and people to interpret information consistently.
+
+The main **business challenge ontology solves** is the fragmentation of data and knowledge across systems, teams, and business units. Organizations often have the same concept represented differently in different applications, making it difficult to integrate data, search effectively, automate processes, or apply AI. An ontology creates a common semantic layer that allows information from multiple sources to be connected, improving data quality, interoperability, discovery, analytics, and AI-driven insights.
+
+Ontology is particularly valuable for initiatives involving **knowledge management, digital twins, data governance, enterprise search, AI copilots, and analytics platforms**. By providing clear relationships and business definitions, it helps machines reason across data rather than simply storing or retrieving it. This reduces ambiguity, accelerates decision-making, and enables more intelligent automation.
+
+The **target audience** for ontology includes enterprise architects, data architects, knowledge managers, data governance teams, AI and machine learning teams, business analysts, and domain experts. Executive stakeholders also benefit indirectly because ontologies improve the accuracy of reporting, AI solutions, and business insights, ultimately helping organizations make better and faster decisions from their data.
+
+A basic ontology is often visualized as a network of business entities and relationships. Using an energy company as an example:
+
+[Oil Field]
+     |
+ contains
+     v
+[Well] ---- produces ----> [Hydrocarbon]
+     |
+ connected to
+     v
+[Pipeline] ---- feeds ----> [Refinery]
+     |
+ maintained by
+     v
+[Maintenance Activity]
+     |
+ performed by
+     v
+[Technician]
+
+[Sensor] ---- monitors ----> [Well]
+[Sensor] ---- generates ----> [Measurement]
+[Measurement] ---- indicates ----> [Equipment Condition]
+
+The ontology doesn't just store data; it defines the **meaning** of the data. For example, it explicitly states that a Well is located in an Oil Field, a Pipeline transports production from a Well, and a Technician performs Maintenance Activities. Once these relationships are defined, systems can understand how business concepts connect, even if the data comes from different applications.
+
+A practical example: if an engineer asks, **"Which wells in the North Field have experienced abnormal pressure readings and had maintenance performed in the last 30 days?"**, the ontology allows the system to traverse relationships between Wells → Sensors → Measurements → Maintenance Activities. Without an ontology, that query might require manually joining data across SCADA systems, maintenance systems, asset registries, and data warehouses. With an ontology, the business meaning is already connected, making search, analytics, AI copilots, and digital twins far more powerful.
+
+In essence, an ontology becomes the business knowledge graph of the enterprise: the vocabulary, rules, and relationships that allow both humans and AI to understand how the company's assets, operations, people, and processes fit together.
+
+## Home Assistant Ontology
+
+The key realization is that Home Assistant already contains about 70% of the ontology:
+
+Areas
+Floors
+Devices
+Entities
+Labels
+Persons
+Automations
+Scenes
+Scripts
+Energy Dashboard
+Device relationships
+
+What Home Assistant lacks is the **semantic layer** (the meaning and relationships between those objects).
+
+You want to allow questions such as:
+
+"Which rooms have devices with low batteries?"
+"What appliances currently consume electricity?"
+"Which automations depend on the garage motion sensor?"
+"What is powered by my 48kg gas cylinder?"
+"Show all entities associated with the dishwasher."
+
+In ontology terms, Home Assistant becomes a **home digital twin**, where Areas, Devices, Entities, People, Energy Sources, Automations, and Events are all connected through explicit relationships rather than just entity IDs. For a technically advanced HA setup, that's where ontology starts becoming genuinely valuable rather than just academic.
+
 ## Features
 
 - **Guided setup** via Settings → Devices & Services (no YAML editing required).

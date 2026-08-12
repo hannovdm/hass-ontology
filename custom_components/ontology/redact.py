@@ -15,6 +15,8 @@ REDACTED = "**REDACTED**"
 # Config-entry / connection-info keys that must never appear in the clear.
 SECRET_KEYS = frozenset({"password", "token", "access_token", "api_key", "secret"})
 
+_SECRET_KEY_PATTERN = re.compile(r"(?i)(password|token|api[_-]?key|secret|credential)")
+
 # Matches `password=...`, `password: "..."`, `"password": "..."` style fragments
 # that might otherwise leak into free-form error/exception text (e.g. driver
 # error messages that echo the connection URI or auth info).
@@ -45,6 +47,20 @@ def redact_text(text: str) -> str:
     if not text:
         return text
     return _SECRET_PATTERN.sub(lambda m: f"{m.group(1)}={REDACTED}", text)
+
+
+def redact_value(value: Any) -> Any:
+    """Recursively redact secret-pattern keys and inline secret text."""
+    if isinstance(value, dict):
+        return {
+            key: REDACTED if _SECRET_KEY_PATTERN.search(str(key)) else redact_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [redact_value(item) for item in value]
+    if isinstance(value, str):
+        return redact_text(value)
+    return value
 
 
 def redact_exception(exc: BaseException) -> str:

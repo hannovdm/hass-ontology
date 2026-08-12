@@ -36,7 +36,7 @@ from .const import (
     RESULT_TYPE_SEARCH,
 )
 from .memgraph_client import MemgraphClient
-from .redact import SECRET_KEYS
+from .redact import redact_value
 
 _NO_DEPENDENCIES_WARNING = "no known dependencies found"
 
@@ -59,22 +59,6 @@ def node_properties(node: Any) -> dict[str, Any] | None:
     return dict(node)
 
 
-def _redact(value: Any) -> Any:
-    """Recursively strip any key matching `redact.py`'s `SECRET_KEYS` (FR-006).
-
-    Applied to every `ToolResult.result` payload before it is returned to any
-    caller (service/Assist/MCP), regardless of transport.
-    """
-    if isinstance(value, dict):
-        return {
-            key: ("**REDACTED**" if key.lower() in SECRET_KEYS else _redact(val))
-            for key, val in value.items()
-        }
-    if isinstance(value, (list, tuple)):
-        return [_redact(item) for item in value]
-    return value
-
-
 def build_tool_result(
     target: str,
     result_type: str,
@@ -83,10 +67,10 @@ def build_tool_result(
 ) -> dict[str, Any]:
     """Build the shared `ToolResult` envelope (data-model.md §2)."""
     return {
-        "target": target,
+        "target": redact_value(target),
         "result_type": result_type,
-        "result": _redact(result) if result is not None else None,
-        "warnings": list(warnings) if warnings else [],
+        "result": redact_value(result) if result is not None else None,
+        "warnings": redact_value(list(warnings)) if warnings else [],
     }
 
 
@@ -102,6 +86,14 @@ def not_found_result(target: str, _result_type: str) -> dict[str, Any]:
 
 def _effective_limit(limit: int | None) -> int:
     return min(limit or DEFAULT_QUERY_LIMIT, MAX_QUERY_LIMIT)
+
+
+def _bounded_collection(
+    items: list[Any], name: str, warnings: list[str], limit: int = DEFAULT_QUERY_LIMIT
+) -> list[Any]:
+    if len(items) > limit:
+        warnings.append(f"{name} truncated to {limit} items")
+    return items[:limit]
 
 
 def count_results(result: dict[str, Any] | list[Any] | None) -> int:
@@ -162,12 +154,30 @@ async def area_context(client: MemgraphClient, area: str) -> dict[str, Any]:
         return not_found_result(area, RESULT_TYPE_AREA_CONTEXT)
 
     row = rows[0]
+    warnings: list[str] = []
+    devices = [node_properties(d) for d in row.get("devices") or [] if d is not None]
+    entities = [node_properties(e) for e in row.get("entities") or [] if e is not None]
+    devices = _bounded_collection(devices, "devices", warnings)
+    entities = _bounded_collection(entities, "entities", warnings)
+    entities_by_device: dict[str, list[dict[str, Any]]] = {}
+    for entity_data in entities:
+        device_id = entity_data.get("device_id")
+        if device_id:
+            entities_by_device.setdefault(device_id, []).append(entity_data)
+    grouped_devices = [
+        {**device_data, "entities": entities_by_device.get(device_data.get("ha_id"), [])}
+        for device_data in devices
+    ]
+    if not devices:
+        warnings.append("device relationships unavailable")
+    if not entities:
+        warnings.append("entity relationships unavailable")
     result = {
         "area": node_properties(row["a"]),
-        "devices": [node_properties(d) for d in row.get("devices") or [] if d is not None],
-        "entities": [node_properties(e) for e in row.get("entities") or [] if e is not None],
+        "devices": grouped_devices,
+        "entities": entities,
     }
-    return build_tool_result(area, RESULT_TYPE_AREA_CONTEXT, result)
+    return build_tool_result(area, RESULT_TYPE_AREA_CONTEXT, result, warnings)
 
 
 async def device_context(client: MemgraphClient, device: str) -> dict[str, Any]:
@@ -184,12 +194,19 @@ async def device_context(client: MemgraphClient, device: str) -> dict[str, Any]:
         return not_found_result(device, RESULT_TYPE_DEVICE_CONTEXT)
 
     row = rows[0]
+    warnings: list[str] = []
+    entities = [node_properties(e) for e in row.get("entities") or [] if e is not None]
+    entities = _bounded_collection(entities, "entities", warnings)
+    if row.get("a") is None:
+        warnings.append("area relationship unavailable")
+    if not entities:
+        warnings.append("entity relationships unavailable")
     result = {
         "device": node_properties(row["d"]),
         "area": node_properties(row["a"]) if row.get("a") is not None else None,
-        "entities": [node_properties(e) for e in row.get("entities") or [] if e is not None],
+        "entities": entities,
     }
-    return build_tool_result(device, RESULT_TYPE_DEVICE_CONTEXT, result)
+    return build_tool_result(device, RESULT_TYPE_DEVICE_CONTEXT, result, warnings)
 
 
 async def entity_context(client: MemgraphClient, entity: str) -> dict[str, Any]:
@@ -200,7 +217,7 @@ async def entity_context(client: MemgraphClient, entity: str) -> dict[str, Any]:
         "WHERE e.ha_id = $identifier OR toLower(e.name) = toLower($identifier) "
         f"OPTIONAL MATCH (d:{LABEL_DEVICE})-[:{REL_HAS_ENTITY}]->(e) "
         f"OPTIONAL MATCH (a:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(d) "
-        f"OPTIONAL MATCH (a2:{LABEL_AREA})-[:{REL_HAS_AREA}]->(e) "
+        f"OPTIONAL MATCH (e)-[:{REL_HAS_AREA}]->(a2:{LABEL_AREA}) "
         f"OPTIONAL MATCH (e)-[:{REL_IN_DOMAIN}]->(dom:{LABEL_DOMAIN}) "
         f"OPTIONAL MATCH (e)-[:{REL_PROVIDED_BY}]->(integ:{LABEL_INTEGRATION}) "
         f"OPTIONAL MATCH (e)-[:{REL_CLASSIFIED_AS}]->(st) "
@@ -216,16 +233,29 @@ async def entity_context(client: MemgraphClient, entity: str) -> dict[str, Any]:
     row = rows[0]
     dom = node_properties(row.get("dom"))
     integ = node_properties(row.get("integ"))
+    warnings: list[str] = []
+    semantic_types = [t for t in row.get("semantic_types") or [] if t]
+    dependents = [d for d in row.get("dependents") or [] if d]
+    semantic_types = _bounded_collection(semantic_types, "semantic types", warnings)
+    dependents = _bounded_collection(dependents, "dependents", warnings)
+    for value, relationship in (
+        (row.get("d"), "device"),
+        (row.get("area"), "area"),
+        (dom, "domain"),
+        (integ, "integration"),
+    ):
+        if value is None:
+            warnings.append(f"{relationship} relationship unavailable")
     result = {
         "entity": node_properties(row["e"]),
         "device": node_properties(row["d"]) if row.get("d") is not None else None,
         "area": node_properties(row["area"]) if row.get("area") is not None else None,
         "domain": dom.get("ha_id") if dom is not None else None,
         "integration": integ.get("ha_id") if integ is not None else None,
-        "semantic_types": [t for t in row.get("semantic_types") or [] if t],
-        "dependents": [d for d in row.get("dependents") or [] if d],
+        "semantic_types": semantic_types,
+        "dependents": dependents,
     }
-    return build_tool_result(entity, RESULT_TYPE_ENTITY_CONTEXT, result)
+    return build_tool_result(entity, RESULT_TYPE_ENTITY_CONTEXT, result, warnings)
 
 
 async def automation_dependencies(client: MemgraphClient, entity: str) -> dict[str, Any]:
@@ -234,11 +264,12 @@ async def automation_dependencies(client: MemgraphClient, entity: str) -> dict[s
         f"MATCH (e:{LABEL_ENTITY}) "
         "WHERE e.ha_id = $identifier OR toLower(e.name) = toLower($identifier) "
         f"OPTIONAL MATCH (auto:{LABEL_AUTOMATION})-[r:{REL_REFERENCES}|{REL_CONTROLS}]->(e) "
-        "WITH e, collect(DISTINCT {automation: auto, reason: type(r)}) AS related "
-        "RETURN e, [x IN related WHERE x.automation IS NOT NULL] AS related LIMIT 1"
+        "WITH count(DISTINCT e) AS matched_count, "
+        "collect(DISTINCT {automation: auto, reason: type(r)}) AS related "
+        "RETURN matched_count, [x IN related WHERE x.automation IS NOT NULL] AS related"
     )
     rows = await client.run_query(query, {"identifier": entity})
-    if not rows or rows[0].get("e") is None:
+    if not rows or not rows[0].get("matched_count"):
         return not_found_result(entity, RESULT_TYPE_AUTOMATION_DEPENDENCIES)
 
     row = rows[0]
@@ -254,7 +285,8 @@ async def automation_dependencies(client: MemgraphClient, entity: str) -> dict[s
                 "reason": item.get("reason"),
             }
         )
-    warnings = [] if automations else [_NO_DEPENDENCIES_WARNING]
+    warnings: list[str] = [] if automations else [_NO_DEPENDENCIES_WARNING]
+    automations = _bounded_collection(automations, "automations", warnings)
     return build_tool_result(
         entity, RESULT_TYPE_AUTOMATION_DEPENDENCIES, {"automations": automations}, warnings
     )

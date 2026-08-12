@@ -205,6 +205,24 @@ def test_card_entity_ids_extracts_single_and_list_and_dict_forms() -> None:
     assert dashboard_sync._card_entity_ids(card) == ["light.a", "light.b", "light.c"]
 
 
+def test_card_entity_ids_extracts_nested_and_custom_fields() -> None:
+    card = {
+        "type": "horizontal-stack",
+        "cards": [
+            {"type": "gauge", "entity": "sensor.relative_pressure"},
+            {
+                "type": "custom:simple-weather-card",
+                "custom": [{"pressure": "sensor.absolute_pressure"}],
+            },
+        ],
+    }
+
+    assert dashboard_sync._card_entity_ids(card) == [
+        "sensor.relative_pressure",
+        "sensor.absolute_pressure",
+    ]
+
+
 def test_iter_cards_flattens_views_and_cards_with_index() -> None:
     config = {
         "views": [
@@ -219,4 +237,26 @@ def test_iter_cards_flattens_views_and_cards_with_index() -> None:
         (0, 0, "a"),
         (0, 1, "b"),
         (1, 0, "c"),
+    ]
+
+
+def test_iter_cards_includes_section_cards() -> None:
+    config = {
+        "views": [
+            {
+                "type": "sections",
+                "sections": [
+                    {"type": "grid", "cards": [{"type": "heading"}, {"type": "stack"}]},
+                    {"type": "grid", "cards": [{"type": "entities"}]},
+                ],
+            }
+        ]
+    }
+
+    result = dashboard_sync._iter_cards(config)
+
+    assert [(v, c, card["type"]) for v, c, card in result] == [
+        (0, 0, "heading"),
+        (0, 1, "stack"),
+        (0, 2, "entities"),
     ]

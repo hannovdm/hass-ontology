@@ -10,9 +10,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import impact_analysis, query_tools
+from homeassistant.core import HomeAssistant
+
+from . import agent_audit, impact_analysis, query_tools
 from .const import (
     CONTEXT_EXPORT_ALLOWED_FIELDS,
+    DEFAULT_QUERY_LIMIT,
     EXPORT_TYPE_AREA,
     EXPORT_TYPE_AUTOMATION,
     EXPORT_TYPE_DEVICE,
@@ -25,7 +28,9 @@ from .const import (
     LABEL_AREA,
     LABEL_AUTOMATION,
     LABEL_DEVICE,
+    LABEL_DOMAIN,
     LABEL_ENTITY,
+    LABEL_INTEGRATION,
     LABEL_SEMANTIC_TYPE,
     LABEL_VALIDATION_FINDING,
     REL_CLASSIFIED_AS,
@@ -91,21 +96,34 @@ async def _export_area_or_whole_home(
             "WHERE f.target_id IN $entity_ids OR f.target_id = $area_id RETURN f",
             {"entity_ids": entity_ids, "area_id": target},
         )
+        truncated_collections: list[str] = []
     else:
+        truncated_collections = []
+        async def bounded_rows(query: str, collection: str) -> list[dict[str, Any]]:
+            rows, truncated = await client.run_query_limited(query, None, DEFAULT_QUERY_LIMIT)
+            if truncated:
+                truncated_collections.append(collection)
+            return rows
+
         devices = [
             node_properties(r["d"])
-            for r in await client.run_query(f"MATCH (d:{LABEL_DEVICE}) RETURN d")
+            for r in await bounded_rows(f"MATCH (d:{LABEL_DEVICE}) RETURN d", "devices")
         ]
         entities = [
             node_properties(r["e"])
-            for r in await client.run_query(f"MATCH (e:{LABEL_ENTITY}) RETURN e")
+            for r in await bounded_rows(f"MATCH (e:{LABEL_ENTITY}) RETURN e", "entities")
         ]
-        automations_rows = await client.run_query(f"MATCH (auto:{LABEL_AUTOMATION}) RETURN auto")
-        semantic_rows = await client.run_query(
-            f"MATCH (e:{LABEL_ENTITY})-[:{REL_CLASSIFIED_AS}]->(st) "
-            "RETURN st, e.ha_id AS entity_id, labels(st) AS labels"
+        automations_rows = await bounded_rows(
+            f"MATCH (auto:{LABEL_AUTOMATION}) RETURN auto", "automations"
         )
-        finding_rows = await client.run_query(f"MATCH (f:{LABEL_VALIDATION_FINDING}) RETURN f")
+        semantic_rows = await bounded_rows(
+            f"MATCH (e:{LABEL_ENTITY})-[:{REL_CLASSIFIED_AS}]->(st) "
+            "RETURN st, e.ha_id AS entity_id, labels(st) AS labels",
+            "semantic assets",
+        )
+        finding_rows = await bounded_rows(
+            f"MATCH (f:{LABEL_VALIDATION_FINDING}) RETURN f", "validation findings"
+        )
 
     semantic_assets = []
     for row in semantic_rows:
@@ -141,6 +159,8 @@ async def _export_area_or_whole_home(
             )
             if p is not None
         ],
+        "truncated": bool(truncated_collections),
+        "truncated_collections": truncated_collections,
     }
 
 
@@ -157,6 +177,24 @@ async def _export_entity(client: MemgraphClient, target: str) -> dict[str, Any] 
         )
     if result.get("area"):
         relationships.append({"type": "HAS_AREA", "target": project(result["area"], LABEL_AREA)})
+    if result.get("domain"):
+        relationships.append(
+            {"type": "IN_DOMAIN", "target": project({"ha_id": result["domain"]}, LABEL_DOMAIN)}
+        )
+    if result.get("integration"):
+        relationships.append(
+            {
+                "type": "PROVIDED_BY",
+                "target": project({"ha_id": result["integration"]}, LABEL_INTEGRATION),
+            }
+        )
+    for semantic_type in result.get("semantic_types", []):
+        relationships.append(
+            {
+                "type": "CLASSIFIED_AS",
+                "target": project({"ha_id": semantic_type}, LABEL_SEMANTIC_TYPE),
+            }
+        )
     for dependent_id in result.get("dependents", []):
         relationships.append({"type": "REFERENCES", "target": {"ha_id": dependent_id}})
     return {"relationships": relationships}
@@ -207,25 +245,67 @@ async def _export_impact(client: MemgraphClient, target: str) -> dict[str, Any] 
 
 
 async def export(
-    client: MemgraphClient, export_type: str, target: str | None = None
+    client: MemgraphClient,
+    export_type: str,
+    target: str | None = None,
+    *,
+    hass: HomeAssistant | None = None,
+    entry_id: str | None = None,
 ) -> dict[str, Any]:
     """Build the allow-list JSON export document for `export_type` (FR-019–FR-022)."""
-    if export_type == EXPORT_TYPE_WHOLE_HOME:
-        document = await _export_area_or_whole_home(client, None)
-    elif export_type == EXPORT_TYPE_AREA:
-        document = await _export_area_or_whole_home(client, target)
-    elif export_type == EXPORT_TYPE_ENTITY:
-        document = await _export_entity(client, target)
-    elif export_type == EXPORT_TYPE_DEVICE:
-        document = await _export_device(client, target)
-    elif export_type == EXPORT_TYPE_AUTOMATION:
-        document = await _export_automation(client, target)
-    elif export_type == EXPORT_TYPE_IMPACT:
-        document = await _export_impact(client, target)
-    else:
-        raise ValueError(f"Unknown export_type: {export_type!r}")
+    try:
+        if export_type == EXPORT_TYPE_WHOLE_HOME:
+            document = await _export_area_or_whole_home(client, None)
+        elif export_type == EXPORT_TYPE_AREA:
+            document = await _export_area_or_whole_home(client, target)
+        elif export_type == EXPORT_TYPE_ENTITY:
+            document = await _export_entity(client, target)
+        elif export_type == EXPORT_TYPE_DEVICE:
+            document = await _export_device(client, target)
+        elif export_type == EXPORT_TYPE_AUTOMATION:
+            document = await _export_automation(client, target)
+        elif export_type == EXPORT_TYPE_IMPACT:
+            document = await _export_impact(client, target)
+        else:
+            raise ValueError(f"Unknown export_type: {export_type!r}")
+    except Exception as err:
+        if hass is not None and entry_id is not None:
+            await agent_audit.async_append_record(
+                hass,
+                entry_id,
+                {
+                    "event": "context_export",
+                    "export_type": export_type,
+                    "status": "error",
+                    "result_count": 0,
+                    "error_category": type(err).__name__,
+                    "timestamp": agent_audit.now_iso(),
+                },
+            )
+        raise
 
     resolved_target = target or "whole_home"
     if document is None:
-        return not_found_result(resolved_target, RESULT_TYPE_EXPORT_CONTEXT)
-    return build_tool_result(resolved_target, RESULT_TYPE_EXPORT_CONTEXT, document)
+        tool_result = not_found_result(resolved_target, RESULT_TYPE_EXPORT_CONTEXT)
+    else:
+        warnings = [
+            f"{collection} truncated to {DEFAULT_QUERY_LIMIT} items"
+            for collection in document.get("truncated_collections", [])
+        ]
+        tool_result = build_tool_result(
+            resolved_target, RESULT_TYPE_EXPORT_CONTEXT, document, warnings
+        )
+    if hass is not None and entry_id is not None:
+        await agent_audit.async_append_record(
+            hass,
+            entry_id,
+            {
+                "event": "context_export",
+                "export_type": export_type,
+                "status": "not_found" if document is None else "resolved",
+                "result_count": query_tools.count_results(tool_result.get("result")),
+                "error_category": None,
+                "timestamp": agent_audit.now_iso(),
+            },
+        )
+    return tool_result

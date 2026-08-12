@@ -87,7 +87,7 @@ async def test_search_reports_truncated_as_a_warning() -> None:
         ),
         (
             "automation_dependencies",
-            {"e": {"ha_id": "light.kitchen"}, "related": []},
+            {"matched_count": 1, "related": []},
         ),
     ],
 )
@@ -100,6 +100,36 @@ async def test_functions_return_the_common_tool_result_shape(func_name: str, row
     assert result["result_type"] != "not_found"
     assert result["result"] is not None
     assert isinstance(result["warnings"], list)
+
+
+async def test_automation_dependencies_aggregates_duplicate_entity_names() -> None:
+    client = _client_with_rows(
+        [
+            {
+                "matched_count": 2,
+                "related": [
+                    {
+                        "automation": {
+                            "ha_id": "automation.auto_office_lights",
+                            "name": "Auto Office Lights On",
+                        },
+                        "reason": REL_REFERENCES,
+                    }
+                ],
+            }
+        ]
+    )
+
+    result = await query_tools.automation_dependencies(client, "office lights")
+
+    assert result["result_type"] != "not_found"
+    assert result["result"]["automations"] == [
+        {
+            "ha_id": "automation.auto_office_lights",
+            "name": "Auto Office Lights On",
+            "reason": REL_REFERENCES,
+        }
+    ]
 
 
 @pytest.mark.parametrize(
@@ -130,6 +160,72 @@ async def test_results_never_contain_a_secret_key(secret_key: str) -> None:
     result = await query_tools.area_context(client, "kitchen")
     assert result["result"]["area"][secret_key] == "**REDACTED**"
     assert "super-secret-value" not in str(result["result"])
+
+
+def test_tool_result_recursively_redacts_secret_key_patterns_and_inline_values() -> None:
+    result = query_tools.build_tool_result(
+        "MATCH (n) WHERE n.password='hunter2' RETURN n",
+        "query",
+        {
+            "nested": {
+                "database_password_value": "hunter2",
+                "message": "token=abc123",
+            },
+            "items": [{"clientCredential": "top-secret"}],
+        },
+        ["password=hunter2"],
+    )
+
+    serialized = str(result)
+    assert "hunter2" not in serialized
+    assert "abc123" not in serialized
+    assert "top-secret" not in serialized
+    assert result["result"]["nested"]["database_password_value"] == "**REDACTED**"
+    assert result["result"]["items"][0]["clientCredential"] == "**REDACTED**"
+
+
+async def test_area_context_bounds_collections_groups_entities_and_warns() -> None:
+    client = _client_with_rows(
+        [
+            {
+                "a": {"ha_id": "office", "name": "Office"},
+                "devices": [{"ha_id": "device-1", "name": "Lamp"}],
+                "entities": [
+                    {"ha_id": f"sensor.office_{index}", "device_id": "device-1"}
+                    for index in range(102)
+                ],
+            }
+        ]
+    )
+
+    result = await query_tools.area_context(client, "office")
+
+    assert len(result["result"]["entities"]) == 100
+    assert len(result["result"]["devices"][0]["entities"]) == 100
+    assert "entities truncated to 100 items" in result["warnings"]
+
+
+async def test_entity_context_reports_unavailable_relationships() -> None:
+    client = _client_with_rows(
+        [
+            {
+                "e": {"ha_id": "sensor.orphan"},
+                "d": None,
+                "area": None,
+                "dom": None,
+                "integ": None,
+                "semantic_types": [],
+                "dependents": [],
+            }
+        ]
+    )
+
+    result = await query_tools.entity_context(client, "sensor.orphan")
+
+    assert "device relationship unavailable" in result["warnings"]
+    assert "area relationship unavailable" in result["warnings"]
+    assert "domain relationship unavailable" in result["warnings"]
+    assert "integration relationship unavailable" in result["warnings"]
 
 
 def test_search_uses_only_v2_labels_and_relationships_no_new_schema() -> None:

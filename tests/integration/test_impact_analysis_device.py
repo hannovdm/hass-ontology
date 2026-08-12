@@ -8,6 +8,7 @@ from __future__ import annotations
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ontology import graph_builder, impact_analysis
@@ -35,15 +36,36 @@ async def test_device_impact_analysis_aggregates_exposed_entities(
     )
     hass.states.async_set(entity1.entity_id, "on")
     hass.states.async_set(entity2.entity_id, "on")
-    hass.states.async_set(
-        "automation.evening_scene",
-        "on",
-        {"entity_id": [entity1.entity_id], "friendly_name": "Evening scene"},
-    )
-    hass.states.async_set(
-        "automation.security_check",
-        "on",
-        {"entity_id": [entity2.entity_id], "friendly_name": "Security check"},
+    # Real automations are required (not fake states): HA automation
+    # entities only expose their referenced entities via the in-memory
+    # `referenced_entities` property, not via state attributes.
+    await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": [
+                {
+                    "alias": "Evening scene",
+                    "trigger": [{"platform": "event", "event_type": "test_event"}],
+                    "action": [
+                        {
+                            "service": "homeassistant.turn_on",
+                            "target": {"entity_id": entity1.entity_id},
+                        }
+                    ],
+                },
+                {
+                    "alias": "Security check",
+                    "trigger": [{"platform": "event", "event_type": "test_event"}],
+                    "action": [
+                        {
+                            "service": "homeassistant.turn_on",
+                            "target": {"entity_id": entity2.entity_id},
+                        }
+                    ],
+                },
+            ]
+        },
     )
     await hass.async_block_till_done()
     await graph_builder.build_full_graph(hass, memgraph_client)
@@ -96,6 +118,7 @@ async def test_device_impact_analysis_reflects_current_area_after_move(
     tool_result = await impact_analysis.analyze(memgraph_client, "device", device.id)
     assert tool_result["result_type"] == "impact_analysis"
     assert entity.entity_id in tool_result["result"]["affected_entities"]
+    assert tool_result["result"]["current_area"]["ha_id"] == area2.id
 
 
 async def test_unresolvable_device_target_returns_not_found(

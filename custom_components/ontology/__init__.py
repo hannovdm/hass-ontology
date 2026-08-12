@@ -241,6 +241,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
     _async_register_services(hass)
     websocket_api.async_register_commands(hass)
     intent_handlers.async_register_intents(hass)
+    await intent_handlers.async_ensure_custom_sentences(hass)
     if entry.options.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED):
         await _async_register_mcp_view(hass, entry)
     await _async_register_panel(hass)
@@ -440,7 +441,11 @@ async def _async_handle_impact_analysis(call: ServiceCall) -> ServiceResponse:
     if not coordinators:
         return query_tools.not_found_result(call.data[ATTR_TARGET], RESULT_TYPE_IMPACT_ANALYSIS)
     return await impact_analysis.analyze(
-        coordinators[0].memgraph_client, call.data[ATTR_TARGET_TYPE], call.data[ATTR_TARGET]
+        coordinators[0].memgraph_client,
+        call.data[ATTR_TARGET_TYPE],
+        call.data[ATTR_TARGET],
+        hass=call.hass,
+        entry_id=coordinators[0].entry.entry_id,
     )
 
 
@@ -452,7 +457,11 @@ async def _async_handle_export_context(call: ServiceCall) -> ServiceResponse:
             call.data.get(ATTR_TARGET) or "whole_home", RESULT_TYPE_EXPORT_CONTEXT
         )
     return await context_export.export(
-        coordinators[0].memgraph_client, call.data[ATTR_EXPORT_TYPE], call.data.get(ATTR_TARGET)
+        coordinators[0].memgraph_client,
+        call.data[ATTR_EXPORT_TYPE],
+        call.data.get(ATTR_TARGET),
+        hass=call.hass,
+        entry_id=coordinators[0].entry.entry_id,
     )
 
 

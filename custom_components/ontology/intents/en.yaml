@@ -3,42 +3,42 @@ intents:
   OntologyAutomationDependencies:
     data:
       - sentences:
-          - "what automations depend on {entity}"
-          - "what uses {entity}"
-          - "what depends on {entity}"
+          - "what automations depend on {ontology_entity}"
+          - "what uses {ontology_entity}"
+          - "what depends on {ontology_entity}"
   OntologyAreaContents:
     data:
       - sentences:
-          - "what devices are in {area}"
-          - "what's in the {area}"
-          - "what is in the {area}"
+          - "what devices are in {ontology_area}"
+          - "what's in the {ontology_area}"
+          - "what is in the {ontology_area}"
   OntologyEntityContext:
     data:
       - sentences:
-          - "what is {entity} connected to"
-          - "tell me about {entity}"
+          - "what is {ontology_entity} connected to"
+          - "tell me about {ontology_entity}"
   OntologyDeviceContext:
     data:
       - sentences:
-          - "what is the device {device} connected to"
-          - "tell me about the device {device}"
+          - "what is the device {ontology_device} connected to"
+          - "tell me about the device {ontology_device}"
   OntologyImpactAnalysis:
     data:
       - sentences:
-          - "what would be affected if {entity} was removed"
-          - "what depends on {entity} if it stopped working"
+          - "what would be affected if {ontology_entity} was removed"
+          - "what depends on {ontology_entity} if it stopped working"
   OntologySearch:
     data:
       - sentences:
-          - "search the ontology for {term}"
-          - "find {term} in the ontology"
+          - "search the ontology for {ontology_term}"
+          - "find {ontology_term} in the ontology"
 
 lists:
-  entity:
+  ontology_entity:
     wildcard: true
-  area:
+  ontology_area:
     wildcard: true
-  device:
+  ontology_device:
     wildcard: true
-  term:
+  ontology_term:
     wildcard: true

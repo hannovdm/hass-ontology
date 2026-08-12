@@ -16,6 +16,7 @@ from .const import (
     CONF_ENCRYPTED,
     CONF_HOST,
     CONF_MCP_ENABLED,
+    CONF_MCP_ALLOWED_NETWORKS,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_USERNAME,
@@ -23,6 +24,7 @@ from .const import (
     DEFAULT_DATABASE,
     DEFAULT_ENCRYPTED,
     DEFAULT_MCP_ENABLED,
+    DEFAULT_MCP_ALLOWED_NETWORKS,
     DEFAULT_PORT,
     DOMAIN,
 )
@@ -195,6 +197,12 @@ def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     ] = bool
     schema_dict[
         vol.Optional(
+            CONF_MCP_ALLOWED_NETWORKS,
+            default=defaults.get(CONF_MCP_ALLOWED_NETWORKS, DEFAULT_MCP_ALLOWED_NETWORKS),
+        )
+    ] = str
+    schema_dict[
+        vol.Optional(
             CONF_MCP_ENABLED, default=defaults.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED)
         )
     ] = bool
@@ -215,7 +223,11 @@ class OntologyOptionsFlow(OptionsFlow):
             connection_data = {
                 key: value
                 for key, value in user_input.items()
-                if key not in (CONF_AUTO_CLASSIFY, CONF_MCP_ENABLED)
+                if key not in (
+                    CONF_AUTO_CLASSIFY,
+                    CONF_MCP_ENABLED,
+                    CONF_MCP_ALLOWED_NETWORKS,
+                )
             }
             try:
                 await _validate_connection(connection_data)
@@ -236,6 +248,9 @@ class OntologyOptionsFlow(OptionsFlow):
                         ),
                         CONF_MCP_ENABLED: user_input.get(
                             CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED
+                        ),
+                        CONF_MCP_ALLOWED_NETWORKS: user_input.get(
+                            CONF_MCP_ALLOWED_NETWORKS, DEFAULT_MCP_ALLOWED_NETWORKS
                         ),
                     },
                 )

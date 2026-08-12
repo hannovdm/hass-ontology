@@ -5,8 +5,9 @@ T063 (records older than 30 days are pruned on append and via the sweep)."""
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
-from custom_components.ontology import agent_audit
+from custom_components.ontology import agent_audit, context_export, impact_analysis
 
 
 async def test_append_and_get_records_round_trip(hass) -> None:
@@ -24,21 +25,33 @@ async def test_append_and_get_records_round_trip(hass) -> None:
 
 
 async def test_records_never_contain_raw_utterance_or_credential(hass) -> None:
-    record = {
+    hostile_record = {
         "event": "mcp_tool_call",
         "tool": "entity_context",
         "client_id": "127.0.0.1",
         "status": "ok",
         "result_count": 1,
-        "error_category": None,
+        "error_category": "password=hunter2",
         "timestamp": agent_audit.now_iso(),
+        "utterance": "turn off every light",
+        "access_token": "abc123",
+        "nested": {"clientCredential": "top-secret"},
     }
-    await agent_audit.async_append_record(hass, "entry2", record)
+    await agent_audit.async_append_record(hass, "entry2", hostile_record)
     records = await agent_audit.async_get_records(hass, "entry2")
     assert "utterance" not in records[0]
-    assert "token" not in records[0]
-    assert "password" not in records[0]
-    assert "credential" not in records[0]
+    assert "access_token" not in records[0]
+    assert "nested" not in records[0]
+    assert "hunter2" not in str(records[0])
+    assert set(records[0]) == {
+        "event",
+        "tool",
+        "client_id",
+        "status",
+        "result_count",
+        "error_category",
+        "timestamp",
+    }
 
 
 async def test_expired_records_pruned_on_append(hass) -> None:
@@ -87,3 +100,23 @@ async def test_summarize_counts_by_event_and_status(hass) -> None:
     summary = await agent_audit.async_summarize(hass, "entry5")
     assert summary["mcp_tool_call"]["ok"] == 2
     assert summary["mcp_auth_rejected"]["rejected"] == 1
+
+
+async def test_impact_and_context_export_append_accurate_records(hass) -> None:
+    client = AsyncMock()
+    client.run_query = AsyncMock(return_value=[])
+    client.run_query_limited = AsyncMock(return_value=([], False))
+
+    await impact_analysis.analyze(
+        client, "entity", "light.missing", hass=hass, entry_id="entry6"
+    )
+    await context_export.export(
+        client, "whole_home", hass=hass, entry_id="entry6"
+    )
+
+    records = await agent_audit.async_get_records(hass, "entry6")
+    assert records[0]["event"] == "impact_analysis"
+    assert records[0]["status"] == "not_found"
+    assert records[0]["result_count"] == 0
+    assert records[1]["event"] == "context_export"
+    assert records[1]["status"] == "resolved"
