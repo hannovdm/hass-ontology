@@ -143,13 +143,18 @@ def _entity_signals(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
     ) or entity_id
 
     area_name = ""
+    device_name = ""
     area_id = _resolve_area_id(hass, entity_id)
     if area_id:
         area = ar.async_get(hass).async_get_area(area_id)
         if area is not None:
             area_name = area.name or ""
+    if entry is not None and entry.device_id:
+        device = dr.async_get(hass).devices.get(entry.device_id)
+        if device is not None:
+            device_name = device.name_by_user or device.name or ""
 
-    text = f" {entity_id} {friendly_name} {area_name} ".lower()
+    text = f" {entity_id} {friendly_name} {device_name} {area_name} ".lower()
     return {
         "domain": domain,
         "device_class": device_class,
@@ -198,7 +203,7 @@ def infer_energy_role(hass: HomeAssistant, entity_id: str) -> str | None:
     generic word such as "load".
     """
     signals = _entity_signals(hass, entity_id)
-    if signals["device_class"] != "power":
+    if signals["device_class"] not in ("power", "energy"):
         return None
     text = signals["text"]
     if any(marker in text for marker in ("grid export", "export to grid", "feed in")):

@@ -208,6 +208,60 @@ async def test_unattached_generic_power_measurement_remains_unknown(hass) -> Non
     assert infer_energy_role(hass, "sensor.whole_home_power") is None
 
 
+async def test_device_backed_energy_measurement_infers_consumer(hass) -> None:
+    MockConfigEntry(entry_id="energy-entry").add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id="energy-entry",
+        identifiers={("test", "washer")},
+        name="Front load washer",
+    )
+    entry = er.async_get(hass).async_get_or_create(
+        "sensor",
+        "test",
+        "washer-energy-today",
+        suggested_object_id="washer_energy_today",
+        device_id=device.id,
+    )
+    hass.states.async_set(
+        entry.entity_id,
+        "1.8",
+        {
+            "device_class": "energy",
+            "unit_of_measurement": "kWh",
+            "friendly_name": "Energy today",
+        },
+    )
+
+    assert infer_energy_role(hass, entry.entity_id) == ENERGY_ROLE_CONSUMER
+
+
+async def test_device_name_preserves_non_consumer_energy_role(hass) -> None:
+    MockConfigEntry(entry_id="solar-entry").add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id="solar-entry",
+        identifiers={("test", "solar-inverter")},
+        name="Solar inverter",
+    )
+    entry = er.async_get(hass).async_get_or_create(
+        "sensor",
+        "test",
+        "solar-energy-today",
+        suggested_object_id="solar_energy_today",
+        device_id=device.id,
+    )
+    hass.states.async_set(
+        entry.entity_id,
+        "8.4",
+        {
+            "device_class": "energy",
+            "unit_of_measurement": "kWh",
+            "friendly_name": "Energy today",
+        },
+    )
+
+    assert infer_energy_role(hass, entry.entity_id) == ENERGY_ROLE_PRODUCER
+
+
 async def test_reconciliation_upserts_inferred_source_and_repairs_bindings(hass) -> None:
     hass.states.async_set(
         "sensor.solar_output",

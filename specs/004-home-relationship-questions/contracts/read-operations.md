@@ -58,6 +58,11 @@ Input:
 
 A reading qualifies only when available, fresh, `power_watts > threshold_watts`, and effective energy role is `consumer`. User role overrides inferred role. Devices appear once and retain individual measurement records; overlapping readings are not summed.
 
+The result also includes `known_consumers_without_current_power`: devices with
+consumer-role cumulative `energy` entities but no qualifying current power
+reading. These records identify known electricity consumers without claiming
+that a daily or monthly energy total proves they are active now.
+
 ### `automation_dependencies`
 
 Input: `target` string plus optional `limit`.

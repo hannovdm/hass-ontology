@@ -416,6 +416,13 @@ async def test_active_consumers_intent_renders_each_power_reading(
                 }
             ],
             "unresolved_role_count": 0,
+            "known_consumers_without_current_power": [
+                {
+                    "name": "Front load washer",
+                    "area_name": "Laundry",
+                    "energy_entities": [{"name": "Energy today"}],
+                }
+            ],
             "truncated": False,
         },
     )
@@ -430,6 +437,7 @@ async def test_active_consumers_intent_renders_each_power_reading(
     assert "Tumble dryer in Laundry" in speech
     assert "Dryer power (425.5 W)" in speech
     assert "Dryer plug power (418 W)" in speech
+    assert "Known consumers without current power: Front load washer in Laundry" in speech
     assert "843.5" not in speech
 
 

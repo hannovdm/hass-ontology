@@ -26,8 +26,8 @@ from .const import (
     CONF_LOW_BATTERY_THRESHOLD,
     CONF_MAX_MEASUREMENT_AGE_HOURS,
     CONF_RELATIONSHIP_RESULT_LIMIT,
-    DEFAULT_LOW_BATTERY_THRESHOLD,
     DEFAULT_ACTIVE_POWER_THRESHOLD,
+    DEFAULT_LOW_BATTERY_THRESHOLD,
     DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
     DEFAULT_RELATIONSHIP_RESULT_LIMIT,
     DOMAIN,
@@ -356,7 +356,10 @@ class OntologyActiveConsumers(_OntologyIntentHandler):
             )
         result = tool_result.get("result") or {}
         consumers = result.get("consumers") or []
-        if tool_result.get("outcome") == OUTCOME_EMPTY or not consumers:
+        known_consumers = result.get("known_consumers_without_current_power") or []
+        if tool_result.get("outcome") == OUTCOME_EMPTY or not (
+            consumers or known_consumers
+        ):
             speech = "No active electricity consumers are known."
         else:
             lines = []
@@ -369,6 +372,19 @@ class OntologyActiveConsumers(_OntologyIntentHandler):
                     for measurement in consumer.get("measurements", [])
                 )
                 lines.append(f"{consumer['name']}{location}: {readings}")
+            if known_consumers:
+                known_names = []
+                for consumer in known_consumers:
+                    location = (
+                        f" in {consumer['area_name']}"
+                        if consumer.get("area_name")
+                        else ""
+                    )
+                    known_names.append(f"{consumer['name']}{location}")
+                lines.append(
+                    "Known consumers without current power: "
+                    + ", ".join(known_names)
+                )
             speech = "\n".join(lines)
         if result.get("unresolved_role_count"):
             speech += " Some active power readings have no energy role."

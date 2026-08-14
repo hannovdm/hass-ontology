@@ -452,13 +452,50 @@ async def active_consumers(
         }
         for row in rows
     ]
+    active_device_ids = {consumer["device_id"] for consumer in consumers}
+    known_rows = await client.run_query(
+        f"MATCH (device:{LABEL_DEVICE})-[:{REL_HAS_ENTITY}]->(e:{LABEL_ENTITY}) "
+        "WHERE e.device_class = 'energy' "
+        "AND NOT device.ha_id IN $active_device_ids "
+        f"OPTIONAL MATCH (user_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $user_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        f"OPTIONAL MATCH (inferred_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $inferred_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        "WITH device, e, coalesce(user_role.role, inferred_role.role) AS effective_role "
+        "WHERE effective_role = $consumer_role "
+        f"OPTIONAL MATCH (area:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(device) "
+        "WITH device, area, collect(DISTINCT {entity_id: e.ha_id, "
+        "name: coalesce(e.name, e.ha_id)}) AS energy_entities "
+        "RETURN device.ha_id AS device_id, "
+        "coalesce(device.name, device.ha_id) AS name, "
+        "area.ha_id AS area_id, area.name AS area_name, energy_entities "
+        "ORDER BY toLower(coalesce(device.name, '')), device.ha_id "
+        "LIMIT $known_candidate_limit",
+        {
+            **parameters,
+            "active_device_ids": sorted(active_device_ids),
+            "known_candidate_limit": effective_limit + 1,
+        },
+    )
+    known_truncated = len(known_rows) > effective_limit
+    known_consumers = [
+        {
+            "device_id": row["device_id"],
+            "name": row.get("name") or row["device_id"],
+            "area_id": row.get("area_id"),
+            "area_name": row.get("area_name"),
+            "energy_entities": list(row.get("energy_entities") or []),
+        }
+        for row in known_rows[:effective_limit]
+        if row["device_id"] not in active_device_ids
+    ]
     warnings: list[str] = []
     if unresolved_role_count:
         noun = "measurement has" if unresolved_role_count == 1 else "measurements have"
         warnings.append(
             f"{unresolved_role_count} active power {noun} no effective energy role"
         )
-    if truncated:
+    if truncated or known_truncated:
         warnings.append(
             f"active consumer results truncated to {effective_limit} devices"
         )
@@ -467,14 +504,15 @@ async def active_consumers(
         "max_age_hours": maximum_age,
         "consumers": consumers,
         "unresolved_role_count": unresolved_role_count,
-        "truncated": truncated,
+        "known_consumers_without_current_power": known_consumers,
+        "truncated": truncated or known_truncated,
     }
     return build_tool_result(
         "home",
         RESULT_TYPE_ACTIVE_CONSUMERS,
         payload,
         warnings,
-        outcome=OUTCOME_OK if consumers else OUTCOME_EMPTY,
+        outcome=OUTCOME_OK if consumers or known_consumers else OUTCOME_EMPTY,
     )
 
 

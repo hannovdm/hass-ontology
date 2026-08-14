@@ -216,11 +216,20 @@ ActiveConsumerResult
 │   ├── area_name: string | null
 │   └── measurements: list[{entity_id, name, watts, source_unit, role, role_source, measured_at}]
 │ ]
+├── known_consumers_without_current_power: list[
+│   ├── device_id: string
+│   ├── name: string
+│   ├── area_id: string | null
+│   ├── area_name: string | null
+│   └── energy_entities: list[{entity_id, name}]
+│ ]
 ├── unresolved_role_count: integer
 └── truncated: boolean
 ```
 
 Measurements are not summed unless later metadata explicitly marks them non-overlapping.
+Cumulative energy entities establish that a device is a known consumer but do
+not establish current activity; they are returned separately without watts.
 
 ### AutomationDependencyResult
 

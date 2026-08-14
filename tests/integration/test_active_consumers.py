@@ -40,6 +40,12 @@ async def _make_power_coordinator(
         name="Geyser",
         suggested_area=kitchen.id,
     )
+    washer = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={("test", "washer")},
+        name="Front load washer",
+        suggested_area=kitchen.id,
+    )
     solar = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={("test", "solar")},
@@ -68,6 +74,13 @@ async def _make_power_coordinator(
         suggested_object_id="geyser_power",
         device_id=geyser.id,
     )
+    registry.async_get_or_create(
+        "sensor",
+        "test",
+        "washer-energy-today",
+        suggested_object_id="washer_energy_today",
+        device_id=washer.id,
+    )
     hass.states.async_set(
         "sensor.dishwasher_power",
         "850",
@@ -93,6 +106,15 @@ async def _make_power_coordinator(
             "device_class": "power",
             "unit_of_measurement": "W",
             "friendly_name": "Channel 1 power",
+        },
+    )
+    hass.states.async_set(
+        "sensor.washer_energy_today",
+        "1.8",
+        {
+            "device_class": "energy",
+            "unit_of_measurement": "kWh",
+            "friendly_name": "Energy today",
         },
     )
     await hass.async_block_till_done()
@@ -127,6 +149,12 @@ async def test_active_consumers_uses_effective_roles_and_real_relationships(
     assert inferred_result["result"]["consumers"][0]["measurements"][0][
         "role_source"
     ] == SOURCE_INFERRED
+    assert [
+        item["name"]
+        for item in inferred_result["result"][
+            "known_consumers_without_current_power"
+        ]
+    ] == ["Front load washer"]
 
     await async_set_energy_role(
         memgraph_client, "sensor.dishwasher_power", ENERGY_ROLE_PRODUCER
@@ -166,6 +194,12 @@ async def test_role_assignments_and_bindings_survive_resync_and_rebuild(
             ENERGY_ROLE_CONSUMER,
             SOURCE_INFERRED,
             "sensor.geyser_power",
+        ),
+        (
+            "sensor.washer_energy_today",
+            ENERGY_ROLE_CONSUMER,
+            SOURCE_INFERRED,
+            "sensor.washer_energy_today",
         ),
         (
             "sensor.solar_generation",

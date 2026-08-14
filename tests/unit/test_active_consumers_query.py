@@ -41,7 +41,30 @@ async def test_returns_only_role_filtered_devices_with_unsummed_measurements() -
         ],
         False,
     )
-    client.run_query.return_value = [{"unresolved_role_count": 2}]
+    client.run_query.side_effect = [
+        [{"unresolved_role_count": 2}],
+        [
+            {
+                "device_id": "washer-device",
+                "name": "Front load washer",
+                "area_id": "laundry",
+                "area_name": "Laundry",
+                "energy_entities": [
+                    {
+                        "entity_id": "sensor.washer_energy_today",
+                        "name": "Energy today",
+                    }
+                ],
+            },
+            {
+                "device_id": "dishwasher-device",
+                "name": "Dishwasher",
+                "area_id": "kitchen",
+                "area_name": "Kitchen",
+                "energy_entities": [],
+            },
+        ],
+    ]
 
     result = await active_consumers(
         client,
@@ -84,6 +107,20 @@ async def test_returns_only_role_filtered_devices_with_unsummed_measurements() -
             }
         ],
         "unresolved_role_count": 2,
+        "known_consumers_without_current_power": [
+            {
+                "device_id": "washer-device",
+                "name": "Front load washer",
+                "area_id": "laundry",
+                "area_name": "Laundry",
+                "energy_entities": [
+                    {
+                        "entity_id": "sensor.washer_energy_today",
+                        "name": "Energy today",
+                    }
+                ],
+            }
+        ],
         "truncated": False,
     }
     assert "total_watts" not in result["result"]["consumers"][0]
@@ -102,7 +139,7 @@ async def test_returns_only_role_filtered_devices_with_unsummed_measurements() -
 async def test_empty_result_and_truncation_are_explicit() -> None:
     client = AsyncMock()
     client.run_query_limited.return_value = ([], True)
-    client.run_query.return_value = [{"unresolved_role_count": 0}]
+    client.run_query.side_effect = [[{"unresolved_role_count": 0}], []]
 
     result = await active_consumers(client, limit=2, now_epoch=10_000)
 
@@ -115,7 +152,7 @@ async def test_empty_result_and_truncation_are_explicit() -> None:
 async def test_threshold_and_freshness_are_strict_and_parameterized() -> None:
     client = AsyncMock()
     client.run_query_limited.return_value = ([], False)
-    client.run_query.return_value = [{"unresolved_role_count": 0}]
+    client.run_query.side_effect = [[{"unresolved_role_count": 0}], []]
 
     await active_consumers(
         client,

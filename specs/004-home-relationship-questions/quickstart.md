@@ -57,7 +57,8 @@ Expected: all channels agree on content, ordering, warnings, and truncation.
 3. Verify only fresh consumer readings strictly above 1 W qualify; positive non-consumer and unknown-role readings do not.
 4. Add a user role that conflicts with inference and verify the user role wins.
 5. Give one device several qualifying readings. Verify the device appears once, all readings remain explanatory, and no unsupported sum is reported.
-6. Ask Assist: “What appliances currently consume electricity?” and call MCP `active_consumers`.
+6. Add device-backed daily/monthly energy entities without current power readings. Verify their devices appear separately as known consumers without current power, not as proven active loads.
+7. Ask Assist: “What appliances currently consume electricity?” and call MCP `active_consumers`.
 
 Expected: all channels return the same role-aware consumer set and expose unresolved-role warnings only where supported.
 
