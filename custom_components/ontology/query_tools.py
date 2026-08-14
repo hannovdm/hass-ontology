@@ -9,17 +9,35 @@ call these same functions and share one JSON-compatible `ToolResult` shape
 
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass
 from typing import Any
 
 from .const import (
     DEFAULT_QUERY_LIMIT,
+    ENERGY_ROLE_CONSUMER,
     LABEL_AREA,
     LABEL_AUTOMATION,
     LABEL_DEVICE,
     LABEL_DOMAIN,
+    LABEL_ENERGY_ROLE_ASSIGNMENT,
     LABEL_ENTITY,
+    LABEL_GAS_CYLINDER,
     LABEL_INTEGRATION,
     MAX_QUERY_LIMIT,
+    MEASUREMENT_KIND,
+    MEASUREMENT_KIND_BATTERY,
+    MEASUREMENT_KIND_POWER,
+    MEASUREMENT_STATUS,
+    MEASUREMENT_STATUS_AVAILABLE,
+    MEASUREMENT_STATUS_INVALID_VALUE,
+    MEASUREMENT_STATUS_UNAVAILABLE,
+    MEASUREMENT_STATUS_UNSUPPORTED_UNIT,
+    OUTCOME_AMBIGUOUS,
+    OUTCOME_EMPTY,
+    OUTCOME_NOT_FOUND,
+    OUTCOME_OK,
+    REL_ASSIGNS_ROLE_TO,
     REL_CLASSIFIED_AS,
     REL_CONTROLS,
     REL_HAS_AREA,
@@ -28,17 +46,43 @@ from .const import (
     REL_IN_DOMAIN,
     REL_PROVIDED_BY,
     REL_REFERENCES,
+    RESULT_TYPE_ACTIVE_CONSUMERS,
     RESULT_TYPE_AREA_CONTEXT,
     RESULT_TYPE_AUTOMATION_DEPENDENCIES,
     RESULT_TYPE_DEVICE_CONTEXT,
     RESULT_TYPE_ENTITY_CONTEXT,
+    RESULT_TYPE_LOW_BATTERY_AREAS,
     RESULT_TYPE_NOT_FOUND,
     RESULT_TYPE_SEARCH,
+    SOURCE_INFERRED,
+    SOURCE_USER,
 )
 from .memgraph_client import MemgraphClient
 from .redact import redact_value
 
 _NO_DEPENDENCIES_WARNING = "no known dependencies found"
+
+_TARGET_LABELS = {
+    "area": LABEL_AREA,
+    "device": LABEL_DEVICE,
+    "entity": LABEL_ENTITY,
+    "gas_cylinder": LABEL_GAS_CYLINDER,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class TargetResolution:
+    """Deterministic result of resolving one operation target."""
+
+    outcome: str
+    target_type: str | None = None
+    target_id: str | None = None
+    candidates: list[dict[str, Any]] | None = None
+    truncated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.candidates is None:
+            object.__setattr__(self, "candidates", [])
 
 
 def node_properties(node: Any) -> dict[str, Any] | None:
@@ -64,11 +108,14 @@ def build_tool_result(
     result_type: str,
     result: dict[str, Any] | list[Any] | None,
     warnings: list[str] | None = None,
+    *,
+    outcome: str = OUTCOME_OK,
 ) -> dict[str, Any]:
     """Build the shared `ToolResult` envelope (data-model.md §2)."""
     return {
         "target": redact_value(target),
         "result_type": result_type,
+        "outcome": outcome,
         "result": redact_value(result) if result is not None else None,
         "warnings": redact_value(list(warnings)) if warnings else [],
     }
@@ -81,7 +128,85 @@ def not_found_result(target: str, _result_type: str) -> dict[str, Any]:
     result-type discriminator - the second argument is accepted for call-site
     readability only.
     """
-    return build_tool_result(target, RESULT_TYPE_NOT_FOUND, None)
+    return build_tool_result(
+        target, RESULT_TYPE_NOT_FOUND, None, outcome=OUTCOME_NOT_FOUND
+    )
+
+
+async def resolve_target(
+    client: MemgraphClient,
+    identifier: str,
+    eligible_target_types: tuple[str, ...],
+    *,
+    limit: int,
+) -> TargetResolution:
+    """Resolve an exact stable ID or one unique exact display name."""
+    if not eligible_target_types:
+        raise ValueError("At least one eligible target type is required")
+    try:
+        labels = [
+            (target_type, _TARGET_LABELS[target_type])
+            for target_type in eligible_target_types
+        ]
+    except KeyError as err:
+        raise ValueError(f"Unsupported target type: {err.args[0]}") from err
+
+    effective_limit = min(max(limit, 1), MAX_QUERY_LIMIT)
+    candidate_limit = effective_limit + 1
+    branches = []
+    for target_type, label in labels:
+        branches.append(
+            f"MATCH (n:{label}) "
+            "WHERE n.ha_id = $identifier "
+            "OR toLower(coalesce(n.name, '')) = toLower($identifier) "
+            f"RETURN '{target_type}' AS target_type, n.ha_id AS target_id, "
+            "n.name AS name, null AS area_name "
+            "ORDER BY CASE WHEN n.ha_id = $identifier THEN 0 ELSE 1 END, "
+            "toLower(coalesce(n.name, '')), n.ha_id "
+            "LIMIT $candidate_limit"
+        )
+    rows = await client.run_query(
+        " UNION ALL ".join(branches),
+        {"identifier": identifier, "candidate_limit": candidate_limit},
+    )
+
+    eligible_rows = [
+        row for row in rows if row.get("target_type") in eligible_target_types
+    ]
+    exact_id_matches = [
+        row for row in eligible_rows if row.get("target_id") == identifier
+    ]
+    matches = exact_id_matches or eligible_rows
+    candidates = sorted(
+        (
+            {
+                "target_type": str(row["target_type"]),
+                "target_id": str(row["target_id"]),
+                "name": row.get("name"),
+                "area_name": row.get("area_name"),
+            }
+            for row in matches
+        ),
+        key=lambda candidate: (
+            candidate["target_type"],
+            str(candidate["name"] or "").casefold(),
+            candidate["target_id"],
+        ),
+    )
+    if not candidates:
+        return TargetResolution(outcome=OUTCOME_NOT_FOUND)
+    if len(candidates) == 1:
+        candidate = candidates[0]
+        return TargetResolution(
+            outcome=OUTCOME_OK,
+            target_type=candidate["target_type"],
+            target_id=candidate["target_id"],
+        )
+    return TargetResolution(
+        outcome=OUTCOME_AMBIGUOUS,
+        candidates=candidates[:effective_limit],
+        truncated=len(candidates) > effective_limit,
+    )
 
 
 def _effective_limit(limit: int | None) -> int:
@@ -108,6 +233,249 @@ def count_results(result: dict[str, Any] | list[Any] | None) -> int:
                 return len(value)
         return 1
     return 1
+
+
+async def low_battery_areas(
+    client: MemgraphClient,
+    threshold_percentage: float = 20.0,
+    max_age_hours: float = 24.0,
+    limit: int | None = None,
+    *,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
+    """Return fresh, strictly-below-threshold battery readings grouped by area."""
+    threshold = float(threshold_percentage)
+    maximum_age = float(max_age_hours)
+    effective_limit = _effective_limit(limit)
+    fresh_after_epoch = (now_epoch if now_epoch is not None else time.time()) - (
+        maximum_age * 3600
+    )
+    parameters = {
+        "threshold_percentage": threshold,
+        "fresh_after_epoch": fresh_after_epoch,
+    }
+    query = (
+        f"MATCH (e:{LABEL_ENTITY}) "
+        f"WHERE e.{MEASUREMENT_KIND} = '{MEASUREMENT_KIND_BATTERY}' "
+        f"AND e.{MEASUREMENT_STATUS} = '{MEASUREMENT_STATUS_AVAILABLE}' "
+        "AND e.battery_percentage < $threshold_percentage "
+        "AND e.measurement_last_updated_epoch >= $fresh_after_epoch "
+        f"OPTIONAL MATCH (d:{LABEL_DEVICE})-[:{REL_HAS_ENTITY}]->(e) "
+        f"OPTIONAL MATCH (device_area:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(d) "
+        f"OPTIONAL MATCH (e)-[:{REL_HAS_AREA}]->(direct_area:{LABEL_AREA}) "
+        "WITH e, d, coalesce(device_area, direct_area) AS area "
+        "WHERE area IS NOT NULL "
+        "RETURN area.ha_id AS area_id, area.name AS area_name, "
+        "d.ha_id AS device_id, e.ha_id AS entity_id, "
+        "coalesce(d.name, e.name, e.ha_id) AS name, "
+        "e.name AS entity_name, e.battery_percentage AS percentage, "
+        "e.measurement_last_updated AS measured_at "
+        "ORDER BY toLower(coalesce(area.name, '')), area.ha_id, "
+        "toLower(coalesce(d.name, e.name, '')), coalesce(d.ha_id, e.ha_id), e.ha_id"
+    )
+    rows, truncated = await client.run_query_limited(
+        query, parameters, effective_limit
+    )
+    count_query = (
+        f"MATCH (e:{LABEL_ENTITY}) "
+        f"WHERE e.{MEASUREMENT_KIND} = '{MEASUREMENT_KIND_BATTERY}' "
+        f"AND e.{MEASUREMENT_STATUS} IN $warning_statuses "
+        f"RETURN e.{MEASUREMENT_STATUS} AS status, count(e) AS status_count "
+        "ORDER BY status"
+    )
+    count_rows = await client.run_query(
+        count_query,
+        {
+            "warning_statuses": [
+                MEASUREMENT_STATUS_UNAVAILABLE,
+                MEASUREMENT_STATUS_INVALID_VALUE,
+                MEASUREMENT_STATUS_UNSUPPORTED_UNIT,
+            ]
+        },
+    )
+    status_counts = {
+        str(row["status"]): int(row.get("status_count", 0))
+        for row in count_rows
+        if row.get("status") is not None
+    }
+    unavailable_count = sum(status_counts.values())
+
+    areas_by_id: dict[str, dict[str, Any]] = {}
+    items_by_area: dict[str, dict[str, dict[str, Any]]] = {}
+    for row in rows:
+        area_id = str(row["area_id"])
+        area = areas_by_id.setdefault(
+            area_id,
+            {
+                "area_id": row.get("area_id"),
+                "area_name": row.get("area_name") or row.get("area_id"),
+                "items": [],
+            },
+        )
+        item_key = str(row.get("device_id") or row["entity_id"])
+        area_items = items_by_area.setdefault(area_id, {})
+        item = area_items.get(item_key)
+        if item is None:
+            item = {
+                "device_id": row.get("device_id"),
+                "entity_id": row["entity_id"],
+                "name": row.get("name") or row["entity_id"],
+                "measurements": [],
+            }
+            area_items[item_key] = item
+            area["items"].append(item)
+        item["measurements"].append(
+            {
+                "entity_id": row["entity_id"],
+                "name": row.get("entity_name") or row.get("name") or row["entity_id"],
+                "percentage": float(row["percentage"]),
+                "measured_at": row.get("measured_at"),
+            }
+        )
+
+    areas = list(areas_by_id.values())
+    warnings: list[str] = []
+    warning_messages = (
+        (MEASUREMENT_STATUS_UNAVAILABLE, "unavailable", "unavailable"),
+        (MEASUREMENT_STATUS_INVALID_VALUE, "invalid", "invalid"),
+        (
+            MEASUREMENT_STATUS_UNSUPPORTED_UNIT,
+            "has an unsupported unit",
+            "have an unsupported unit",
+        ),
+    )
+    for status, singular, plural in warning_messages:
+        count = status_counts.get(status, 0)
+        if count:
+            measurement = "measurement" if count == 1 else "measurements"
+            warnings.append(
+                f"{count} battery {measurement} {singular if count == 1 else plural}"
+            )
+    if truncated:
+        warnings.append(f"low battery results truncated to {effective_limit} items")
+    payload = {
+        "threshold_percentage": threshold,
+        "max_age_hours": maximum_age,
+        "areas": areas,
+        "unavailable_count": unavailable_count,
+        "truncated": truncated,
+    }
+    return build_tool_result(
+        "home",
+        RESULT_TYPE_LOW_BATTERY_AREAS,
+        payload,
+        warnings,
+        outcome=OUTCOME_OK if areas else OUTCOME_EMPTY,
+    )
+
+
+async def active_consumers(
+    client: MemgraphClient,
+    threshold_watts: float = 1.0,
+    max_age_hours: float = 24.0,
+    limit: int | None = None,
+    *,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
+    """Return fresh consumer-role power measurements grouped by device."""
+    threshold = float(threshold_watts)
+    maximum_age = float(max_age_hours)
+    effective_limit = _effective_limit(limit)
+    fresh_after_epoch = (now_epoch if now_epoch is not None else time.time()) - (
+        maximum_age * 3600
+    )
+    parameters = {
+        "threshold_watts": threshold,
+        "fresh_after_epoch": fresh_after_epoch,
+        "consumer_role": ENERGY_ROLE_CONSUMER,
+        "user_source": SOURCE_USER,
+        "inferred_source": SOURCE_INFERRED,
+    }
+    query = (
+        f"MATCH (device:{LABEL_DEVICE})-[:{REL_HAS_ENTITY}]->(e:{LABEL_ENTITY}) "
+        f"WHERE e.{MEASUREMENT_KIND} = '{MEASUREMENT_KIND_POWER}' "
+        f"AND e.{MEASUREMENT_STATUS} = '{MEASUREMENT_STATUS_AVAILABLE}' "
+        "AND e.power_watts > $threshold_watts "
+        "AND e.measurement_last_updated_epoch >= $fresh_after_epoch "
+        f"OPTIONAL MATCH (user_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $user_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        f"OPTIONAL MATCH (inferred_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $inferred_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        "WITH device, e, user_role, inferred_role, "
+        "coalesce(user_role.role, inferred_role.role) AS effective_role, "
+        "CASE WHEN user_role IS NOT NULL THEN user_role.source "
+        "ELSE inferred_role.source END AS effective_source "
+        "WHERE effective_role = $consumer_role "
+        f"OPTIONAL MATCH (area:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(device) "
+        "WITH device, area, e, effective_role, effective_source "
+        "ORDER BY e.ha_id "
+        "WITH device, area, collect({entity_id: e.ha_id, "
+        "name: coalesce(e.name, e.ha_id), watts: e.power_watts, "
+        "source_unit: e.unit_of_measurement, role: effective_role, "
+        "role_source: effective_source, measured_at: e.measurement_last_updated}) "
+        "AS measurements "
+        "RETURN device.ha_id AS device_id, coalesce(device.name, device.ha_id) AS name, "
+        "area.ha_id AS area_id, area.name AS area_name, measurements "
+        "ORDER BY toLower(coalesce(device.name, '')), device.ha_id"
+    )
+    rows, truncated = await client.run_query_limited(
+        query, parameters, effective_limit
+    )
+
+    unresolved_query = (
+        f"MATCH (e:{LABEL_ENTITY}) "
+        f"WHERE e.{MEASUREMENT_KIND} = '{MEASUREMENT_KIND_POWER}' "
+        f"AND e.{MEASUREMENT_STATUS} = '{MEASUREMENT_STATUS_AVAILABLE}' "
+        "AND e.power_watts > $threshold_watts "
+        "AND e.measurement_last_updated_epoch >= $fresh_after_epoch "
+        f"OPTIONAL MATCH (user_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $user_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        f"OPTIONAL MATCH (inferred_role:{LABEL_ENERGY_ROLE_ASSIGNMENT} "
+        f"{{source: $inferred_source}})-[:{REL_ASSIGNS_ROLE_TO}]->(e) "
+        "WITH e, coalesce(user_role.role, inferred_role.role) AS effective_role "
+        "WHERE effective_role IS NULL "
+        "RETURN count(DISTINCT e) AS unresolved_role_count"
+    )
+    unresolved_rows = await client.run_query(unresolved_query, parameters)
+    unresolved_role_count = (
+        int(unresolved_rows[0].get("unresolved_role_count", 0))
+        if unresolved_rows
+        else 0
+    )
+    consumers = [
+        {
+            "device_id": row["device_id"],
+            "name": row.get("name") or row["device_id"],
+            "area_id": row.get("area_id"),
+            "area_name": row.get("area_name"),
+            "measurements": list(row.get("measurements") or []),
+        }
+        for row in rows
+    ]
+    warnings: list[str] = []
+    if unresolved_role_count:
+        noun = "measurement has" if unresolved_role_count == 1 else "measurements have"
+        warnings.append(
+            f"{unresolved_role_count} active power {noun} no effective energy role"
+        )
+    if truncated:
+        warnings.append(
+            f"active consumer results truncated to {effective_limit} devices"
+        )
+    payload = {
+        "threshold_watts": threshold,
+        "max_age_hours": maximum_age,
+        "consumers": consumers,
+        "unresolved_role_count": unresolved_role_count,
+        "truncated": truncated,
+    }
+    return build_tool_result(
+        "home",
+        RESULT_TYPE_ACTIVE_CONSUMERS,
+        payload,
+        warnings,
+        outcome=OUTCOME_OK if consumers else OUTCOME_EMPTY,
+    )
 
 
 async def search(

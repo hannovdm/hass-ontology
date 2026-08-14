@@ -26,7 +26,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from . import graph_builder, overrides, query_service, semantic_classifier, validation
+from . import (
+    graph_builder,
+    overrides,
+    query_service,
+    semantic_classifier,
+    user_knowledge,
+    validation,
+)
 from .const import (
     CONF_AUTO_CLASSIFY,
     DEFAULT_AUTO_CLASSIFY,
@@ -207,6 +214,9 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             )
             if overrides_payload is not None:
                 await overrides.async_import_overrides(self.memgraph_client, overrides_payload)
+            await user_knowledge.async_reconcile_energy_roles(
+                self.hass, self.memgraph_client
+            )
             self.state.schema_version = await graph_builder.get_schema_version(self.memgraph_client)
             await self._refresh_counts()
         except Exception as err:  # noqa: BLE001
@@ -225,9 +235,18 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
 
     # -- Single-entity operations (User Story 5/7) -------------------------
 
-    async def _execute_entity_sync(self, entity_id: str) -> None:
+    async def _execute_entity_sync(
+        self,
+        entity_id: str,
+        context: graph_builder.EntitySyncContext | None = None,
+    ) -> None:
         try:
-            await graph_builder.update_entity(self.hass, self.memgraph_client, entity_id)
+            await graph_builder.update_entity(
+                self.hass, self.memgraph_client, entity_id, context
+            )
+            await user_knowledge.async_reconcile_energy_roles(
+                self.hass, self.memgraph_client, entity_id
+            )
             await self._refresh_counts()
         except Exception as err:  # noqa: BLE001
             self._record_failure(err)
@@ -275,15 +294,20 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
 
     async def async_classify(self) -> int:
         """Run a full-graph classification pass (User Story 1)."""
-        return await self.async_run_operation(
-            semantic_classifier.async_classify_entities, self.hass, self.memgraph_client
+        return await self.async_run_operation(self._execute_semantic_refresh, None)
+
+    async def _execute_semantic_refresh(self, entity_id: str | None) -> int:
+        classified = await semantic_classifier.async_refresh_semantics(
+            self.hass, self.memgraph_client, entity_id
         )
+        await user_knowledge.async_reconcile_energy_roles(
+            self.hass, self.memgraph_client, entity_id
+        )
+        return classified
 
     async def async_refresh_semantics(self, entity_id: str | None = None) -> int:
         """Recalculate inferred classifications for one entity or all (User Story 6)."""
-        return await self.async_run_operation(
-            semantic_classifier.async_refresh_semantics, self.hass, self.memgraph_client, entity_id
-        )
+        return await self.async_run_operation(self._execute_semantic_refresh, entity_id)
 
     # -- Read-only query service (User Story 2) ------------------------------
 
@@ -333,10 +357,14 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
         ]
         self._notify_state_changed()
 
-    async def async_handle_entity_change(self, entity_id: str) -> None:
+    async def async_handle_entity_change(
+        self,
+        entity_id: str,
+        context: graph_builder.EntitySyncContext | None = None,
+    ) -> None:
         """Entry point for debounced `state_changed`/entity-registry events."""
         try:
-            await self._run_incremental(self._execute_entity_sync, entity_id)
+            await self._run_incremental(self._execute_entity_sync, entity_id, context)
         except Exception as err:  # noqa: BLE001 - tracked, never dropped (FR-020)
             self._track_failed_update("entity", entity_id, err)
         else:

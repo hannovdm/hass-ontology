@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import socket
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import Any
 
 import pytest
 import pytest_asyncio
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
+from custom_components.ontology.const import SCHEMA_SINGLETON_ID
 from custom_components.ontology.memgraph_client import MemgraphClient
 
 MEMGRAPH_IMAGE = "memgraph/memgraph:latest"
@@ -75,3 +77,43 @@ async def memgraph_client(memgraph_container: DockerContainer) -> AsyncGenerator
     await client.run_query("MATCH (n) DETACH DELETE n")
     yield client
     await client.close()
+
+
+@pytest.fixture
+def seed_schema_version() -> Callable[[MemgraphClient, str], Awaitable[None]]:
+    """Return a helper that seeds the ontology singleton at a chosen version."""
+
+    async def _seed(client: MemgraphClient, version: str) -> None:
+        await client.run_query(
+            "CREATE (:OntologySchema {ha_id: $schema_id, version: $version})",
+            {"schema_id": SCHEMA_SINGLETON_ID, "version": version},
+        )
+
+    return _seed
+
+
+@pytest.fixture
+def query_schema_marker() -> Callable[[MemgraphClient], Awaitable[dict[str, Any]]]:
+    """Return a helper that reads the complete ontology schema marker."""
+
+    async def _query(client: MemgraphClient) -> dict[str, Any]:
+        rows = await client.run_query(
+            "MATCH (s:OntologySchema {ha_id: $schema_id}) RETURN s AS schema",
+            {"schema_id": SCHEMA_SINGLETON_ID},
+        )
+        return rows[0]["schema"]["properties"]
+
+    return _query
+
+
+@pytest.fixture
+def query_user_owned_nodes() -> Callable[[MemgraphClient], Awaitable[list[dict[str, Any]]]]:
+    """Return a helper for asserting durable user-owned records survive migration."""
+
+    async def _query(client: MemgraphClient) -> list[dict[str, Any]]:
+        return await client.run_query(
+            "MATCH (n {source: 'user'}) RETURN n.ha_id AS ha_id, n.value AS value "
+            "ORDER BY n.ha_id"
+        )
+
+    return _query

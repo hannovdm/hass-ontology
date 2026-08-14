@@ -12,7 +12,11 @@ from homeassistant.helpers import intent
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ontology import agent_audit, intent_handlers, query_tools
-from custom_components.ontology.const import DOMAIN
+from custom_components.ontology.const import (
+    DOMAIN,
+    OUTCOME_DEGRADED,
+    OUTCOME_EMPTY,
+)
 
 
 async def _setup_loaded_entry(
@@ -34,6 +38,18 @@ def _make_intent(hass, intent_type: str, slot_name: str, value: str) -> intent.I
         platform="test",
         intent_type=intent_type,
         slots={slot_name: {"value": value}},
+        text_input=None,
+        context=Context(),
+        language="en",
+    )
+
+
+def _make_slotless_intent(hass, intent_type: str) -> intent.Intent:
+    return intent.Intent(
+        hass,
+        platform="test",
+        intent_type=intent_type,
+        slots={},
         text_input=None,
         context=Context(),
         language="en",
@@ -304,3 +320,153 @@ def test_entity_context_speech_includes_all_available_relationships() -> None:
         "automation.office",
     ):
         assert expected in speech
+
+
+async def test_low_battery_intent_calls_shared_query_and_renders_grouped_percentages(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    await _setup_loaded_entry(hass, mock_memgraph_client, mock_config_entry_data)
+    handler = intent_handlers.OntologyLowBatteryAreas()
+    intent_obj = _make_slotless_intent(hass, handler.intent_type)
+    fake_result = query_tools.build_tool_result(
+        "home",
+        "low_battery_areas",
+        {
+            "areas": [
+                {
+                    "area_name": "Garage",
+                    "items": [
+                        {
+                            "name": "Motion sensor",
+                            "measurements": [{"percentage": 8.0}],
+                        }
+                    ],
+                }
+            ],
+            "truncated": False,
+        },
+    )
+
+    with patch.object(
+        query_tools, "low_battery_areas", AsyncMock(return_value=fake_result)
+    ) as low_battery:
+        response = await handler.async_handle(intent_obj)
+
+    low_battery.assert_awaited_once()
+    assert response.speech["plain"]["speech"] == "Garage: Motion sensor (8%)"
+
+
+@pytest.mark.parametrize(
+    ("outcome", "warnings", "expected"),
+    [
+        (OUTCOME_EMPTY, [], "No low batteries are known."),
+        (
+            OUTCOME_DEGRADED,
+            ["ontology dependency unavailable"],
+            "I can't check low batteries because the ontology is unavailable.",
+        ),
+        (
+            "ok",
+            ["low battery results truncated to 2 items"],
+            "Additional low-battery results were omitted.",
+        ),
+    ],
+)
+def test_low_battery_intent_renders_localized_outcomes(
+    outcome: str, warnings: list[str], expected: str
+) -> None:
+    handler = intent_handlers.OntologyLowBatteryAreas()
+    result = query_tools.build_tool_result(
+        "home",
+        "low_battery_areas",
+        {"areas": [], "truncated": bool(warnings)},
+        warnings,
+        outcome=outcome,
+    )
+
+    assert expected in handler._speech_for_found(result)
+
+
+def test_managed_sentences_include_low_battery_variations() -> None:
+    content = intent_handlers._SENTENCES_SOURCE_PATH.read_text(encoding="utf-8")
+
+    assert "OntologyLowBatteryAreas" in content
+    assert "which rooms have devices with low batteries" in content.lower()
+    assert "where are the low batteries" in content.lower()
+
+
+async def test_active_consumers_intent_renders_each_power_reading(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    await _setup_loaded_entry(hass, mock_memgraph_client, mock_config_entry_data)
+    handler = intent_handlers.OntologyActiveConsumers()
+    intent_obj = _make_slotless_intent(hass, handler.intent_type)
+    fake_result = query_tools.build_tool_result(
+        "home",
+        "active_consumers",
+        {
+            "consumers": [
+                {
+                    "name": "Tumble dryer",
+                    "area_name": "Laundry",
+                    "measurements": [
+                        {"name": "Dryer power", "watts": 425.5},
+                        {"name": "Dryer plug power", "watts": 418.0},
+                    ],
+                }
+            ],
+            "unresolved_role_count": 0,
+            "truncated": False,
+        },
+    )
+
+    with patch.object(
+        query_tools, "active_consumers", AsyncMock(return_value=fake_result)
+    ) as active_consumers:
+        response = await handler.async_handle(intent_obj)
+
+    active_consumers.assert_awaited_once()
+    speech = response.speech["plain"]["speech"]
+    assert "Tumble dryer in Laundry" in speech
+    assert "Dryer power (425.5 W)" in speech
+    assert "Dryer plug power (418 W)" in speech
+    assert "843.5" not in speech
+
+
+@pytest.mark.parametrize(
+    ("outcome", "unresolved", "truncated", "expected"),
+    [
+        (OUTCOME_EMPTY, 0, False, "No active electricity consumers are known."),
+        (
+            OUTCOME_DEGRADED,
+            0,
+            False,
+            "I can't check active electricity consumers because the ontology is unavailable.",
+        ),
+        ("ok", 2, False, "Some active power readings have no energy role."),
+        ("ok", 0, True, "Additional active consumers were omitted."),
+    ],
+)
+def test_active_consumers_intent_renders_outcomes_and_warnings(
+    outcome: str, unresolved: int, truncated: bool, expected: str
+) -> None:
+    result = query_tools.build_tool_result(
+        "home",
+        "active_consumers",
+        {
+            "consumers": [],
+            "unresolved_role_count": unresolved,
+            "truncated": truncated,
+        },
+        outcome=outcome,
+    )
+
+    assert expected in intent_handlers.OntologyActiveConsumers()._speech_for_found(result)
+
+
+def test_managed_sentences_include_active_consumer_variations() -> None:
+    content = intent_handlers._SENTENCES_SOURCE_PATH.read_text(encoding="utf-8")
+
+    assert "OntologyActiveConsumers" in content
+    assert "what appliances currently consume electricity" in content.lower()
+    assert "which devices are using power" in content.lower()

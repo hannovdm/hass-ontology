@@ -8,6 +8,7 @@ local Memgraph graph database as an idempotent, versioned ontology.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from datetime import datetime, timedelta
 
@@ -25,6 +26,7 @@ from homeassistant.core import (
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.service import async_register_admin_service
 
 from . import (
     agent_audit,
@@ -33,6 +35,7 @@ from . import (
     intent_handlers,
     mcp_server,
     query_tools,
+    user_knowledge,
     websocket_api,
 )
 from .const import (
@@ -44,52 +47,70 @@ from .const import (
     ATTR_ENTITY_ID,
     ATTR_EXPORT_TYPE,
     ATTR_LIMIT,
+    ATTR_MAX_AGE_HOURS,
     ATTR_PARAMETERS,
     ATTR_PAYLOAD,
+    ATTR_ROLE,
     ATTR_TARGET,
     ATTR_TARGET_TYPE,
     ATTR_TERM,
+    ATTR_THRESHOLD_PERCENTAGE,
+    ATTR_THRESHOLD_WATTS,
+    CONF_ACTIVE_POWER_THRESHOLD,
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
+    CONF_LOW_BATTERY_THRESHOLD,
+    CONF_MAX_MEASUREMENT_AGE_HOURS,
     CONF_MCP_ENABLED,
     CONF_PASSWORD,
     CONF_PORT,
+    CONF_RELATIONSHIP_RESULT_LIMIT,
     CONF_USERNAME,
+    DEFAULT_ACTIVE_POWER_THRESHOLD,
     DEFAULT_ENCRYPTED,
+    DEFAULT_LOW_BATTERY_THRESHOLD,
+    DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
     DEFAULT_MCP_ENABLED,
+    DEFAULT_RELATIONSHIP_RESULT_LIMIT,
     DOMAIN,
+    ENERGY_ROLES,
     EXPORT_TYPES,
     FAILED_UPDATE_RETRY_INTERVAL_SECONDS,
     IMPACT_SCOPES,
     PLATFORMS,
+    RESULT_TYPE_ACTIVE_CONSUMERS,
     RESULT_TYPE_AREA_CONTEXT,
     RESULT_TYPE_AUTOMATION_DEPENDENCIES,
     RESULT_TYPE_DEVICE_CONTEXT,
     RESULT_TYPE_ENTITY_CONTEXT,
     RESULT_TYPE_EXPORT_CONTEXT,
     RESULT_TYPE_IMPACT_ANALYSIS,
+    RESULT_TYPE_LOW_BATTERY_AREAS,
     RESULT_TYPE_SEARCH,
     SCHEMA_VERSION,
+    SERVICE_ACTIVE_CONSUMERS,
     SERVICE_AREA_CONTEXT,
     SERVICE_AUTOMATION_DEPENDENCIES,
+    SERVICE_DELETE_ENERGY_ROLE,
     SERVICE_DEVICE_CONTEXT,
     SERVICE_ENTITY_CONTEXT,
     SERVICE_EXPORT_CONTEXT,
     SERVICE_EXPORT_OVERRIDES,
     SERVICE_IMPACT_ANALYSIS,
     SERVICE_IMPORT_OVERRIDES,
+    SERVICE_LOW_BATTERY_AREAS,
     SERVICE_QUERY,
     SERVICE_REBUILD,
     SERVICE_REFRESH_SEMANTICS,
     SERVICE_RESYNC,
     SERVICE_SEARCH,
+    SERVICE_SET_ENERGY_ROLE,
     SERVICE_SYNC_ENTITY,
     SERVICE_VALIDATE,
 )
 from .coordinator import OntologyCoordinator
 from .event_listener import async_register_listeners
-from .graph_builder import get_schema_version
 from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
 from .overrides import OverrideImportRejected
 from .query_service import QueryRejected
@@ -100,6 +121,7 @@ from .repairs import (
     async_create_schema_mismatch_issue,
     async_create_sustained_failure_issue,
 )
+from .schema_migrations import migrate_schema_if_supported
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,6 +142,14 @@ _QUERY_SCHEMA = vol.Schema(
 )
 _IMPORT_OVERRIDES_SCHEMA = vol.Schema({vol.Required(ATTR_PAYLOAD): dict})
 
+
+def _finite_number(value: object) -> float:
+    """Coerce one finite numeric service override."""
+    number = vol.Coerce(float)(value)
+    if not math.isfinite(number):
+        raise vol.Invalid("value must be finite")
+    return number
+
 # v3 predefined query tool / impact analysis / context export schemas
 # (contracts/services.md v3 additions).
 _SEARCH_SCHEMA = vol.Schema({vol.Required(ATTR_TERM): str, vol.Optional(ATTR_LIMIT): int})
@@ -139,6 +169,39 @@ _EXPORT_CONTEXT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_TARGET): str,
     }
 )
+_LOW_BATTERY_AREAS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_THRESHOLD_PERCENTAGE): vol.All(
+            _finite_number, vol.Range(min=1, max=100)
+        ),
+        vol.Optional(ATTR_MAX_AGE_HOURS): vol.All(
+            _finite_number, vol.Range(min=0, min_included=False)
+        ),
+        vol.Optional(ATTR_LIMIT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=1000)
+        ),
+    }
+)
+_ACTIVE_CONSUMERS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_THRESHOLD_WATTS): vol.All(
+            _finite_number, vol.Range(min=0)
+        ),
+        vol.Optional(ATTR_MAX_AGE_HOURS): vol.All(
+            _finite_number, vol.Range(min=0, min_included=False)
+        ),
+        vol.Optional(ATTR_LIMIT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=1000)
+        ),
+    }
+)
+_SET_ENERGY_ROLE_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_ENTITY): str,
+        vol.Required(ATTR_ROLE): vol.In(ENERGY_ROLES),
+    }
+)
+_DELETE_ENERGY_ROLE_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY): str})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> bool:
@@ -166,9 +229,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
             f"Cannot connect to Memgraph: {redact_exception(err)}"
         ) from err
 
-    # Schema-version safety check (User Story 8, FR-017, T056): never write
-    # to the graph if an existing OntologySchema.version doesn't match ours.
-    existing_version = await get_schema_version(client)
+    # Advance the one explicitly supported predecessor atomically before the
+    # existing mismatch gate. Empty/current schemas are transaction no-ops.
+    existing_version = await migrate_schema_if_supported(client)
     if existing_version is not None and existing_version != SCHEMA_VERSION:
         async_create_schema_mismatch_issue(hass, entry, existing_version, SCHEMA_VERSION)
         await client.close()
@@ -465,6 +528,104 @@ async def _async_handle_export_context(call: ServiceCall) -> ServiceResponse:
     )
 
 
+async def _async_handle_low_battery_areas(call: ServiceCall) -> ServiceResponse:
+    """Handle the bounded low-battery room response service."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.build_tool_result(
+            "home",
+            RESULT_TYPE_LOW_BATTERY_AREAS,
+            None,
+            ["ontology dependency unavailable"],
+            outcome="degraded",
+        )
+    coordinator = coordinators[0]
+    options = coordinator.entry.options
+    configured_limit = int(
+        options.get(CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT)
+    )
+    return await query_tools.low_battery_areas(
+        coordinator.memgraph_client,
+        threshold_percentage=call.data.get(
+            ATTR_THRESHOLD_PERCENTAGE,
+            options.get(CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD),
+        ),
+        max_age_hours=call.data.get(
+            ATTR_MAX_AGE_HOURS,
+            options.get(
+                CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
+            ),
+        ),
+        limit=min(call.data.get(ATTR_LIMIT, configured_limit), configured_limit),
+    )
+
+
+async def _async_handle_active_consumers(call: ServiceCall) -> ServiceResponse:
+    """Handle the bounded active-consumer response service."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        return query_tools.build_tool_result(
+            "home",
+            RESULT_TYPE_ACTIVE_CONSUMERS,
+            None,
+            ["ontology dependency unavailable"],
+            outcome="degraded",
+        )
+    coordinator = coordinators[0]
+    options = coordinator.entry.options
+    configured_limit = int(
+        options.get(CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT)
+    )
+    return await query_tools.active_consumers(
+        coordinator.memgraph_client,
+        threshold_watts=call.data.get(
+            ATTR_THRESHOLD_WATTS,
+            options.get(CONF_ACTIVE_POWER_THRESHOLD, DEFAULT_ACTIVE_POWER_THRESHOLD),
+        ),
+        max_age_hours=call.data.get(
+            ATTR_MAX_AGE_HOURS,
+            options.get(
+                CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
+            ),
+        ),
+        limit=min(call.data.get(ATTR_LIMIT, configured_limit), configured_limit),
+    )
+
+
+async def _async_handle_set_energy_role(call: ServiceCall) -> ServiceResponse:
+    """Upsert a durable user energy role under coordinator serialization."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        raise ServiceValidationError("Ontology dependency unavailable")
+    coordinator = coordinators[0]
+    try:
+        return await coordinator.async_run_operation(
+            user_knowledge.async_set_energy_role,
+            coordinator.memgraph_client,
+            call.data[ATTR_ENTITY],
+            call.data[ATTR_ROLE],
+        )
+    except user_knowledge.EnergyRoleRejected as err:
+        raise ServiceValidationError(str(err)) from err
+
+
+async def _async_handle_delete_energy_role(call: ServiceCall) -> ServiceResponse:
+    """Delete only a durable user role under coordinator serialization."""
+    coordinators = _loaded_coordinators(call.hass)
+    if not coordinators:
+        raise ServiceValidationError("Ontology dependency unavailable")
+    coordinator = coordinators[0]
+    try:
+        result = await coordinator.async_run_operation(
+            user_knowledge.async_delete_user_energy_role,
+            coordinator.memgraph_client,
+            call.data[ATTR_ENTITY],
+        )
+        return result
+    except user_knowledge.EnergyRoleRejected as err:
+        raise ServiceValidationError(str(err)) from err
+
+
 def _async_register_services(hass: HomeAssistant) -> None:
     """Register the ontology services once, regardless of entry count."""
     if hass.services.has_service(DOMAIN, SERVICE_REBUILD):
@@ -550,6 +711,36 @@ def _async_register_services(hass: HomeAssistant) -> None:
         schema=_EXPORT_CONTEXT_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LOW_BATTERY_AREAS,
+        _async_handle_low_battery_areas,
+        schema=_LOW_BATTERY_AREAS_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ACTIVE_CONSUMERS,
+        _async_handle_active_consumers,
+        schema=_ACTIVE_CONSUMERS_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        SERVICE_SET_ENERGY_ROLE,
+        _async_handle_set_energy_role,
+        schema=_SET_ENERGY_ROLE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        SERVICE_DELETE_ENERGY_ROLE,
+        _async_handle_delete_energy_role,
+        schema=_DELETE_ENERGY_ROLE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
 
 
 def _async_unregister_services(hass: HomeAssistant) -> None:
@@ -572,6 +763,10 @@ def _async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_AUTOMATION_DEPENDENCIES,
         SERVICE_IMPACT_ANALYSIS,
         SERVICE_EXPORT_CONTEXT,
+        SERVICE_LOW_BATTERY_AREAS,
+        SERVICE_ACTIVE_CONSUMERS,
+        SERVICE_SET_ENERGY_ROLE,
+        SERVICE_DELETE_ENERGY_ROLE,
     ):
         hass.services.async_remove(DOMAIN, service)
 

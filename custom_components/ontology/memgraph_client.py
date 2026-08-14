@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, Record
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, Record
 from neo4j.exceptions import AuthError, ServiceUnavailable
 from neo4j.graph import Node, Path, Relationship
 
@@ -24,6 +25,8 @@ from .const import (
 from .redact import redact_exception
 
 _LOGGER = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 
 class CannotConnect(Exception):
@@ -164,6 +167,29 @@ class MemgraphClient:
                     result = await session.run(query, parameters or {})
                     records = [_serialize_record(record) async for record in result]
                     return records
+        except AuthError as err:
+            raise InvalidAuth(redact_exception(err)) from err
+        except TimeoutError as err:
+            raise CannotConnect("Connection to Memgraph timed out") from err
+        except ServiceUnavailable as err:
+            raise CannotConnect(redact_exception(err)) from err
+
+    async def execute_write(
+        self,
+        work: Callable[[AsyncManagedTransaction], Awaitable[_T]],
+    ) -> _T:
+        """Run ``work`` in one driver-managed write transaction.
+
+        The driver commits when the callback returns and rolls back when it
+        raises. Callback errors and cancellation intentionally propagate so
+        callers can distinguish validation failures from connectivity failures.
+        """
+        try:
+            async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                await self.connect()
+                assert self._driver is not None
+                async with self._driver.session(database=self._database) as session:
+                    return await session.execute_write(work)
         except AuthError as err:
             raise InvalidAuth(redact_exception(err)) from err
         except TimeoutError as err:

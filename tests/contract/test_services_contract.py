@@ -22,20 +22,31 @@ from custom_components.ontology.const import (
     ATTR_ENTITY_ID,
     ATTR_EXPORT_TYPE,
     ATTR_LIMIT,
+    ATTR_MAX_AGE_HOURS,
+        ATTR_ROLE,
     ATTR_PARAMETERS,
     ATTR_PAYLOAD,
+        ATTR_THRESHOLD_WATTS,
     ATTR_TARGET,
     ATTR_TARGET_TYPE,
     ATTR_TERM,
+    ATTR_THRESHOLD_PERCENTAGE,
+        SERVICE_ACTIVE_CONSUMERS,
+    CONF_LOW_BATTERY_THRESHOLD,
+    CONF_MAX_MEASUREMENT_AGE_HOURS,
+    CONF_RELATIONSHIP_RESULT_LIMIT,
     DOMAIN,
     SERVICE_AREA_CONTEXT,
+        SERVICE_DELETE_ENERGY_ROLE,
     SERVICE_AUTOMATION_DEPENDENCIES,
     SERVICE_DEVICE_CONTEXT,
+        SERVICE_SET_ENERGY_ROLE,
     SERVICE_ENTITY_CONTEXT,
     SERVICE_EXPORT_CONTEXT,
     SERVICE_EXPORT_OVERRIDES,
     SERVICE_IMPACT_ANALYSIS,
     SERVICE_IMPORT_OVERRIDES,
+    SERVICE_LOW_BATTERY_AREAS,
     SERVICE_QUERY,
     SERVICE_REBUILD,
     SERVICE_REFRESH_SEMANTICS,
@@ -57,6 +68,10 @@ ALL_V3_SERVICES = (
     SERVICE_AUTOMATION_DEPENDENCIES,
     SERVICE_IMPACT_ANALYSIS,
     SERVICE_EXPORT_CONTEXT,
+    SERVICE_LOW_BATTERY_AREAS,
+    SERVICE_ACTIVE_CONSUMERS,
+    SERVICE_SET_ENERGY_ROLE,
+    SERVICE_DELETE_ENERGY_ROLE,
 )
 
 
@@ -144,6 +159,80 @@ def test_query_service_schema_declares_cypher_parameters_and_limit() -> None:
     assert fields[ATTR_LIMIT]["required"] is False
     assert fields[ATTR_LIMIT]["selector"]["number"]["min"] == 1
     assert fields[ATTR_LIMIT]["selector"]["number"]["max"] == 1000
+
+
+def test_energy_role_and_active_consumer_service_schemas() -> None:
+    services = yaml.safe_load(SERVICES_YAML_PATH.read_text())
+    active_fields = services[SERVICE_ACTIVE_CONSUMERS]["fields"]
+    assert active_fields[ATTR_THRESHOLD_WATTS]["required"] is False
+    assert active_fields[ATTR_MAX_AGE_HOURS]["required"] is False
+    assert active_fields[ATTR_LIMIT]["required"] is False
+
+    set_fields = services[SERVICE_SET_ENERGY_ROLE]["fields"]
+    assert set_fields[ATTR_ENTITY]["required"] is True
+    assert set_fields[ATTR_ROLE]["required"] is True
+    assert services[SERVICE_DELETE_ENERGY_ROLE]["fields"][ATTR_ENTITY]["required"] is True
+
+
+async def test_active_consumers_service_dispatches_configured_defaults(hass) -> None:
+    from homeassistant.core import ServiceCall
+
+    from custom_components.ontology import _async_handle_active_consumers
+
+    coordinator = AsyncMock()
+    coordinator.entry.options = {
+        CONF_MAX_MEASUREMENT_AGE_HOURS: 12.0,
+        CONF_RELATIONSHIP_RESULT_LIMIT: 25,
+    }
+    call = ServiceCall(hass, DOMAIN, SERVICE_ACTIVE_CONSUMERS, {})
+    expected = {"outcome": "empty"}
+
+    with (
+        patch("custom_components.ontology._loaded_coordinators", return_value=[coordinator]),
+        patch(
+            "custom_components.ontology.query_tools.active_consumers",
+            AsyncMock(return_value=expected),
+        ) as active_consumers,
+    ):
+        assert await _async_handle_active_consumers(call) == expected
+
+    active_consumers.assert_awaited_once_with(
+        coordinator.memgraph_client,
+        threshold_watts=1.0,
+        max_age_hours=12.0,
+        limit=25,
+    )
+
+
+async def test_energy_role_services_reject_non_admin_before_graph_write(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    from homeassistant.core import Context
+    from homeassistant.exceptions import Unauthorized
+
+    entry = MockConfigEntry(domain=DOMAIN, data=mock_config_entry_data)
+    entry.add_to_hass(hass)
+    await hass.auth.async_create_user("owner")
+    user = await hass.auth.async_create_user("non-admin")
+
+    with patch(
+        "custom_components.ontology.MemgraphClient", return_value=mock_memgraph_client
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        mock_memgraph_client.reset_mock()
+
+        with pytest.raises(Unauthorized):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_SET_ENERGY_ROLE,
+                {ATTR_ENTITY: "sensor.dryer_power", ATTR_ROLE: "consumer"},
+                blocking=True,
+                return_response=True,
+                context=Context(user_id=user.id),
+            )
+
+    mock_memgraph_client.run_query.assert_not_awaited()
 
 
 async def test_query_service_rejects_write_query_with_clear_error(
@@ -271,7 +360,13 @@ async def test_v3_services_return_the_common_tool_result_shape(
     result = await hass.services.async_call(
         DOMAIN, SERVICE_SEARCH, {ATTR_TERM: "kitchen"}, blocking=True, return_response=True
     )
-    assert set(result.keys()) == {"target", "result_type", "result", "warnings"}
+    assert set(result.keys()) == {
+        "target",
+        "result_type",
+        "outcome",
+        "result",
+        "warnings",
+    }
     assert result["result_type"] == "search"
 
     result = await hass.services.async_call(
@@ -283,4 +378,131 @@ async def test_v3_services_return_the_common_tool_result_shape(
     )
     assert result["result_type"] == "not_found"
     assert result["result"] is None
+
+
+def test_low_battery_service_schema_declares_validated_optional_overrides() -> None:
+    services = yaml.safe_load(SERVICES_YAML_PATH.read_text())
+    fields = services[SERVICE_LOW_BATTERY_AREAS]["fields"]
+
+    assert set(fields) == {
+        ATTR_THRESHOLD_PERCENTAGE,
+        ATTR_MAX_AGE_HOURS,
+        ATTR_LIMIT,
+    }
+    assert all(field["required"] is False for field in fields.values())
+    assert fields[ATTR_THRESHOLD_PERCENTAGE]["selector"]["number"] == {
+        "min": 1,
+        "max": 100,
+        "mode": "box",
+    }
+    assert fields[ATTR_MAX_AGE_HOURS]["selector"]["number"]["min"] > 0
+    assert fields[ATTR_LIMIT]["selector"]["number"]["min"] == 1
+
+
+async def test_low_battery_service_uses_options_and_accepts_valid_overrides(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=mock_config_entry_data,
+        options={
+            CONF_LOW_BATTERY_THRESHOLD: 15,
+            CONF_MAX_MEASUREMENT_AGE_HOURS: 12,
+            CONF_RELATIONSHIP_RESULT_LIMIT: 25,
+        },
+    )
+    entry.add_to_hass(hass)
+    expected = {
+        "target": "home",
+        "result_type": "low_battery_areas",
+        "outcome": "empty",
+        "result": {"areas": []},
+        "warnings": [],
+    }
+
+    with (
+        patch(
+            "custom_components.ontology.MemgraphClient",
+            return_value=mock_memgraph_client,
+        ),
+        patch(
+            "custom_components.ontology.query_tools.low_battery_areas",
+            AsyncMock(return_value=expected),
+        ) as low_battery,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        result = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_LOW_BATTERY_AREAS,
+            {},
+            blocking=True,
+            return_response=True,
+        )
+        assert result == expected
+        low_battery.assert_awaited_once_with(
+            mock_memgraph_client,
+            threshold_percentage=15,
+            max_age_hours=12,
+            limit=25,
+        )
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_LOW_BATTERY_AREAS,
+            {
+                ATTR_THRESHOLD_PERCENTAGE: 30,
+                ATTR_MAX_AGE_HOURS: 2,
+                ATTR_LIMIT: 5,
+            },
+            blocking=True,
+            return_response=True,
+        )
+        low_battery.assert_awaited_with(
+            mock_memgraph_client,
+            threshold_percentage=30,
+            max_age_hours=2,
+            limit=5,
+        )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {ATTR_THRESHOLD_PERCENTAGE: 0},
+        {ATTR_THRESHOLD_PERCENTAGE: 101},
+        {ATTR_MAX_AGE_HOURS: 0},
+        {ATTR_LIMIT: 0},
+        {ATTR_LIMIT: 1001},
+    ],
+)
+async def test_low_battery_service_rejects_invalid_overrides_before_query(
+    hass, mock_memgraph_client, mock_config_entry_data, data
+) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data=mock_config_entry_data)
+    entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.ontology.MemgraphClient",
+            return_value=mock_memgraph_client,
+        ),
+        patch(
+            "custom_components.ontology.query_tools.low_battery_areas",
+            AsyncMock(),
+        ) as low_battery,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        with pytest.raises(vol.Invalid):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_LOW_BATTERY_AREAS,
+                data,
+                blocking=True,
+                return_response=True,
+            )
+        low_battery.assert_not_awaited()
 

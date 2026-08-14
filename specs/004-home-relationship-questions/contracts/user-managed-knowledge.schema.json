@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hass-ontology.local/schemas/user-managed-knowledge-v2.json",
+  "title": "Ontology user-managed knowledge export",
+  "type": "object",
+  "required": [
+    "version",
+    "exported_at",
+    "overrides",
+    "supply_associations",
+    "energy_role_assignments"
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/override"
+      }
+    },
+    "supply_associations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/supplyAssociation"
+      }
+    },
+    "energy_role_assignments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/energyRoleAssignment"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "override": {
+      "type": "object",
+      "required": [
+        "relationship_type",
+        "source_label",
+        "source_ha_id",
+        "type_label"
+      ],
+      "properties": {
+        "relationship_type": {
+          "const": "OVERRIDE_OF"
+        },
+        "source_label": {
+          "enum": ["Entity", "Device", "Area"]
+        },
+        "source_ha_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "type_label": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "supplyAssociation": {
+      "type": "object",
+      "required": [
+        "ha_id",
+        "source_asset_id",
+        "target_kind",
+        "target_id",
+        "source",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "ha_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source_asset_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target_kind": {
+          "enum": ["device", "entity"]
+        },
+        "target_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source": {
+          "const": "user"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    },
+    "energyRoleAssignment": {
+      "type": "object",
+      "required": [
+        "ha_id",
+        "measurement_entity_id",
+        "role",
+        "source",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "ha_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "measurement_entity_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "role": {
+          "enum": [
+            "consumer",
+            "producer",
+            "storage",
+            "grid_import",
+            "grid_export"
+          ]
+        },
+        "source": {
+          "enum": ["user", "inferred"]
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

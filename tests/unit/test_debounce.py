@@ -55,4 +55,7 @@ async def test_rapid_state_changes_collapse_into_single_update(hass) -> None:
         await asyncio.sleep(0.1)
         await hass.async_block_till_done()
 
-    coordinator.async_handle_entity_change.assert_called_once_with("sensor.rapid")
+    entity_id, context = coordinator.async_handle_entity_change.await_args.args
+    assert entity_id == "sensor.rapid"
+    assert context.state is state_3
+    assert context.measurement_last_updated == state_3.last_updated

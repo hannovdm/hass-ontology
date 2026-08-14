@@ -22,8 +22,19 @@ from homeassistant.helpers import intent
 from . import agent_audit, impact_analysis, query_tools
 from .const import (
     AUDIT_EVENT_ASSIST_QUERY,
+    CONF_ACTIVE_POWER_THRESHOLD,
+    CONF_LOW_BATTERY_THRESHOLD,
+    CONF_MAX_MEASUREMENT_AGE_HOURS,
+    CONF_RELATIONSHIP_RESULT_LIMIT,
+    DEFAULT_LOW_BATTERY_THRESHOLD,
+    DEFAULT_ACTIVE_POWER_THRESHOLD,
+    DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
+    DEFAULT_RELATIONSHIP_RESULT_LIMIT,
     DOMAIN,
     IMPACT_SCOPE_ENTITY,
+    INTENT_LOW_BATTERY_AREAS,
+    OUTCOME_DEGRADED,
+    OUTCOME_EMPTY,
     RESULT_TYPE_NOT_FOUND,
 )
 from .memgraph_client import MemgraphClient
@@ -36,6 +47,7 @@ INTENT_ENTITY_CONTEXT = "OntologyEntityContext"
 INTENT_DEVICE_CONTEXT = "OntologyDeviceContext"
 INTENT_IMPACT_ANALYSIS = "OntologyImpactAnalysis"
 INTENT_SEARCH = "OntologySearch"
+INTENT_ACTIVE_CONSUMERS = "OntologyActiveConsumers"
 
 _SENTENCES_SOURCE_PATH = Path(__file__).parent / "intents" / "en.yaml"
 _CUSTOM_SENTENCES_FILENAME = "hass-ontology-managed.yaml"
@@ -81,11 +93,11 @@ def _bullet_list(items: list[dict[str, Any]]) -> str:
 class _OntologyIntentHandler(intent.IntentHandler):
     """Shared not-found handling + `AssistQueryRecord` audit trail."""
 
-    slot_name: str = "target"
+    slot_name: str | None = "target"
 
     @property
     def slot_schema(self) -> dict[str, Any]:
-        return {self.slot_name: cv.string}
+        return {self.slot_name: cv.string} if self.slot_name is not None else {}
 
     async def _async_call_tool(
         self, hass: HomeAssistant, client: MemgraphClient, value: str
@@ -99,7 +111,7 @@ class _OntologyIntentHandler(intent.IntentHandler):
         hass = intent_obj.hass
         response = intent_obj.create_response()
         slots = self.async_validate_slots(intent_obj.slots)
-        value = slots[self.slot_name]["value"]
+        value = slots[self.slot_name]["value"] if self.slot_name is not None else "home"
 
         entry = _first_loaded_entry(hass)
         status = "not_found"
@@ -268,7 +280,106 @@ class OntologySearch(_OntologyIntentHandler):
         return f"I found:\n{_bullet_list(matches)}"
 
 
+class OntologyLowBatteryAreas(_OntologyIntentHandler):
+    """Render fresh low-battery measurements grouped by area."""
+
+    intent_type = INTENT_LOW_BATTERY_AREAS
+    slot_name = None
+
+    async def _async_call_tool(self, hass, client, value):
+        entry = _first_loaded_entry(hass)
+        options = entry.options if entry is not None else {}
+        return await query_tools.low_battery_areas(
+            client,
+            threshold_percentage=options.get(
+                CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD
+            ),
+            max_age_hours=options.get(
+                CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
+            ),
+            limit=options.get(
+                CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT
+            ),
+        )
+
+    def _speech_for_found(self, tool_result):
+        if tool_result.get("outcome") == OUTCOME_DEGRADED:
+            return "I can't check low batteries because the ontology is unavailable."
+        result = tool_result.get("result") or {}
+        areas = result.get("areas") or []
+        if tool_result.get("outcome") == OUTCOME_EMPTY or not areas:
+            speech = "No low batteries are known."
+        else:
+            lines = []
+            for area in areas:
+                items = []
+                for item in area.get("items", []):
+                    percentages = ", ".join(
+                        f"{measurement['percentage']:g}%"
+                        for measurement in item.get("measurements", [])
+                    )
+                    items.append(f"{item['name']} ({percentages})")
+                lines.append(f"{area['area_name']}: {', '.join(items)}")
+            speech = "\n".join(lines)
+        if result.get("truncated"):
+            speech += " Additional low-battery results were omitted."
+        return speech
+
+
+class OntologyActiveConsumers(_OntologyIntentHandler):
+    """Render fresh consumer-role readings without combining measurements."""
+
+    intent_type = INTENT_ACTIVE_CONSUMERS
+    slot_name = None
+
+    async def _async_call_tool(self, hass, client, value):
+        entry = _first_loaded_entry(hass)
+        options = entry.options if entry is not None else {}
+        return await query_tools.active_consumers(
+            client,
+            threshold_watts=options.get(
+                CONF_ACTIVE_POWER_THRESHOLD, DEFAULT_ACTIVE_POWER_THRESHOLD
+            ),
+            max_age_hours=options.get(
+                CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
+            ),
+            limit=options.get(
+                CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT
+            ),
+        )
+
+    def _speech_for_found(self, tool_result):
+        if tool_result.get("outcome") == OUTCOME_DEGRADED:
+            return (
+                "I can't check active electricity consumers because the ontology "
+                "is unavailable."
+            )
+        result = tool_result.get("result") or {}
+        consumers = result.get("consumers") or []
+        if tool_result.get("outcome") == OUTCOME_EMPTY or not consumers:
+            speech = "No active electricity consumers are known."
+        else:
+            lines = []
+            for consumer in consumers:
+                location = (
+                    f" in {consumer['area_name']}" if consumer.get("area_name") else ""
+                )
+                readings = ", ".join(
+                    f"{measurement['name']} ({measurement['watts']:g} W)"
+                    for measurement in consumer.get("measurements", [])
+                )
+                lines.append(f"{consumer['name']}{location}: {readings}")
+            speech = "\n".join(lines)
+        if result.get("unresolved_role_count"):
+            speech += " Some active power readings have no energy role."
+        if result.get("truncated"):
+            speech += " Additional active consumers were omitted."
+        return speech
+
+
 ALL_INTENT_HANDLERS: tuple[_OntologyIntentHandler, ...] = (
+    OntologyLowBatteryAreas(),
+    OntologyActiveConsumers(),
     OntologyAutomationDependencies(),
     OntologyAreaContents(),
     OntologyEntityContext(),

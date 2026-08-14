@@ -8,12 +8,15 @@ data-model.md "Common conventions") and stamp ``source``/``updated_at``.
 from __future__ import annotations
 
 import logging
+import math
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.automation import entities_in_automation
 from homeassistant.components.script import entities_in_script
-from homeassistant.core import HomeAssistant
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -36,6 +39,18 @@ from .const import (
     LABEL_ONTOLOGY_SCHEMA,
     LABEL_SCENE,
     LABEL_SCRIPT,
+    MEASUREMENT_BATTERY_PERCENTAGE,
+    MEASUREMENT_KIND,
+    MEASUREMENT_KIND_BATTERY,
+    MEASUREMENT_KIND_POWER,
+    MEASUREMENT_LAST_UPDATED,
+    MEASUREMENT_LAST_UPDATED_EPOCH,
+    MEASUREMENT_POWER_WATTS,
+    MEASUREMENT_STATUS,
+    MEASUREMENT_STATUS_AVAILABLE,
+    MEASUREMENT_STATUS_INVALID_VALUE,
+    MEASUREMENT_STATUS_UNAVAILABLE,
+    MEASUREMENT_STATUS_UNSUPPORTED_UNIT,
     REL_CONTROLS,
     REL_HAS_AREA,
     REL_HAS_DEVICE,
@@ -58,8 +73,63 @@ from .memgraph_client import MemgraphClient
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, slots=True)
+class EntitySyncContext:
+    """Immutable accepted state snapshot carried through trailing debounce."""
+
+    state: State
+    measurement_last_updated: datetime
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def normalize_current_measurement(
+    state: State,
+    *,
+    measurement_last_updated: datetime | None = None,
+) -> dict[str, Any]:
+    """Return strict allow-listed current measurement properties for ``state``."""
+    device_class = state.attributes.get("device_class")
+    if device_class not in (MEASUREMENT_KIND_BATTERY, MEASUREMENT_KIND_POWER):
+        return {}
+
+    updated = (measurement_last_updated or state.last_updated).astimezone(UTC)
+    result: dict[str, Any] = {
+        MEASUREMENT_KIND: device_class,
+        MEASUREMENT_LAST_UPDATED: updated.isoformat(),
+        MEASUREMENT_LAST_UPDATED_EPOCH: updated.timestamp(),
+    }
+    if state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+        result[MEASUREMENT_STATUS] = MEASUREMENT_STATUS_UNAVAILABLE
+        return result
+
+    unit = state.attributes.get("unit_of_measurement")
+    supported_units = (
+        ("%",) if device_class == MEASUREMENT_KIND_BATTERY else ("W", "kW")
+    )
+    if unit not in supported_units:
+        result[MEASUREMENT_STATUS] = MEASUREMENT_STATUS_UNSUPPORTED_UNIT
+        return result
+
+    try:
+        value = float(state.state)
+    except (TypeError, ValueError):
+        result[MEASUREMENT_STATUS] = MEASUREMENT_STATUS_INVALID_VALUE
+        return result
+    if not math.isfinite(value) or (
+        device_class == MEASUREMENT_KIND_BATTERY and not 0 <= value <= 100
+    ):
+        result[MEASUREMENT_STATUS] = MEASUREMENT_STATUS_INVALID_VALUE
+        return result
+
+    result[MEASUREMENT_STATUS] = MEASUREMENT_STATUS_AVAILABLE
+    if device_class == MEASUREMENT_KIND_BATTERY:
+        result[MEASUREMENT_BATTERY_PERCENTAGE] = value
+    else:
+        result[MEASUREMENT_POWER_WATTS] = value * 1000 if unit == "kW" else value
+    return result
 
 
 def _sanitize_label(label: str) -> str:
@@ -238,12 +308,15 @@ async def collect_entities(
 
 
 async def _write_entity_node_and_relationships(
-    hass: HomeAssistant, client: MemgraphClient, entity_id: str
+    hass: HomeAssistant,
+    client: MemgraphClient,
+    entity_id: str,
+    context: EntitySyncContext | None = None,
 ) -> None:
     """Write the Entity node and its Device/Domain/Integration/Label edges."""
     registry = er.async_get(hass)
     entry = registry.entities.get(entity_id)
-    state = hass.states.get(entity_id)
+    state = context.state if context is not None else hass.states.get(entity_id)
     name = (entry.name if entry else None) or (state.name if state else None) or entity_id
     domain = entity_id.split(".", 1)[0]
 
@@ -254,8 +327,33 @@ async def _write_entity_node_and_relationships(
     if state is not None:
         props["state"] = state.state
         props["state_updated_at"] = state.last_changed.isoformat()
+        props["device_class"] = state.attributes.get("device_class")
+        props["unit_of_measurement"] = state.attributes.get("unit_of_measurement")
 
-    await merge_node(client, LABEL_ENTITY, entity_id, props)
+    measurement_props = (
+        normalize_current_measurement(
+            state,
+            measurement_last_updated=(
+                context.measurement_last_updated if context is not None else None
+            ),
+        )
+        if state is not None
+        else {}
+    )
+    props["source"] = SOURCE_HOME_ASSISTANT
+    props["updated_at"] = _now_iso()
+    await client.run_query_with_retry(
+        f"MERGE (n:{LABEL_ENTITY} {{ha_id: $ha_id}}) "
+        f"REMOVE n.{MEASUREMENT_KIND}, n.{MEASUREMENT_STATUS}, "
+        f"n.{MEASUREMENT_BATTERY_PERCENTAGE}, n.{MEASUREMENT_POWER_WATTS}, "
+        f"n.{MEASUREMENT_LAST_UPDATED}, n.{MEASUREMENT_LAST_UPDATED_EPOCH} "
+        "SET n += $properties, n += $measurement_properties",
+        {
+            "ha_id": entity_id,
+            "properties": props,
+            "measurement_properties": measurement_props,
+        },
+    )
     await merge_node(client, LABEL_DOMAIN, domain, {})
     await merge_relationship(client, LABEL_ENTITY, entity_id, REL_IN_DOMAIN, LABEL_DOMAIN, domain)
 
@@ -480,7 +578,12 @@ async def clear_generated_graph(client: MemgraphClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def update_entity(hass: HomeAssistant, client: MemgraphClient, entity_id: str) -> None:
+async def update_entity(
+    hass: HomeAssistant,
+    client: MemgraphClient,
+    entity_id: str,
+    context: EntitySyncContext | None = None,
+) -> None:
     """MERGE only the affected Entity node and its direct relationships.
 
     If the entity no longer exists in HA (deleted mid-flight), treat it as a
@@ -494,7 +597,7 @@ async def update_entity(hass: HomeAssistant, client: MemgraphClient, entity_id: 
     if entry is None and hass.states.get(entity_id) is None:
         await _delete_node(client, LABEL_ENTITY, entity_id)
         return
-    await _write_entity_node_and_relationships(hass, client, entity_id)
+    await _write_entity_node_and_relationships(hass, client, entity_id, context)
 
 
 async def update_device(hass: HomeAssistant, client: MemgraphClient, device_id: str) -> None:

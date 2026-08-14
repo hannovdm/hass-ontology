@@ -189,6 +189,61 @@
         "export_type": { "name": "Export type", "description": "One of area, entity, device, automation, impact, whole_home." },
         "target": { "name": "Target", "description": "Id or name of the target (not required for whole_home)." }
       }
+    },
+    "low_battery_areas": {
+      "name": "Low battery areas",
+      "description": "Returns fresh low-battery readings grouped by area and device.",
+      "fields": {
+        "threshold_percentage": {
+          "name": "Low battery threshold",
+          "description": "Percentage readings strictly below this value qualify."
+        },
+        "max_age_hours": {
+          "name": "Maximum measurement age",
+          "description": "Oldest qualifying measurement age in hours."
+        },
+        "limit": {
+          "name": "Result limit",
+          "description": "Maximum number of qualifying measurement rows."
+        }
+      }
+    },
+    "active_consumers": {
+      "name": "Active consumers",
+      "description": "Returns fresh consumer-role power readings grouped by device without summing overlapping measurements.",
+      "fields": {
+        "threshold_watts": { "name": "Active power threshold", "description": "Power readings strictly above this watt value qualify." },
+        "max_age_hours": { "name": "Maximum measurement age", "description": "Oldest qualifying measurement age in hours." },
+        "limit": { "name": "Result limit", "description": "Maximum number of qualifying devices." }
+      }
+    },
+    "set_energy_role": {
+      "name": "Set energy role",
+      "description": "Sets the effective user-managed energy role for a power measurement entity.",
+      "fields": {
+        "entity": { "name": "Entity", "description": "Power measurement entity id or unique name." },
+        "role": { "name": "Role", "description": "Consumer, producer, storage, grid import, or grid export." }
+      }
+    },
+    "delete_energy_role": {
+      "name": "Delete energy role",
+      "description": "Deletes only the user-managed role so an inferred role can become effective.",
+      "fields": {
+        "entity": { "name": "Entity", "description": "Power measurement entity id or unique name." }
+      }
+    }
+  },
+  "intent": {
+    "OntologyLowBatteryAreas": {
+      "empty": "No low batteries are known.",
+      "degraded": "I can't check low batteries because the ontology is unavailable.",
+      "truncated": "Additional low-battery results were omitted."
+    },
+    "OntologyActiveConsumers": {
+      "empty": "No active electricity consumers are known.",
+      "degraded": "I can't check active electricity consumers because the ontology is unavailable.",
+      "unresolved_role": "Some active power readings have no energy role.",
+      "truncated": "Additional active consumers were omitted."
     }
   },
   "options": {
@@ -205,7 +260,11 @@
           "encrypted": "Use encrypted (TLS) connection",
           "auto_classify": "Automatically classify entities into semantic types",
           "mcp_enabled": "Enable local MCP-compatible endpoint (disabled by default)",
-          "mcp_allowed_networks": "MCP allowed networks (comma-separated CIDRs)"
+          "mcp_allowed_networks": "MCP allowed networks (comma-separated CIDRs)",
+          "low_battery_threshold": "Low battery threshold (%)",
+          "active_power_threshold": "Active power threshold (W)",
+          "max_measurement_age_hours": "Maximum measurement age (hours)",
+          "relationship_result_limit": "Maximum relationship results"
         }
       }
     }

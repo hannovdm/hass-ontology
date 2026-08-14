@@ -16,13 +16,23 @@ DEFAULT_PORT = 7687
 DEFAULT_DATABASE = ""
 DEFAULT_ENCRYPTED = False
 
-# Options-flow keys (v2)
+# Options-flow keys
 CONF_AUTO_CLASSIFY = "auto_classify"
 DEFAULT_AUTO_CLASSIFY = True
+CONF_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
+CONF_ACTIVE_POWER_THRESHOLD = "active_power_threshold"
+CONF_MAX_MEASUREMENT_AGE_HOURS = "max_measurement_age_hours"
+CONF_RELATIONSHIP_RESULT_LIMIT = "relationship_result_limit"
+DEFAULT_LOW_BATTERY_THRESHOLD = 20.0
+DEFAULT_ACTIVE_POWER_THRESHOLD = 1.0
+DEFAULT_MAX_MEASUREMENT_AGE_HOURS = 24.0
+DEFAULT_RELATIONSHIP_RESULT_LIMIT = 50
+MAX_RELATIONSHIP_RESULT_LIMIT = 1000
 
 # Ontology schema version (Constitution Principle VI). Bump whenever labels,
 # relationship types, required properties, or graph semantics change.
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "3.0.0"
+SCHEMA_PREVIOUS_VERSION = "2.0.0"
 SCHEMA_SINGLETON_ID = "home_assistant_ontology"
 HOME_SINGLETON_ID = "home"
 
@@ -77,6 +87,27 @@ ATTR_PARAMETERS = "parameters"
 ATTR_LIMIT = "limit"
 ATTR_PAYLOAD = "payload"
 
+# Home relationship read and administrator service names.
+SERVICE_LOW_BATTERY_AREAS = "low_battery_areas"
+SERVICE_ACTIVE_CONSUMERS = "active_consumers"
+SERVICE_CREATE_SUPPLY_ASSOCIATION = "create_supply_association"
+SERVICE_LIST_SUPPLY_ASSOCIATIONS = "list_supply_associations"
+SERVICE_DELETE_SUPPLY_ASSOCIATION = "delete_supply_association"
+SERVICE_SET_ENERGY_ROLE = "set_energy_role"
+SERVICE_DELETE_ENERGY_ROLE = "delete_energy_role"
+SERVICE_EXPORT_USER_KNOWLEDGE = "export_user_knowledge"
+SERVICE_IMPORT_USER_KNOWLEDGE = "import_user_knowledge"
+SERVICE_SUPPLIED_TARGETS = "supplied_targets"
+
+ATTR_THRESHOLD_PERCENTAGE = "threshold_percentage"
+ATTR_THRESHOLD_WATTS = "threshold_watts"
+ATTR_MAX_AGE_HOURS = "max_age_hours"
+ATTR_CYLINDER = "cylinder"
+ATTR_TARGET = "target"
+ATTR_TARGET_TYPE = "target_type"
+ATTR_ASSOCIATION_ID = "association_id"
+ATTR_ROLE = "role"
+
 # ontology.query row-limit defaults (FR-018, FR-021)
 DEFAULT_QUERY_LIMIT = 100
 MAX_QUERY_LIMIT = 1000
@@ -103,6 +134,7 @@ QUERY_DENYLIST_KEYWORDS = (
 
 # Override export/import payload version (research.md §7)
 OVERRIDES_EXPORT_VERSION = 1
+USER_KNOWLEDGE_EXPORT_VERSION = 2
 
 # Validation finding categories (data-model.md ValidationFinding, research.md §6)
 FINDING_MISSING_AREA = "missing_area"
@@ -114,6 +146,9 @@ FINDING_UNAVAILABLE_CRITICAL_ENTITY = "unavailable_critical_entity"
 FINDING_INVALID_RELATIONSHIP = "invalid_relationship"
 FINDING_SCHEMA_MISMATCH = "schema_mismatch"
 FINDING_MISSING_SEMANTIC_CLASSIFICATION = "missing_semantic_classification"
+FINDING_UNRESOLVED_SUPPLY_SOURCE = "unresolved_supply_source"
+FINDING_UNRESOLVED_SUPPLY_TARGET = "unresolved_supply_target"
+FINDING_UNRESOLVED_ENERGY_ROLE_ENTITY = "unresolved_energy_role_entity"
 
 VALIDATION_FINDING_CATEGORIES = (
     FINDING_MISSING_AREA,
@@ -125,6 +160,9 @@ VALIDATION_FINDING_CATEGORIES = (
     FINDING_INVALID_RELATIONSHIP,
     FINDING_SCHEMA_MISMATCH,
     FINDING_MISSING_SEMANTIC_CLASSIFICATION,
+    FINDING_UNRESOLVED_SUPPLY_SOURCE,
+    FINDING_UNRESOLVED_SUPPLY_TARGET,
+    FINDING_UNRESOLVED_ENERGY_ROLE_ENTITY,
 )
 
 # ValidationFinding severities/status (data-model.md ValidationFinding)
@@ -162,6 +200,8 @@ LABEL_AUTOMATION = "Automation"
 LABEL_SCENE = "Scene"
 LABEL_SCRIPT = "Script"
 LABEL_ONTOLOGY_SCHEMA = "OntologySchema"
+LABEL_SUPPLY_ASSOCIATION = "SupplyAssociation"
+LABEL_ENERGY_ROLE_ASSIGNMENT = "EnergyRoleAssignment"
 
 # Relationship types (data-model.md "Relationships")
 REL_HAS_AREA = "HAS_AREA"
@@ -174,6 +214,47 @@ REL_PROVIDED_BY = "PROVIDED_BY"
 REL_HAS_LABEL = "HAS_LABEL"
 REL_REFERENCES = "REFERENCES"
 REL_CONTROLS = "CONTROLS"
+REL_SUPPLY_SOURCE = "SUPPLY_SOURCE"
+REL_SUPPLIES = "SUPPLIES"
+REL_ASSIGNS_ROLE_TO = "ASSIGNS_ROLE_TO"
+
+# Normalized current-measurement fields and values.
+MEASUREMENT_KIND = "measurement_kind"
+MEASUREMENT_STATUS = "measurement_status"
+MEASUREMENT_BATTERY_PERCENTAGE = "battery_percentage"
+MEASUREMENT_POWER_WATTS = "power_watts"
+MEASUREMENT_LAST_UPDATED = "measurement_last_updated"
+MEASUREMENT_LAST_UPDATED_EPOCH = "measurement_last_updated_epoch"
+
+MEASUREMENT_KIND_BATTERY = "battery"
+MEASUREMENT_KIND_POWER = "power"
+MEASUREMENT_STATUS_AVAILABLE = "available"
+MEASUREMENT_STATUS_UNAVAILABLE = "unavailable"
+MEASUREMENT_STATUS_INVALID_VALUE = "invalid_value"
+MEASUREMENT_STATUS_UNSUPPORTED_UNIT = "unsupported_unit"
+MEASUREMENT_STATUSES = (
+    MEASUREMENT_STATUS_AVAILABLE,
+    MEASUREMENT_STATUS_UNAVAILABLE,
+    MEASUREMENT_STATUS_INVALID_VALUE,
+    MEASUREMENT_STATUS_UNSUPPORTED_UNIT,
+)
+
+ENERGY_ROLE_CONSUMER = "consumer"
+ENERGY_ROLE_PRODUCER = "producer"
+ENERGY_ROLE_STORAGE = "storage"
+ENERGY_ROLE_GRID_IMPORT = "grid_import"
+ENERGY_ROLE_GRID_EXPORT = "grid_export"
+ENERGY_ROLES = (
+    ENERGY_ROLE_CONSUMER,
+    ENERGY_ROLE_PRODUCER,
+    ENERGY_ROLE_STORAGE,
+    ENERGY_ROLE_GRID_IMPORT,
+    ENERGY_ROLE_GRID_EXPORT,
+)
+
+SUPPLY_TARGET_DEVICE = "device"
+SUPPLY_TARGET_ENTITY = "entity"
+SUPPLY_TARGET_TYPES = (SUPPLY_TARGET_DEVICE, SUPPLY_TARGET_ENTITY)
 
 # Node labels (data-model.md v2 additions)
 LABEL_SEMANTIC_TYPE = "SemanticType"
@@ -231,8 +312,6 @@ ATTR_TERM = "term"
 ATTR_AREA = "area"
 ATTR_DEVICE = "device"
 ATTR_ENTITY = "entity"
-ATTR_TARGET_TYPE = "target_type"
-ATTR_TARGET = "target"
 ATTR_EXPORT_TYPE = "export_type"
 
 # Options-flow key: opt-in local MCP-compatible endpoint (research.md §8,
@@ -273,6 +352,22 @@ RESULT_TYPE_IMPACT_ANALYSIS = "impact_analysis"
 RESULT_TYPE_QUERY = "query"
 RESULT_TYPE_EXPORT_CONTEXT = "export_context"
 RESULT_TYPE_NOT_FOUND = "not_found"
+RESULT_TYPE_LOW_BATTERY_AREAS = "low_battery_areas"
+RESULT_TYPE_ACTIVE_CONSUMERS = "active_consumers"
+RESULT_TYPE_SUPPLIED_TARGETS = "supplied_targets"
+
+OUTCOME_OK = "ok"
+OUTCOME_EMPTY = "empty"
+OUTCOME_NOT_FOUND = "not_found"
+OUTCOME_AMBIGUOUS = "ambiguous"
+OUTCOME_DEGRADED = "degraded"
+TOOL_RESULT_OUTCOMES = (
+    OUTCOME_OK,
+    OUTCOME_EMPTY,
+    OUTCOME_NOT_FOUND,
+    OUTCOME_AMBIGUOUS,
+    OUTCOME_DEGRADED,
+)
 
 # Impact-analysis scopes (data-model.md §3)
 IMPACT_SCOPE_ENTITY = "entity"
@@ -335,7 +430,17 @@ MCP_TOOL_NAMES = (
     "impact_analysis",
     "query",
     "export_context",
+    "low_battery_areas",
+    "active_consumers",
+    "supplied_targets",
 )
+
+# Assist intent identifiers for relationship questions.
+INTENT_LOW_BATTERY_AREAS = "OntologyLowBatteryAreas"
+INTENT_ACTIVE_CONSUMERS = "OntologyActiveConsumers"
+INTENT_AUTOMATION_DEPENDENCIES = "OntologyAutomationDependencies"
+INTENT_SUPPLIED_TARGETS = "OntologySuppliedTargets"
+INTENT_DEVICE_CONTEXT = "OntologyDeviceContext"
 
 # Agent-audit event names (data-model.md §5)
 AUDIT_EVENT_ASSIST_QUERY = "assist_query"

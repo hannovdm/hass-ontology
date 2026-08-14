@@ -1,5 +1,15 @@
 language: "en"
 intents:
+  OntologyLowBatteryAreas:
+    data:
+      - sentences:
+          - "which rooms have devices with low batteries"
+          - "where are the low batteries"
+  OntologyActiveConsumers:
+    data:
+      - sentences:
+          - "what appliances currently consume electricity"
+          - "which devices are using power"
   OntologyAutomationDependencies:
     data:
       - sentences:

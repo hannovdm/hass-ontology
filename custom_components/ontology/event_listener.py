@@ -21,6 +21,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import STATE_CHANGE_DEBOUNCE_SECONDS
 from .coordinator import OntologyCoordinator
+from .graph_builder import EntitySyncContext
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,23 +34,36 @@ class StateChangeDebouncer:
         self._hass = hass
         self._coordinator = coordinator
         self._timers: dict[str, asyncio.TimerHandle] = {}
+        self._contexts: dict[str, EntitySyncContext] = {}
 
     @callback
     def async_handle_state_changed(self, event: Event) -> None:
-        """Filter to primary state changes (FR-012a) and (re)start the debounce timer."""
+        """Retain accepted state/attribute changes and ignore unrelated churn."""
         entity_id = event.data.get("entity_id")
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         if entity_id is None or new_state is None:
             return
+        measurement_last_updated = new_state.last_updated
         if old_state is not None and old_state.state == new_state.state:
-            # Attribute-only change (e.g. battery %, signal strength): ignore.
-            return
+            changed_attributes = {
+                key
+                for key in ("friendly_name", "device_class", "unit_of_measurement")
+                if old_state.attributes.get(key) != new_state.attributes.get(key)
+            }
+            if not changed_attributes:
+                return
+            if changed_attributes == {"friendly_name"}:
+                measurement_last_updated = old_state.last_updated
 
         existing = self._timers.pop(entity_id, None)
         if existing is not None:
             existing.cancel()
 
+        self._contexts[entity_id] = EntitySyncContext(
+            state=new_state,
+            measurement_last_updated=measurement_last_updated,
+        )
         handle = self._hass.loop.call_later(
             STATE_CHANGE_DEBOUNCE_SECONDS, self._fire, entity_id
         )
@@ -57,13 +71,17 @@ class StateChangeDebouncer:
 
     def _fire(self, entity_id: str) -> None:
         self._timers.pop(entity_id, None)
-        self._hass.async_create_task(self._coordinator.async_handle_entity_change(entity_id))
+        context = self._contexts.pop(entity_id)
+        self._hass.async_create_task(
+            self._coordinator.async_handle_entity_change(entity_id, context)
+        )
 
     def async_cancel_all(self) -> None:
         """Cancel all pending debounce timers (called on unload)."""
         for handle in self._timers.values():
             handle.cancel()
         self._timers.clear()
+        self._contexts.clear()
 
 
 def async_register_listeners(

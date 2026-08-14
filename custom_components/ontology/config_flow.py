@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import voluptuous as vol
@@ -11,26 +12,43 @@ from homeassistant.core import callback
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import (
+    CONF_ACTIVE_POWER_THRESHOLD,
     CONF_AUTO_CLASSIFY,
     CONF_DATABASE,
     CONF_ENCRYPTED,
     CONF_HOST,
-    CONF_MCP_ENABLED,
+    CONF_LOW_BATTERY_THRESHOLD,
+    CONF_MAX_MEASUREMENT_AGE_HOURS,
     CONF_MCP_ALLOWED_NETWORKS,
+    CONF_MCP_ENABLED,
     CONF_PASSWORD,
     CONF_PORT,
+    CONF_RELATIONSHIP_RESULT_LIMIT,
     CONF_USERNAME,
+    DEFAULT_ACTIVE_POWER_THRESHOLD,
     DEFAULT_AUTO_CLASSIFY,
     DEFAULT_DATABASE,
     DEFAULT_ENCRYPTED,
-    DEFAULT_MCP_ENABLED,
+    DEFAULT_LOW_BATTERY_THRESHOLD,
+    DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
     DEFAULT_MCP_ALLOWED_NETWORKS,
+    DEFAULT_MCP_ENABLED,
     DEFAULT_PORT,
+    DEFAULT_RELATIONSHIP_RESULT_LIMIT,
     DOMAIN,
+    MAX_RELATIONSHIP_RESULT_LIMIT,
 )
 from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _finite_number(value: object) -> float:
+    """Coerce a finite numeric option value."""
+    number = vol.Coerce(float)(value)
+    if not math.isfinite(number):
+        raise vol.Invalid("value must be finite")
+    return number
 
 
 def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -206,6 +224,38 @@ def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             CONF_MCP_ENABLED, default=defaults.get(CONF_MCP_ENABLED, DEFAULT_MCP_ENABLED)
         )
     ] = bool
+    schema_dict[
+        vol.Optional(
+            CONF_LOW_BATTERY_THRESHOLD,
+            default=defaults.get(
+                CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD
+            ),
+        )
+    ] = vol.All(_finite_number, vol.Range(min=1, max=100))
+    schema_dict[
+        vol.Optional(
+            CONF_ACTIVE_POWER_THRESHOLD,
+            default=defaults.get(
+                CONF_ACTIVE_POWER_THRESHOLD, DEFAULT_ACTIVE_POWER_THRESHOLD
+            ),
+        )
+    ] = vol.All(_finite_number, vol.Range(min=0))
+    schema_dict[
+        vol.Optional(
+            CONF_MAX_MEASUREMENT_AGE_HOURS,
+            default=defaults.get(
+                CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
+            ),
+        )
+    ] = vol.All(_finite_number, vol.Range(min=0, min_included=False))
+    schema_dict[
+        vol.Optional(
+            CONF_RELATIONSHIP_RESULT_LIMIT,
+            default=defaults.get(
+                CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT
+            ),
+        )
+    ] = vol.All(int, vol.Range(min=1, max=MAX_RELATIONSHIP_RESULT_LIMIT))
     return vol.Schema(schema_dict)
 
 
@@ -227,6 +277,10 @@ class OntologyOptionsFlow(OptionsFlow):
                     CONF_AUTO_CLASSIFY,
                     CONF_MCP_ENABLED,
                     CONF_MCP_ALLOWED_NETWORKS,
+                    CONF_LOW_BATTERY_THRESHOLD,
+                    CONF_ACTIVE_POWER_THRESHOLD,
+                    CONF_MAX_MEASUREMENT_AGE_HOURS,
+                    CONF_RELATIONSHIP_RESULT_LIMIT,
                 )
             }
             try:
@@ -251,6 +305,20 @@ class OntologyOptionsFlow(OptionsFlow):
                         ),
                         CONF_MCP_ALLOWED_NETWORKS: user_input.get(
                             CONF_MCP_ALLOWED_NETWORKS, DEFAULT_MCP_ALLOWED_NETWORKS
+                        ),
+                        CONF_LOW_BATTERY_THRESHOLD: user_input.get(
+                            CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD
+                        ),
+                        CONF_ACTIVE_POWER_THRESHOLD: user_input.get(
+                            CONF_ACTIVE_POWER_THRESHOLD, DEFAULT_ACTIVE_POWER_THRESHOLD
+                        ),
+                        CONF_MAX_MEASUREMENT_AGE_HOURS: user_input.get(
+                            CONF_MAX_MEASUREMENT_AGE_HOURS,
+                            DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
+                        ),
+                        CONF_RELATIONSHIP_RESULT_LIMIT: user_input.get(
+                            CONF_RELATIONSHIP_RESULT_LIMIT,
+                            DEFAULT_RELATIONSHIP_RESULT_LIMIT,
                         ),
                     },
                 )

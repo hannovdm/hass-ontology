@@ -105,3 +105,68 @@ export_context:
       required: false
       selector:
         text: {}
+low_battery_areas:
+  fields:
+    threshold_percentage:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    max_age_hours:
+      required: false
+      selector:
+        number:
+          min: 0.1
+          mode: box
+    limit:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+active_consumers:
+  fields:
+    threshold_watts:
+      required: false
+      selector:
+        number:
+          min: 0
+          mode: box
+    max_age_hours:
+      required: false
+      selector:
+        number:
+          min: 0.1
+          mode: box
+    limit:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+set_energy_role:
+  fields:
+    entity:
+      required: true
+      selector:
+        text: {}
+    role:
+      required: true
+      selector:
+        select:
+          options:
+            - consumer
+            - producer
+            - storage
+            - grid_import
+            - grid_export
+delete_energy_role:
+  fields:
+    entity:
+      required: true
+      selector:
+        text: {}

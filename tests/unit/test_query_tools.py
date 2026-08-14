@@ -95,7 +95,13 @@ async def test_functions_return_the_common_tool_result_shape(func_name: str, row
     client = _client_with_rows([row])
     func = getattr(query_tools, func_name)
     result = await func(client, "kitchen")
-    assert set(result.keys()) == {"target", "result_type", "result", "warnings"}
+    assert set(result.keys()) == {
+        "target",
+        "result_type",
+        "outcome",
+        "result",
+        "warnings",
+    }
     assert result["target"] == "kitchen"
     assert result["result_type"] != "not_found"
     assert result["result"] is not None
@@ -231,7 +237,7 @@ async def test_entity_context_reports_unavailable_relationships() -> None:
 def test_search_uses_only_v2_labels_and_relationships_no_new_schema() -> None:
     """T076: v3 introduces zero new Memgraph node labels/relationship types
     or a `SCHEMA_VERSION` bump (FR-035, data-model.md §1)."""
-    assert SCHEMA_VERSION == "2.0.0"
+    assert SCHEMA_VERSION == "3.0.0"
     # Sanity: the v1/v2 label/relationship constants query_tools.py relies on
     # still exist and are unchanged in shape (no v3-specific LABEL_*/REL_*
     # constants were introduced for query_tools.py's own traversals).

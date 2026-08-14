@@ -11,6 +11,10 @@ build/
 # Environment / secrets
 .env
 .env.*
+.env*
+
+# Frontend tooling
+node_modules/
 
 # OS
 .DS_Store

@@ -8,6 +8,8 @@ real Memgraph server (research.md §3).
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -47,6 +49,8 @@ if sys.platform == "win32":
 
     pytest_socket.disable_socket = _allow_socket_for_asyncio_self_pipe
 
+from homeassistant.core import State  # noqa: E402
+
 from custom_components.ontology.const import (  # noqa: E402
     CONF_DATABASE,
     CONF_ENCRYPTED,
@@ -78,7 +82,109 @@ def mock_memgraph_client() -> AsyncMock:
     client.test_connection = AsyncMock(return_value=None)
     client.run_query = AsyncMock(return_value=[])
     client.run_query_with_retry = AsyncMock(return_value=[])
+    client.execute_write = AsyncMock(return_value=None)
     return client
+
+
+@pytest.fixture
+def battery_state_builder() -> Callable[..., State]:
+    """Build battery states with explicit source timestamps and units."""
+
+    def _build(
+        entity_id: str = "sensor.test_battery",
+        value: str = "20",
+        *,
+        unit: str = "%",
+        last_updated: datetime | None = None,
+        **attributes: object,
+    ) -> State:
+        return State(
+            entity_id,
+            value,
+            {
+                "device_class": "battery",
+                "unit_of_measurement": unit,
+                "friendly_name": "Test battery",
+                **attributes,
+            },
+            last_updated=last_updated or datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
+        )
+
+    return _build
+
+
+@pytest.fixture
+def power_state_builder() -> Callable[..., State]:
+    """Build power states covering strict W/kW normalization."""
+
+    def _build(
+        entity_id: str = "sensor.test_power",
+        value: str = "1",
+        *,
+        unit: str = "W",
+        last_updated: datetime | None = None,
+        **attributes: object,
+    ) -> State:
+        return State(
+            entity_id,
+            value,
+            {
+                "device_class": "power",
+                "unit_of_measurement": unit,
+                "friendly_name": "Test power",
+                **attributes,
+            },
+            last_updated=last_updated or datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
+        )
+
+    return _build
+
+
+@pytest.fixture
+def ambiguous_target_rows() -> Callable[..., list[dict[str, object]]]:
+    """Build deterministic duplicate-name resolver rows."""
+
+    def _build(name: str = "Garage sensor") -> list[dict[str, object]]:
+        return [
+            {"target_type": "device", "target_id": "device-b", "name": name, "area_name": None},
+            {
+                "target_type": "entity",
+                "target_id": "sensor.garage_a",
+                "name": name,
+                "area_name": "Garage",
+            },
+        ]
+
+    return _build
+
+
+@pytest.fixture
+def automation_dependency_rows() -> list[dict[str, object]]:
+    """Return overlapping entity-level automation dependency rows."""
+    return [
+        {
+            "automation_id": "automation.garage_light",
+            "name": "Garage light",
+            "entity_id": "binary_sensor.garage_motion",
+            "relationship_type": "REFERENCES",
+        },
+        {
+            "automation_id": "automation.garage_light",
+            "name": "Garage light",
+            "entity_id": "sensor.garage_illuminance",
+            "relationship_type": "REFERENCES",
+        },
+    ]
+
+
+@pytest.fixture
+def gas_cylinder_record() -> dict[str, object]:
+    """Return a canonical gas-cylinder fixture used by later statement tests."""
+    return {
+        "ha_id": "sensor.gas_cylinder_weight::GasCylinder",
+        "name": "48kg gas cylinder",
+        "source": "inferred",
+    }
 
 
 @pytest.fixture

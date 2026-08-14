@@ -24,6 +24,11 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import (
     DOMAIN,
+    ENERGY_ROLE_CONSUMER,
+    ENERGY_ROLE_GRID_EXPORT,
+    ENERGY_ROLE_GRID_IMPORT,
+    ENERGY_ROLE_PRODUCER,
+    ENERGY_ROLE_STORAGE,
     LABEL_AREA,
     LABEL_BATTERY_POWERED_DEVICE,
     LABEL_CLIMATE_DEVICE,
@@ -129,8 +134,6 @@ RULES: tuple[ClassificationRule, ...] = (
 
 def _entity_signals(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
     """Gather domain/device_class/name/area-name signals for one entity."""
-    registry = er.async_get(hass)
-    entry = registry.entities.get(entity_id)
     state = hass.states.get(entity_id)
     domain = entity_id.split(".", 1)[0]
     device_class = state.attributes.get("device_class") if state is not None else None
@@ -178,6 +181,31 @@ def matching_rules(hass: HomeAssistant, entity_id: str) -> list[ClassificationRu
     """Return every rule this entity matches (FR-005: may match more than one)."""
     signals = _entity_signals(hass, entity_id)
     return [rule for rule in RULES if _rule_matches(rule, signals)]
+
+
+def infer_energy_role(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Infer a role only from explicit power-flow semantics.
+
+    Positive power by itself is deliberately insufficient. Grid, storage,
+    and generation signals are checked before consumer signals so a topology
+    sensor is never called an appliance merely because its name contains a
+    generic word such as "load".
+    """
+    signals = _entity_signals(hass, entity_id)
+    if signals["device_class"] != "power":
+        return None
+    text = signals["text"]
+    if any(marker in text for marker in ("grid export", "export to grid", "feed in")):
+        return ENERGY_ROLE_GRID_EXPORT
+    if any(marker in text for marker in ("grid import", "import from grid")):
+        return ENERGY_ROLE_GRID_IMPORT
+    if any(marker in text for marker in ("battery storage", "storage power")):
+        return ENERGY_ROLE_STORAGE
+    if any(marker in text for marker in ("solar", "generation", "generator output")):
+        return ENERGY_ROLE_PRODUCER
+    if any(marker in text for marker in ("consumption", "consuming", "appliance load")):
+        return ENERGY_ROLE_CONSUMER
+    return None
 
 
 def semantic_ha_id(entity_id: str, label: str) -> str:
