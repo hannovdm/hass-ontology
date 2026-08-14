@@ -34,6 +34,12 @@ async def _make_power_coordinator(
         name="Dishwasher",
         suggested_area=kitchen.id,
     )
+    geyser = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={("test", "geyser")},
+        name="Geyser",
+        suggested_area=kitchen.id,
+    )
     solar = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={("test", "solar")},
@@ -55,6 +61,13 @@ async def _make_power_coordinator(
         suggested_object_id="solar_generation",
         device_id=solar.id,
     )
+    registry.async_get_or_create(
+        "sensor",
+        "test",
+        "geyser-power",
+        suggested_object_id="geyser_power",
+        device_id=geyser.id,
+    )
     hass.states.async_set(
         "sensor.dishwasher_power",
         "850",
@@ -71,6 +84,15 @@ async def _make_power_coordinator(
             "device_class": "power",
             "unit_of_measurement": "W",
             "friendly_name": "Solar generation",
+        },
+    )
+    hass.states.async_set(
+        "sensor.geyser_power",
+        "2100",
+        {
+            "device_class": "power",
+            "unit_of_measurement": "W",
+            "friendly_name": "Channel 1 power",
         },
     )
     await hass.async_block_till_done()
@@ -99,7 +121,8 @@ async def test_active_consumers_uses_effective_roles_and_real_relationships(
 
     assert inferred_result["outcome"] == OUTCOME_OK
     assert [item["name"] for item in inferred_result["result"]["consumers"]] == [
-        "Dishwasher"
+        "Dishwasher",
+        "Geyser",
     ]
     assert inferred_result["result"]["consumers"][0]["measurements"][0][
         "role_source"
@@ -137,6 +160,12 @@ async def test_role_assignments_and_bindings_survive_resync_and_rebuild(
             ENERGY_ROLE_CONSUMER,
             SOURCE_INFERRED,
             "sensor.dishwasher_power",
+        ),
+        (
+            "sensor.geyser_power",
+            ENERGY_ROLE_CONSUMER,
+            SOURCE_INFERRED,
+            "sensor.geyser_power",
         ),
         (
             "sensor.solar_generation",

@@ -38,6 +38,13 @@ from .memgraph_client import MemgraphClient
 _LOGGER = logging.getLogger(__name__)
 
 
+def _node_properties(node: Any) -> dict[str, Any]:
+    """Return graph properties from either a plain or serialized node."""
+    if isinstance(node, dict) and "properties" in node and "labels" in node:
+        return dict(node["properties"])
+    return dict(node)
+
+
 def _first_loaded_client(hass: HomeAssistant) -> MemgraphClient | None:
     """Return the Memgraph client of the first loaded Ontology config entry.
 
@@ -95,7 +102,7 @@ async def _handle_area_context(
         state = hass.states.get(entity_id)
         entities.append(
             {
-                "entity": dict(entity),
+                "entity": _node_properties(entity),
                 "state": state.state if state is not None else None,
                 "semantic_types": [t for t in item.get("semantic_types") or [] if t],
             }
@@ -104,8 +111,8 @@ async def _handle_area_context(
     connection.send_result(
         msg["id"],
         {
-            "area": dict(row["a"]),
-            "devices": [dict(d) for d in row.get("devices") or []],
+            "area": _node_properties(row["a"]),
+            "devices": [_node_properties(d) for d in row.get("devices") or []],
             "entities": entities,
         },
     )
@@ -151,13 +158,25 @@ async def _handle_entity_context(
     connection.send_result(
         msg["id"],
         {
-            "entity": dict(row["e"]),
+            "entity": _node_properties(row["e"]),
             "state": state.state if state is not None else None,
-            "device": dict(row["d"]) if row.get("d") is not None else None,
-            "area": dict(row["area"]) if row.get("area") is not None else None,
+            "device": _node_properties(row["d"]) if row.get("d") is not None else None,
+            "area": (
+                _node_properties(row["area"])
+                if row.get("area") is not None
+                else None
+            ),
             "semantic_types": [t for t in row.get("semantic_types") or [] if t],
-            "dependents": [dict(x) for x in row.get("dependents") or [] if x is not None],
-            "cards": [dict(x) for x in row.get("cards") or [] if x is not None],
+            "dependents": [
+                _node_properties(x)
+                for x in row.get("dependents") or []
+                if x is not None
+            ],
+            "cards": [
+                _node_properties(x)
+                for x in row.get("cards") or []
+                if x is not None
+            ],
         },
     )
 
@@ -196,7 +215,7 @@ async def _handle_search(
         ]
         if not labels:
             continue
-        node = dict(row["node"])
+        node = _node_properties(row["node"])
         results.append({"type": labels[0], "ha_id": node.get("ha_id"), "name": node.get("name")})
 
     connection.send_result(msg["id"], {"results": results, "truncated": truncated})

@@ -234,6 +234,45 @@ async def test_search_returns_typed_results_shape(
     assert result["results"] == [{"type": "Entity", "ha_id": "light.lamp", "name": "Lamp"}]
 
 
+async def test_search_unwraps_serialized_graph_nodes(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    await _setup_loaded_entry(hass, mock_memgraph_client, mock_config_entry_data)
+    mock_memgraph_client.run_query_limited.return_value = (
+        [
+            {
+                "labels": ["Area"],
+                "node": {
+                    "element_id": "17",
+                    "labels": ["Area"],
+                    "properties": {"ha_id": "kitchen", "name": "Kitchen"},
+                },
+            },
+            {
+                "labels": ["Device"],
+                "node": {
+                    "element_id": "18",
+                    "labels": ["Device"],
+                    "properties": {"ha_id": "device-1", "name": "Dishwasher"},
+                },
+            },
+        ],
+        False,
+    )
+
+    connection = await _call_command(
+        hass,
+        ontology_ws._handle_search,
+        {"id": 1, "type": "ontology/search", "query": "i"},
+    )
+
+    _call_id, result = connection.send_result.call_args.args
+    assert result["results"] == [
+        {"type": "Area", "ha_id": "kitchen", "name": "Kitchen"},
+        {"type": "Device", "ha_id": "device-1", "name": "Dishwasher"},
+    ]
+
+
 async def test_search_input_validation_requires_query_field() -> None:
     """T022: the registered schema rejects a message missing `query`."""
     schema = ontology_ws._handle_search._ws_schema

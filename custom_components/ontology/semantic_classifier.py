@@ -135,6 +135,7 @@ RULES: tuple[ClassificationRule, ...] = (
 def _entity_signals(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
     """Gather domain/device_class/name/area-name signals for one entity."""
     state = hass.states.get(entity_id)
+    entry = er.async_get(hass).entities.get(entity_id)
     domain = entity_id.split(".", 1)[0]
     device_class = state.attributes.get("device_class") if state is not None else None
     friendly_name = (
@@ -149,7 +150,12 @@ def _entity_signals(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
             area_name = area.name or ""
 
     text = f" {entity_id} {friendly_name} {area_name} ".lower()
-    return {"domain": domain, "device_class": device_class, "text": text}
+    return {
+        "domain": domain,
+        "device_class": device_class,
+        "text": text,
+        "has_device": bool(entry and entry.device_id),
+    }
 
 
 def _resolve_area_id(hass: HomeAssistant, entity_id: str) -> str | None:
@@ -203,7 +209,16 @@ def infer_energy_role(hass: HomeAssistant, entity_id: str) -> str | None:
         return ENERGY_ROLE_STORAGE
     if any(marker in text for marker in ("solar", "generation", "generator output")):
         return ENERGY_ROLE_PRODUCER
-    if any(marker in text for marker in ("consumption", "consuming", "appliance load")):
+    if any(
+        marker in text
+        for marker in (
+            "consumption",
+            "consuming",
+            "appliance load",
+        )
+    ):
+        return ENERGY_ROLE_CONSUMER
+    if signals["has_device"]:
         return ENERGY_ROLE_CONSUMER
     return None
 

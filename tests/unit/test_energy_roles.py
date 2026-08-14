@@ -5,6 +5,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ontology.const import (
     ENERGY_ROLE_CONSUMER,
@@ -15,6 +18,7 @@ from custom_components.ontology.const import (
     SOURCE_INFERRED,
     SOURCE_USER,
 )
+from custom_components.ontology.semantic_classifier import infer_energy_role
 from custom_components.ontology.user_knowledge import (
     EnergyRoleRejected,
     async_delete_user_energy_role,
@@ -22,7 +26,6 @@ from custom_components.ontology.user_knowledge import (
     async_set_energy_role,
     energy_role_assignment_id,
 )
-from custom_components.ontology.semantic_classifier import infer_energy_role
 
 
 def test_energy_role_identity_is_deterministic_and_source_specific() -> None:
@@ -162,6 +165,47 @@ async def test_energy_role_inference_is_conservative(
     )
 
     assert infer_energy_role(hass, entity_id) == expected
+
+
+async def test_device_backed_power_measurement_infers_consumer(hass) -> None:
+    MockConfigEntry(entry_id="test-entry").add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id="test-entry",
+        identifiers={("test", "generic-appliance")},
+        name="Generic appliance",
+    )
+    entry = er.async_get(hass).async_get_or_create(
+        "sensor",
+        "test",
+        "generic-appliance-power",
+        suggested_object_id="generic_appliance_power",
+        device_id=device.id,
+    )
+    hass.states.async_set(
+        entry.entity_id,
+        "125",
+        {
+            "device_class": "power",
+            "unit_of_measurement": "W",
+            "friendly_name": "Channel 1 power",
+        },
+    )
+
+    assert infer_energy_role(hass, entry.entity_id) == ENERGY_ROLE_CONSUMER
+
+
+async def test_unattached_generic_power_measurement_remains_unknown(hass) -> None:
+    hass.states.async_set(
+        "sensor.whole_home_power",
+        "125",
+        {
+            "device_class": "power",
+            "unit_of_measurement": "W",
+            "friendly_name": "Whole home power",
+        },
+    )
+
+    assert infer_energy_role(hass, "sensor.whole_home_power") is None
 
 
 async def test_reconciliation_upserts_inferred_source_and_repairs_bindings(hass) -> None:
