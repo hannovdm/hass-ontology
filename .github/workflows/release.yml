@@ -48,6 +48,23 @@ jobs:
               f"Version mismatch: manifest.json={manifest_version!r}, "
               f"pyproject.toml={project_version!r}"
             )
+          if re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+|\.dev\d+)?", manifest_version) is None:
+            raise SystemExit(
+              f"Version {manifest_version!r} is not a supported Home Assistant version; "
+              "use numbered prereleases such as 4.0.0b1"
+            )
+
+          required_panel_assets = (
+            "custom_components/ontology/panel/ontology-panel.js",
+            "custom_components/ontology/panel/ontology-graph.js",
+            "custom_components/ontology/panel/ontology-icons.js",
+            "custom_components/ontology/panel/vendor/cytoscape.esm.min.js",
+          )
+          missing_panel_assets = [path for path in required_panel_assets if not Path(path).is_file()]
+          if missing_panel_assets:
+            raise SystemExit(
+              "Required panel assets are missing: " + ", ".join(missing_panel_assets)
+            )
 
           branch = os.environ["GITHUB_REF_NAME"]
           if branch.startswith("release/"):
