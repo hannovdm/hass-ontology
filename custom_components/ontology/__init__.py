@@ -145,12 +145,20 @@ _QUERY_SCHEMA = vol.Schema(
 _IMPORT_OVERRIDES_SCHEMA = vol.Schema({vol.Required(ATTR_PAYLOAD): dict})
 
 
-def _finite_number(value: object) -> float:
-    """Coerce one finite numeric service override."""
-    number = vol.Coerce(float)(value)
-    if not math.isfinite(number):
-        raise vol.Invalid("value must be finite")
-    return number
+class _FiniteFloat(vol.Coerce):
+    """Coerce finite floats while remaining schema-serializer compatible."""
+
+    def __init__(self) -> None:
+        super().__init__(float)
+
+    def __call__(self, value: object) -> float:
+        number = super().__call__(value)
+        if not math.isfinite(number):
+            raise vol.Invalid("value must be finite")
+        return number
+
+
+_FINITE_FLOAT = _FiniteFloat()
 
 # v3 predefined query tool / impact analysis / context export schemas
 # (contracts/services.md v3 additions).
@@ -174,10 +182,10 @@ _EXPORT_CONTEXT_SCHEMA = vol.Schema(
 _LOW_BATTERY_AREAS_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_THRESHOLD_PERCENTAGE): vol.All(
-            _finite_number, vol.Range(min=1, max=100)
+            _FINITE_FLOAT, vol.Range(min=1, max=100)
         ),
         vol.Optional(ATTR_MAX_AGE_HOURS): vol.All(
-            _finite_number, vol.Range(min=0, min_included=False)
+            _FINITE_FLOAT, vol.Range(min=0, min_included=False)
         ),
         vol.Optional(ATTR_LIMIT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=1000)
@@ -187,10 +195,10 @@ _LOW_BATTERY_AREAS_SCHEMA = vol.Schema(
 _ACTIVE_CONSUMERS_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_THRESHOLD_WATTS): vol.All(
-            _finite_number, vol.Range(min=0)
+            _FINITE_FLOAT, vol.Range(min=0)
         ),
         vol.Optional(ATTR_MAX_AGE_HOURS): vol.All(
-            _finite_number, vol.Range(min=0, min_included=False)
+            _FINITE_FLOAT, vol.Range(min=0, min_included=False)
         ),
         vol.Optional(ATTR_LIMIT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=1000)

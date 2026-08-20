@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 import voluptuous as vol
+import voluptuous_serialize
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import config_validation as cv
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ontology.config_flow import _options_schema
 from custom_components.ontology.const import (
@@ -158,3 +161,40 @@ def test_graphql_connection_fields_are_optional_advanced_settings() -> None:
 
     assert CONF_GRAPHQL_URL not in validated
     assert CONF_GRAPHQL_TOKEN not in validated
+
+
+def test_options_schema_is_frontend_serializable() -> None:
+    serialized = voluptuous_serialize.convert(
+        _options_schema(), custom_serializer=cv.custom_serializer
+    )
+
+    assert {field["name"] for field in serialized} >= {
+        CONF_LOW_BATTERY_THRESHOLD,
+        CONF_ACTIVE_POWER_THRESHOLD,
+        CONF_MAX_MEASUREMENT_AGE_HOURS,
+        CONF_RELATIONSHIP_RESULT_LIMIT,
+    }
+
+
+async def test_options_flow_opens_with_existing_entry(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=_connection_options(
+            **{
+                CONF_GRAPHQL_URL: "",
+                CONF_GRAPHQL_TOKEN: "",
+            }
+        ),
+        options={
+            CONF_LOW_BATTERY_THRESHOLD: 15.0,
+            CONF_ACTIVE_POWER_THRESHOLD: 2.5,
+            CONF_MAX_MEASUREMENT_AGE_HOURS: 12.0,
+            CONF_RELATIONSHIP_RESULT_LIMIT: 75,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"

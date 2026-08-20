@@ -47,12 +47,20 @@ from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
 _LOGGER = logging.getLogger(__name__)
 
 
-def _finite_number(value: object) -> float:
-    """Coerce a finite numeric option value."""
-    number = vol.Coerce(float)(value)
-    if not math.isfinite(number):
-        raise vol.Invalid("value must be finite")
-    return number
+class _FiniteFloat(vol.Coerce):
+    """Coerce finite floats while remaining schema-serializer compatible."""
+
+    def __init__(self) -> None:
+        super().__init__(float)
+
+    def __call__(self, value: object) -> float:
+        number = super().__call__(value)
+        if not math.isfinite(number):
+            raise vol.Invalid("value must be finite")
+        return number
+
+
+_FINITE_FLOAT = _FiniteFloat()
 
 
 def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -252,7 +260,7 @@ def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD
             ),
         )
-    ] = vol.All(_finite_number, vol.Range(min=1, max=100))
+    ] = vol.All(_FINITE_FLOAT, vol.Range(min=1, max=100))
     schema_dict[
         vol.Optional(
             CONF_ACTIVE_POWER_THRESHOLD,
@@ -260,7 +268,7 @@ def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_ACTIVE_POWER_THRESHOLD, DEFAULT_ACTIVE_POWER_THRESHOLD
             ),
         )
-    ] = vol.All(_finite_number, vol.Range(min=0))
+    ] = vol.All(_FINITE_FLOAT, vol.Range(min=0))
     schema_dict[
         vol.Optional(
             CONF_MAX_MEASUREMENT_AGE_HOURS,
@@ -268,7 +276,7 @@ def _options_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_MAX_MEASUREMENT_AGE_HOURS, DEFAULT_MAX_MEASUREMENT_AGE_HOURS
             ),
         )
-    ] = vol.All(_finite_number, vol.Range(min=0, min_included=False))
+    ] = vol.All(_FINITE_FLOAT, vol.Range(min=0, min_included=False))
     schema_dict[
         vol.Optional(
             CONF_RELATIONSHIP_RESULT_LIMIT,
