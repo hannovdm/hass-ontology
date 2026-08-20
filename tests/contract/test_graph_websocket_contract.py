@@ -51,13 +51,13 @@ async def _call_graph_handler(
     return connection
 
 
-def test_graph_snapshot_schema_enforces_the_500_node_bound() -> None:
+def test_graph_snapshot_schema_enforces_the_100_node_bound() -> None:
     schema = ontology_ws._handle_graph_snapshot._ws_schema
 
-    assert schema({"id": 1, "type": "ontology/graph_snapshot"})["limit"] == 500
+    assert schema({"id": 1, "type": "ontology/graph_snapshot"})["limit"] == 100
     assert schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 1})["limit"] == 1
     with pytest.raises(vol.Invalid):
-        schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 501})
+        schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 101})
     with pytest.raises(vol.Invalid):
         schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 0})
 
@@ -92,7 +92,7 @@ async def test_graph_snapshot_allows_authenticated_non_admin_and_shapes_response
 
     connection, gateway = await _call_snapshot(hass, result)
 
-    gateway.initial_graph.assert_awaited_once_with(500, None)
+    gateway.initial_graph.assert_awaited_once_with(100, None)
     connection.send_error.assert_not_called()
     call_id, response = connection.send_result.call_args.args
     assert call_id == 1

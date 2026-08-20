@@ -63,7 +63,7 @@
 
 ### Tests for User Story 1
 
-- [X] T019 [P] [US1] Write failing WebSocket contract tests for authenticated snapshot access, 500-node bounds, truncation cursors, stable IDs, redaction, and area-less devices in `tests/contract/test_graph_websocket_contract.py`
+- [X] T019 [P] [US1] Write failing WebSocket contract tests for authenticated snapshot access, 100-node bounds, truncation cursors, stable IDs, redaction, and area-less devices in `tests/contract/test_graph_websocket_contract.py`
 - [X] T020 [P] [US1] Write failing backend-parameterized integration/performance tests for GraphQL and direct-Memgraph area/device initial queries against a 5,000-node fixture and the 3-second p95 target in `tests/integration/test_graph_visualization_performance.py`
 - [X] T021 [P] [US1] Write failing Playwright tests for non-admin panel access, nonblank canvas pixels, areas/devices, Unassigned presentation group, icons, legend, human-readable directional edge labels, distinct unavailable/validation-finding treatment, and loading/empty/partial/unavailable states in `tests/browser/ontology-graph.spec.js`
 
@@ -89,7 +89,7 @@
 
 ### Tests for User Story 2
 
-- [X] T029 [P] [US2] Extend failing WebSocket contract tests for search, detail, one-hop expansion, invalid IDs, stale cursors, and 100/250 defaults with 250/500 hard maxima in `tests/contract/test_graph_websocket_contract.py`
+- [X] T029 [P] [US2] Extend failing WebSocket contract tests for search, detail, one-hop expansion, invalid IDs, stale cursors, and 25/50 panel defaults with 250/500 API hard maxima in `tests/contract/test_graph_websocket_contract.py`
 - [X] T030 [P] [US2] Write failing integration tests proving both backends return equivalent bounded, redacted, read-only search/detail/expansion results against real Memgraph in `tests/integration/test_graph_read_only_security.py`
 - [X] T031 [P] [US2] Extend failing Playwright tests for search focus within the SC-005 maximum of three interactions, selection details, expansion, filters, pan/zoom/fit/reset, dragging, duplicate names, self-loops, parallel edges, and viewport preservation in `tests/browser/ontology-graph.spec.js`
 

@@ -47,7 +47,7 @@ _NODE_TYPES = {
 _INITIAL_GRAPH = """
 MATCH (n)
 WHERE n:Area OR n:Device
-WITH n ORDER BY coalesce(n.name, n.ha_id), n.ha_id
+WITH n ORDER BY CASE WHEN n:Area THEN 0 ELSE 1 END, coalesce(n.name, n.ha_id), n.ha_id
 WITH collect(n)[0..$node_limit] AS nodes
 OPTIONAL MATCH (a:Area)-[r:HAS_DEVICE]->(d:Device)
 WHERE a IN nodes AND d IN nodes

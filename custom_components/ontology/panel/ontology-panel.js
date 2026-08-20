@@ -5,7 +5,7 @@ import { UNASSIGNED_ID } from "./ontology-graph.js";
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas and devices."],
   empty: ["No ontology graph yet", "Run an ontology resync, then try again."],
-  partial: ["Showing partial results", "The 500-node display limit was reached."],
+  partial: ["Showing partial results", "The 100-node overview limit was reached. Search or expand a node to drill down."],
   unavailable: ["Ontology graph unavailable", "Check the integration and Memgraph connection, then retry."],
   error: ["Graph could not be loaded", "Retry the request or check Home Assistant logs."],
 };
@@ -236,7 +236,7 @@ class OntologyPanel extends HTMLElement {
     this._showState("loading");
     this._unsubscribe();
     try {
-      const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 500, cursor: null });
+      const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
       this._snapshot = snapshot;
       if (!snapshot.nodes?.length) {
         this._summary.textContent = "0 nodes and 0 relationships";
@@ -296,7 +296,7 @@ class OntologyPanel extends HTMLElement {
     this._subscriptionReconnectTimer = setTimeout(async () => {
       this._subscriptionReconnectTimer = null;
       try {
-        const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 500, cursor: null });
+        const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
         this._snapshot = snapshot;
         this._graph.setSnapshot(snapshot, this._hass);
         this._renderNodeList(snapshot.nodes);
@@ -492,7 +492,7 @@ class OntologyPanel extends HTMLElement {
     if (!nodeId || nodeId === UNASSIGNED_ID) return;
     const status = this._details.querySelector(".expansion-status");
     try {
-      const slice = await this._hass.callWS({ type: "ontology/graph_expand", node_id: nodeId, node_limit: 100, edge_limit: 250, cursor: null });
+      const slice = await this._hass.callWS({ type: "ontology/graph_expand", node_id: nodeId, node_limit: 25, edge_limit: 50, cursor: null });
       this._mergeSnapshot(slice);
       this._graph.applySlice(slice, this._hass, nodeId);
       this._renderNodeList(this._snapshot.nodes);

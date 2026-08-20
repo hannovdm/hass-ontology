@@ -14,7 +14,7 @@ from custom_components.ontology.graph_backends import (
 )
 
 _FIXTURE_NODE_COUNT = 5_000
-_INITIAL_LIMIT = 500
+_INITIAL_LIMIT = 100
 _P95_BUDGET_SECONDS = 3.0
 _SAMPLE_COUNT = 20
 

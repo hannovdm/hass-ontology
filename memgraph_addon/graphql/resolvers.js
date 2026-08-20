@@ -1,8 +1,8 @@
 import { GraphQLScalarType, Kind } from "graphql";
 
 export const HARD_LIMITS = Object.freeze({
-  initialNodes: 500,
-  initialEdges: 1000,
+  initialNodes: 100,
+  initialEdges: 100,
   expandNodes: 250,
   expandEdges: 500,
   search: 100,
@@ -29,7 +29,7 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const INITIAL_GRAPH_QUERY = `
 MATCH (n)
 WHERE n:Area OR n:Device
-WITH n ORDER BY coalesce(n.name, n.ha_id), n.ha_id
+WITH n ORDER BY CASE WHEN n:Area THEN 0 ELSE 1 END, coalesce(n.name, n.ha_id), n.ha_id
 WITH collect(n)[0..$limit] AS nodes
 OPTIONAL MATCH (a:Area)-[r:HAS_DEVICE]->(d:Device)
 WHERE a IN nodes AND d IN nodes
@@ -187,17 +187,17 @@ export function createResolvers({ runQuery, getRevision = () => 0 } = {}) {
       },
     }),
     Query: {
-      async initialGraph(_parent, { limit = 500 } = {}) {
-        const bounded = clamp(limit, 500, HARD_LIMITS.initialNodes);
+      async initialGraph(_parent, { limit = 100 } = {}) {
+        const bounded = clamp(limit, 100, HARD_LIMITS.initialNodes);
         const rows = await runQuery(INITIAL_GRAPH_QUERY, {
           limit: bounded + 1,
           edgeLimit: HARD_LIMITS.initialEdges + 1,
         });
         return graphSlice(rows, bounded, HARD_LIMITS.initialEdges, getRevision());
       },
-      async expandNode(_parent, { id, nodeLimit = 100, edgeLimit = 250 }) {
-        const boundedNodes = clamp(nodeLimit, 100, HARD_LIMITS.expandNodes);
-        const boundedEdges = clamp(edgeLimit, 250, HARD_LIMITS.expandEdges);
+      async expandNode(_parent, { id, nodeLimit = 25, edgeLimit = 50 }) {
+        const boundedNodes = clamp(nodeLimit, 25, HARD_LIMITS.expandNodes);
+        const boundedEdges = clamp(edgeLimit, 50, HARD_LIMITS.expandEdges);
         const rows = await runQuery(EXPAND_NODE_QUERY, {
           id: boundedString(id, 512),
           nodeLimit: boundedNodes + 1,

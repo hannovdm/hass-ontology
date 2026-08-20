@@ -5,7 +5,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .const import CONF_GRAPHQL_TOKEN, CONF_GRAPHQL_URL
+from .const import (
+    CONF_GRAPHQL_TOKEN,
+    CONF_GRAPHQL_URL,
+    GRAPH_EXPAND_EDGE_LIMIT,
+    GRAPH_EXPAND_NODE_LIMIT,
+    GRAPH_INITIAL_NODE_LIMIT,
+)
 from .graph_backends import AddonGraphQLBackend, DirectMemgraphBackend, GraphBackend
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,11 +48,11 @@ class GraphGateway:
         self._last_error_category = None
         return result
 
-    async def initial_graph(self, limit: int = 500, after: str | None = None) -> dict[str, Any]:
+    async def initial_graph(self, limit: int = GRAPH_INITIAL_NODE_LIMIT, after: str | None = None) -> dict[str, Any]:
         result = await self._call("initial_graph", limit, after)
         return result or {"available": False, "error": "gateway_unavailable", "nodes": [], "relationships": [], "truncated": False, "nextCursor": None, "revision": 0}
 
-    async def expand_node(self, node_id: str, node_limit: int = 100, edge_limit: int = 250, after: str | None = None) -> dict[str, Any]:
+    async def expand_node(self, node_id: str, node_limit: int = GRAPH_EXPAND_NODE_LIMIT, edge_limit: int = GRAPH_EXPAND_EDGE_LIMIT, after: str | None = None) -> dict[str, Any]:
         result = await self._call("expand_node", node_id, node_limit, edge_limit, after)
         return result or {"available": False, "error": "gateway_unavailable", "nodes": [], "relationships": [], "truncated": False, "nextCursor": None, "revision": 0}
 

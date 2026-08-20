@@ -11,14 +11,14 @@ Returns the area-first initial graph.
 Request:
 
 ```json
-{"type":"ontology/graph_snapshot","limit":500,"cursor":null}
+{"type":"ontology/graph_snapshot","limit":100,"cursor":null}
 ```
 
 Response fields: `nodes`, `relationships`, `truncated`, `next_cursor`, `revision`.
 
 Rules:
 
-- Default/max node limit: 500.
+- Default/max node limit: 100.
 - Includes areas and directly assigned devices only.
 - Area-less devices are returned as devices without a parent; the browser creates the presentation-only Unassigned group.
 
@@ -30,7 +30,7 @@ Returns one-hop neighbors around a stable node ID.
 {"type":"ontology/graph_expand","node_id":"Entity:sensor.kitchen","node_limit":100,"edge_limit":250,"cursor":null}
 ```
 
-Defaults: 100 nodes and 250 edges. Hard maxima: 250 nodes and 500 edges. Unknown IDs return `not_found`; malformed IDs return `invalid_format`.
+Panel defaults: 25 nodes and 50 edges. Hard maxima: 250 nodes and 500 edges. Unknown IDs return `not_found`; malformed IDs return `invalid_format`.
 
 ## `ontology/graph_search`
 

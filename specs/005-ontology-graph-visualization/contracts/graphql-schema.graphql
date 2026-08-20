@@ -4,8 +4,8 @@ schema {
 }
 
 type Query {
-  initialGraph(limit: Int = 500, after: String): GraphSlice!
-  expandNode(id: ID!, nodeLimit: Int = 100, edgeLimit: Int = 250, after: String): GraphSlice!
+  initialGraph(limit: Int = 100, after: String): GraphSlice!
+  expandNode(id: ID!, nodeLimit: Int = 25, edgeLimit: Int = 50, after: String): GraphSlice!
   searchGraph(term: String!, limit: Int = 50): GraphSearchResult!
   graphElement(id: ID!): GraphElementResult
   graphHealth: GraphHealth!
