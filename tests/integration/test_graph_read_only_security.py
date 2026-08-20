@@ -17,6 +17,7 @@ async def _seed_graph(client) -> None:
     await client.run_query(
         """
         CREATE (area:Area {ha_id: 'kitchen', name: 'Kitchen', token: 'hidden'})
+        CREATE (:Device {ha_id: 'unassigned', name: 'Aardvark'})
         CREATE (lamp:Device {ha_id: 'lamp', name: 'Shared name', password: 'hidden'})
         CREATE (sensor:Entity {ha_id: 'sensor.kitchen', name: 'Shared name', state: 'on'})
         CREATE (area)-[:HAS_DEVICE {ha_id: 'primary'}]->(lamp)
@@ -40,10 +41,14 @@ async def test_search_detail_and_expand_are_bounded_redacted_and_read_only(memgr
     before = await _graph_counts(memgraph_client)
     direct = DirectMemgraphBackend(memgraph_client)
 
+    overview = await direct.initial_graph(2)
     search = await direct.search_graph("Shared name", 100)
     detail = await direct.graph_element("Device:lamp")
     expansion = await direct.expand_node("Entity:sensor.kitchen", 250, 500)
 
+    assert {node["id"] for node in overview["nodes"]} == {"Area:kitchen", "Device:lamp"}
+    assert len(overview["relationships"]) == 1
+    assert overview["relationships"][0]["type"] == "HAS_DEVICE"
     assert [match["id"] for match in search["matches"]] == ["Device:lamp", "Entity:sensor.kitchen"]
     assert detail and detail["node"]["id"] == "Device:lamp"
     assert {node["id"] for node in expansion["nodes"]} == {"Device:lamp", "Entity:sensor.kitchen"}

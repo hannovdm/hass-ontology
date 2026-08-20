@@ -51,7 +51,7 @@
 
 ## 5. Initial Graph and Expansion Limits
 
-**Decision**: The initial operation returns areas first and then directly assigned devices up to 100 nodes and 100 edges. Devices without an area are attached to a client-created `presentation:unassigned` compound/group node that is never returned to or persisted in Memgraph. Panel one-hop expansion defaults to 25 new nodes and 50 edges, with API hard maxima of 250 nodes and 500 edges per request. Search defaults to 50 and has a hard maximum of 100.
+**Decision**: The initial operation returns areas first, then directly assigned devices, then unassigned devices, up to 100 nodes and 100 edges. Requests up to the former 500-node maximum remain valid so cached panels degrade to the new bound instead of failing. Devices without an area are attached to a client-created `presentation:unassigned` compound/group node that is never returned to or persisted in Memgraph. Panel one-hop expansion defaults to 25 new nodes and 50 edges, with API hard maxima of 250 nodes and 500 edges per request. Search defaults to 50 and has a hard maximum of 100.
 
 **Rationale**: These limits bound memory and layout work on the target 8 GB host, while the area-first view remains immediately useful. Every response includes truncation metadata and a continuation cursor where applicable.
 

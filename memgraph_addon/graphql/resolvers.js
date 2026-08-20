@@ -29,11 +29,21 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const INITIAL_GRAPH_QUERY = `
 MATCH (n)
 WHERE n:Area OR n:Device
-WITH n ORDER BY CASE WHEN n:Area THEN 0 ELSE 1 END, coalesce(n.name, n.ha_id), n.ha_id
+OPTIONAL MATCH (assigned_area:Area)-[:HAS_DEVICE]->(n)
+WITH n, count(assigned_area) > 0 AS assigned
+ORDER BY CASE WHEN n:Area THEN 0 WHEN assigned THEN 1 ELSE 2 END,
+         coalesce(n.name, n.ha_id), n.ha_id
 WITH collect(n)[0..$limit] AS nodes
 OPTIONAL MATCH (a:Area)-[r:HAS_DEVICE]->(d:Device)
 WHERE a IN nodes AND d IN nodes
-RETURN nodes, collect(r)[0..$edgeLimit] AS relationships
+RETURN nodes, collect(CASE WHEN r IS NULL THEN null ELSE {
+  type: type(r),
+  source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
+  target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
+  id: coalesce(r.ha_id, r.id, '0'),
+  sourceClass: r.source,
+  properties: properties(r)
+} END)[0..$edgeLimit] AS relationships
 `;
 const EXPAND_NODE_QUERY = `
 MATCH (center)
@@ -41,7 +51,14 @@ WHERE any(label IN labels(center) WHERE label + ':' + center.ha_id = $id)
 OPTIONAL MATCH (center)-[r]-(neighbor)
 WITH center, r, neighbor ORDER BY coalesce(neighbor.name, neighbor.ha_id), type(r)
 RETURN [center] + collect(DISTINCT neighbor)[0..$nodeLimit] AS nodes,
-       collect(DISTINCT r)[0..$edgeLimit] AS relationships
+       collect(DISTINCT CASE WHEN r IS NULL OR neighbor IS NULL THEN null ELSE {
+         type: type(r),
+         source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
+         target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
+         id: coalesce(r.ha_id, r.id, '0'),
+         sourceClass: r.source,
+         properties: properties(r)
+       } END)[0..$edgeLimit] AS relationships
 `;
 const SEARCH_GRAPH_QUERY = `
 MATCH (n)
@@ -54,7 +71,14 @@ MATCH (element)
 WHERE any(label IN labels(element) WHERE label + ':' + element.ha_id = $id)
 OPTIONAL MATCH (element)-[r]-(neighbor)
 RETURN element, collect(DISTINCT neighbor)[0..26] AS nodes,
-       collect(DISTINCT r)[0..51] AS relationships
+       collect(DISTINCT CASE WHEN r IS NULL OR neighbor IS NULL THEN null ELSE {
+         type: type(r),
+         source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
+         target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
+         id: coalesce(r.ha_id, r.id, '0'),
+         sourceClass: r.source,
+         properties: properties(r)
+       } END)[0..51] AS relationships
 `;
 const GRAPH_HEALTH_QUERY = "RETURN 1 AS healthy";
 
@@ -130,6 +154,7 @@ export function serializeGraphNode(value) {
 function relationshipEndpoint(value, side) {
   const node = value?.[`${side}_node`] || value?.[`${side}Node`];
   if (node) return stableNodeId(node);
+  if (value?.[side]) return boundedString(value[side]);
   const properties = rawProperties(value);
   return boundedString(properties[side]);
 }
@@ -137,16 +162,16 @@ function relationshipEndpoint(value, side) {
 export function serializeGraphRelationship(value) {
   const properties = rawProperties(value);
   const type = boundedString(value?.type || properties.type, 128) || "RELATED_TO";
-  const source = relationshipEndpoint(value, "start") || boundedString(properties.source);
-  const target = relationshipEndpoint(value, "end") || boundedString(properties.target);
-  const discriminator = boundedString(properties.ha_id || properties.id || "0", 128);
+  const source = relationshipEndpoint(value, "start") || boundedString(value?.source || properties.source);
+  const target = relationshipEndpoint(value, "end") || boundedString(value?.target || properties.target);
+  const discriminator = boundedString(value?.id || properties.ha_id || properties.id || "0", 128);
   return {
     id: `${type}:${source}:${target}:${discriminator}`,
     type,
     source,
     target,
     directed: true,
-    sourceClass: properties.source ? String(properties.source).toUpperCase() : null,
+    sourceClass: value?.sourceClass || value?.source_class || properties.source_class || null,
     properties: graphProperties(properties),
   };
 }

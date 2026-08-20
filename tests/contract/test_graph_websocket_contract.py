@@ -51,13 +51,14 @@ async def _call_graph_handler(
     return connection
 
 
-def test_graph_snapshot_schema_enforces_the_100_node_bound() -> None:
+def test_graph_snapshot_schema_defaults_to_100_and_accepts_legacy_requests() -> None:
     schema = ontology_ws._handle_graph_snapshot._ws_schema
 
     assert schema({"id": 1, "type": "ontology/graph_snapshot"})["limit"] == 100
     assert schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 1})["limit"] == 1
+    assert schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 500})["limit"] == 500
     with pytest.raises(vol.Invalid):
-        schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 101})
+        schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 501})
     with pytest.raises(vol.Invalid):
         schema({"id": 1, "type": "ontology/graph_snapshot", "limit": 0})
 
@@ -267,10 +268,15 @@ async def test_panel_registration_allows_authenticated_non_admin_users() -> None
     hass.http = MagicMock()
     hass.http.async_register_static_paths = AsyncMock()
 
-    with patch.object(ontology.panel_custom, "async_register_panel", new=AsyncMock()) as register:
+    integration = MagicMock(version="4.0.0b8")
+    with (
+        patch.object(ontology, "async_get_integration", new=AsyncMock(return_value=integration)),
+        patch.object(ontology.panel_custom, "async_register_panel", new=AsyncMock()) as register,
+    ):
         await ontology._async_register_panel(hass)
 
     static_paths = hass.http.async_register_static_paths.await_args.args[0]
     assert static_paths[0].url_path == "/ontology_static"
     register.assert_awaited_once()
+    assert register.await_args.kwargs["module_url"] == "/ontology_static/ontology-panel.js?v=4.0.0b8"
     assert register.await_args.kwargs["require_admin"] is False

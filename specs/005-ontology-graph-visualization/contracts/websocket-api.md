@@ -18,7 +18,7 @@ Response fields: `nodes`, `relationships`, `truncated`, `next_cursor`, `revision
 
 Rules:
 
-- Default/max node limit: 100.
+- Default node limit: 100. Requests up to the legacy maximum of 500 are accepted for cached-panel compatibility, but the backend response remains capped at 100 nodes.
 - Includes areas and directly assigned devices only.
 - Area-less devices are returned as devices without a parent; the browser creates the presentation-only Unassigned group.
 

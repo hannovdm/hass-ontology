@@ -66,7 +66,8 @@ async def test_direct_initial_graph_returns_stable_relationship_endpoints() -> N
     result = await backend.initial_graph()
 
     query, parameters = client.run_query.await_args.args
-    assert "CASE WHEN n:Area THEN 0 ELSE 1 END" in query
+    assert "count(assigned_area) > 0 AS assigned" in query
+    assert "WHEN assigned THEN 1 ELSE 2 END" in query
     assert parameters == {"node_limit": 101, "edge_limit": 101}
     assert result["relationships"] == [
         {

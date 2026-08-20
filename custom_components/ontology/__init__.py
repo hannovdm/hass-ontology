@@ -25,9 +25,10 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.service import async_register_admin_service
+from homeassistant.loader import async_get_integration
 
 from . import (
     agent_audit,
@@ -259,7 +260,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
         entry, coordinator, session=async_get_clientsession(hass)
     )
     # Attach optional Lab capability consumer (US4): non-fatal.
-    from .const import CONF_GRAPHQL_URL, CONF_GRAPHQL_TOKEN
+    from .const import CONF_GRAPHQL_TOKEN, CONF_GRAPHQL_URL
     from .lab_access import LabAccess
     graphql_url = str(entry.data.get(CONF_GRAPHQL_URL) or entry.options.get(CONF_GRAPHQL_URL) or "").strip()
     graphql_token = str(entry.data.get(CONF_GRAPHQL_TOKEN) or entry.options.get(CONF_GRAPHQL_TOKEN) or "").strip()
@@ -391,11 +392,12 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     await hass.http.async_register_static_paths(
         [StaticPathConfig("/ontology_static", PANEL_STATIC_PATH, cache_headers=False)]
     )
+    integration = await async_get_integration(hass, DOMAIN)
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="ontology-panel",
         frontend_url_path=PANEL_URL_PATH,
-        module_url=PANEL_JS_URL,
+        module_url=f"{PANEL_JS_URL}?v={integration.version}",
         sidebar_title="Ontology",
         sidebar_icon="mdi:graph-outline",
         require_admin=False,

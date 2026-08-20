@@ -10,7 +10,6 @@ Home Assistant state.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 import uuid
@@ -29,6 +28,7 @@ from .const import (
     GRAPH_EXPAND_NODE_LIMIT,
     GRAPH_EXPAND_NODE_MAX,
     GRAPH_INITIAL_NODE_LIMIT,
+    GRAPH_INITIAL_REQUEST_MAX,
     GRAPH_SEARCH_LIMIT,
     GRAPH_SEARCH_MAX,
     GRAPH_UPDATE_DEBOUNCE_SECONDS,
@@ -111,7 +111,7 @@ def _first_loaded_coordinator(hass: HomeAssistant) -> Any | None:
     {
         vol.Required("type"): WS_TYPE_GRAPH_SNAPSHOT,
         vol.Optional("limit", default=GRAPH_INITIAL_NODE_LIMIT): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=GRAPH_INITIAL_NODE_LIMIT)
+            vol.Coerce(int), vol.Range(min=1, max=GRAPH_INITIAL_REQUEST_MAX)
         ),
         vol.Optional("cursor", default=None): vol.Any(None, str),
     }

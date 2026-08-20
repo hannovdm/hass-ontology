@@ -5,6 +5,7 @@ import {
   HARD_LIMITS,
   createResolvers,
   serializeGraphNode,
+  serializeGraphRelationship,
 } from "./resolvers.js";
 
 test("initialGraph uses fixed parameterized Cypher and clamps its limit", async () => {
@@ -24,6 +25,24 @@ test("initialGraph uses fixed parameterized Cypher and clamps its limit", async 
   assert.equal(calls[0].parameters.limit, HARD_LIMITS.initialNodes + 1);
   assert.deepEqual(result.nodes, []);
   assert.equal(result.pageInfo.truncated, false);
+  assert.match(calls[0].query, /startNode\(r\).*ha_id/s);
+  assert.match(calls[0].query, /endNode\(r\).*ha_id/s);
+});
+
+test("projected relationships preserve stable graph endpoints", () => {
+  const relationship = serializeGraphRelationship({
+    type: "HAS_DEVICE",
+    source: "Area:kitchen",
+    target: "Device:lamp",
+    id: "primary",
+    sourceClass: "home_assistant",
+    properties: { source: "home_assistant" },
+  });
+
+  assert.equal(relationship.id, "HAS_DEVICE:Area:kitchen:Device:lamp:primary");
+  assert.equal(relationship.source, "Area:kitchen");
+  assert.equal(relationship.target, "Device:lamp");
+  assert.equal(relationship.sourceClass, "home_assistant");
 });
 
 test("expand and search reject unsafe or unbounded caller values", async () => {
