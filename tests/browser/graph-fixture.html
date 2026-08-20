@@ -105,6 +105,17 @@
           if (state === "live-updates") {
             return { ...populated, revision: 7 };
           }
+          if (state === "malformed") {
+            return {
+              ...populated,
+              nodes: [...populated.nodes, populated.nodes[0]],
+              relationships: [
+                ...populated.relationships,
+                populated.relationships[0],
+                { id: "ORPHAN:1", type: "ORPHAN", source: "Area:kitchen", target: "Device:missing", directed: true, properties: [] },
+              ],
+            };
+          }
           return populated;
         },
       };

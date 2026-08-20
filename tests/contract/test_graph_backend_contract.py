@@ -79,6 +79,47 @@ async def test_direct_initial_graph_returns_stable_relationship_endpoints() -> N
 
 
 @pytest.mark.asyncio
+async def test_direct_initial_graph_drops_elements_cytoscape_cannot_render() -> None:
+    client = AsyncMock()
+    area = {"labels": ["Area"], "properties": {"ha_id": "kitchen"}}
+    client.run_query.return_value = [
+        {
+            "nodes": [area, area],
+            "relationships": [
+                {
+                    "type": "HAS_DEVICE",
+                    "source": "Area:kitchen",
+                    "target": "Device:missing",
+                    "id": "orphan",
+                    "properties": {},
+                },
+                {
+                    "type": "RELATED_TO",
+                    "source": "Area:kitchen",
+                    "target": "Area:kitchen",
+                    "id": "loop",
+                    "properties": {},
+                },
+                {
+                    "type": "RELATED_TO",
+                    "source": "Area:kitchen",
+                    "target": "Area:kitchen",
+                    "id": "loop",
+                    "properties": {},
+                },
+            ],
+        }
+    ]
+
+    result = await DirectMemgraphBackend(client).initial_graph()
+
+    assert [node["id"] for node in result["nodes"]] == ["Area:kitchen"]
+    assert [relationship["id"] for relationship in result["relationships"]] == [
+        "RELATED_TO:Area:kitchen:Area:kitchen:loop"
+    ]
+
+
+@pytest.mark.asyncio
 async def test_backend_close_is_idempotent() -> None:
     client = AsyncMock()
     backend = DirectMemgraphBackend(client)

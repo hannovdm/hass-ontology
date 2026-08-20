@@ -9,18 +9,34 @@ function relationshipLabel(type, directed) {
 }
 
 function graphElements(snapshot, hass) {
-  const nodesById = new Map((snapshot.nodes || []).map((node) => [node.id, node]));
-  const assignedDevices = new Set();
+  const nodesById = new Map();
+  for (const node of snapshot.nodes || []) {
+    if (node?.id && !nodesById.has(node.id)) nodesById.set(node.id, node);
+  }
+  const snapshotNodes = [...nodesById.values()];
+  const relationships = [];
+  const elementIds = new Set(nodesById.keys());
   for (const relationship of snapshot.relationships || []) {
+    if (
+      !relationship?.id
+      || !nodesById.has(relationship.source)
+      || !nodesById.has(relationship.target)
+      || elementIds.has(relationship.id)
+    ) continue;
+    elementIds.add(relationship.id);
+    relationships.push(relationship);
+  }
+  const assignedDevices = new Set();
+  for (const relationship of relationships) {
     const source = nodesById.get(relationship.source);
     const target = nodesById.get(relationship.target);
     if (source?.type === "AREA" && target?.type === "DEVICE") assignedDevices.add(target.id);
     if (target?.type === "AREA" && source?.type === "DEVICE") assignedDevices.add(source.id);
   }
   const unassignedIds = new Set(
-    (snapshot.nodes || []).filter((node) => node.type === "DEVICE" && !assignedDevices.has(node.id)).map((node) => node.id),
+    snapshotNodes.filter((node) => node.type === "DEVICE" && !assignedDevices.has(node.id)).map((node) => node.id),
   );
-  const nodes = (snapshot.nodes || []).map((node) => ({
+  const nodes = snapshotNodes.map((node) => ({
     data: {
       ...node,
       icon: resolveOntologyIcon(node, hass),
@@ -39,7 +55,7 @@ function graphElements(snapshot, hass) {
       classes: "presentation-group",
     });
   }
-  const edges = (snapshot.relationships || []).map((relationship) => ({
+  const edges = relationships.map((relationship) => ({
     data: { ...relationship, label: relationshipLabel(relationship.type, relationship.directed) },
     classes: relationship.directed ? "directed" : "",
   }));

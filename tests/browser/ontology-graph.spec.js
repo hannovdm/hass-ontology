@@ -33,6 +33,18 @@ test("authenticated non-admin sees a nonblank area and device graph", async ({ p
   expect(graphFacts.edges.find(({ id }) => id === "HAS_DEVICE:1").label).toBe("has device →");
 });
 
+test("renders a snapshot containing duplicate and orphaned elements", async ({ page }) => {
+  await openFixture(page, "malformed");
+
+  await expect(page.getByRole("button", { name: "Kitchen, area" })).toBeVisible();
+  const ids = await page.locator("ontology-panel").evaluate((panel) =>
+    panel.graph.cy.elements().map((element) => element.id()),
+  );
+  expect(ids.filter((id) => id === "Area:kitchen")).toHaveLength(1);
+  expect(ids.filter((id) => id === "HAS_DEVICE:1")).toHaveLength(1);
+  expect(ids).not.toContain("ORPHAN:1");
+});
+
 test("semantic node list is synchronized and keyboard operable", async ({ page }) => {
   await openFixture(page);
   const list = page.getByRole("list", { name: "Ontology graph nodes" });

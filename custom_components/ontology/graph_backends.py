@@ -240,17 +240,53 @@ def _slice(rows: list[dict[str, Any]], node_limit: int, edge_limit: int) -> dict
     row = rows[0] if rows else {}
     raw_nodes = list(row.get("nodes") or [])
     raw_relationships = list(row.get("relationships") or [])
+    nodes = _unique_nodes(
+        [normalize_graph_node(node) for node in raw_nodes[:node_limit] if node]
+    )
     return {
-        "nodes": [normalize_graph_node(node) for node in raw_nodes[:node_limit] if node],
-        "relationships": [
-            normalize_graph_relationship(rel)
-            for rel in raw_relationships[:edge_limit]
-            if rel
-        ],
+        "nodes": nodes,
+        "relationships": _renderable_relationships(
+            nodes,
+            [
+                normalize_graph_relationship(rel)
+                for rel in raw_relationships[:edge_limit]
+                if rel
+            ],
+        ),
         "truncated": len(raw_nodes) > node_limit or len(raw_relationships) > edge_limit,
         "nextCursor": None,
         "revision": 0,
     }
+
+
+def _unique_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the first node for each Cytoscape element identifier."""
+    seen: set[str] = set()
+    result: list[dict[str, Any]] = []
+    for node in nodes:
+        if node["id"] not in seen:
+            seen.add(node["id"])
+            result.append(node)
+    return result
+
+
+def _renderable_relationships(
+    nodes: list[dict[str, Any]], relationships: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Remove elements that Cytoscape cannot add to a snapshot."""
+    node_ids = {node["id"] for node in nodes}
+    seen = set(node_ids)
+    result: list[dict[str, Any]] = []
+    for relationship in relationships:
+        if (
+            relationship["source"] not in node_ids
+            or relationship["target"] not in node_ids
+            or relationship["id"] in seen
+        ):
+            continue
+        seen.add(relationship["id"])
+        result.append(relationship)
+    return result
 
 
 class GraphBackend(ABC):
@@ -336,9 +372,12 @@ class AddonGraphQLBackend(GraphBackend):
 def _normalize_graphql_slice(value: dict[str, Any] | None) -> dict[str, Any]:
     value = value or {}
     page_info = value.get("pageInfo") or {}
+    nodes = _unique_nodes(value.get("nodes") or [])
     return {
-        "nodes": value.get("nodes") or [],
-        "relationships": value.get("relationships") or [],
+        "nodes": nodes,
+        "relationships": _renderable_relationships(
+            nodes, value.get("relationships") or []
+        ),
         "truncated": bool(page_info.get("truncated")),
         "nextCursor": page_info.get("nextCursor"),
         "revision": int(value.get("revision") or 0),
