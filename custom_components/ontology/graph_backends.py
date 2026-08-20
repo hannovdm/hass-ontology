@@ -51,7 +51,14 @@ WITH n ORDER BY coalesce(n.name, n.ha_id), n.ha_id
 WITH collect(n)[0..$node_limit] AS nodes
 OPTIONAL MATCH (a:Area)-[r:HAS_DEVICE]->(d:Device)
 WHERE a IN nodes AND d IN nodes
-RETURN nodes, collect(r)[0..$edge_limit] AS relationships
+RETURN nodes, collect(CASE WHEN r IS NULL THEN null ELSE {
+    type: type(r),
+    source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
+    target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
+    id: coalesce(r.ha_id, r.id, '0'),
+    source_class: r.source,
+    properties: properties(r)
+} END)[0..$edge_limit] AS relationships
 """
 _EXPAND_NODE = """
 MATCH (center)
@@ -59,13 +66,14 @@ WHERE any(label IN labels(center) WHERE label + ':' + center.ha_id = $id)
 OPTIONAL MATCH (center)-[r]-(neighbor)
 WITH center, r, neighbor ORDER BY coalesce(neighbor.name, neighbor.ha_id), type(r)
 RETURN [center] + collect(DISTINCT neighbor)[0..$node_limit] AS nodes,
-             collect(DISTINCT {
+             collect(DISTINCT CASE WHEN r IS NULL OR neighbor IS NULL THEN null ELSE {
                  type: type(r),
                  source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
                  target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
                  id: coalesce(r.ha_id, r.id, '0'),
-                 source_class: r.source
-             })[0..$edge_limit] AS relationships
+                 source_class: r.source,
+                 properties: properties(r)
+             } END)[0..$edge_limit] AS relationships
 """
 _SEARCH_GRAPH = """
 MATCH (n)
@@ -78,13 +86,14 @@ MATCH (element)
 WHERE any(label IN labels(element) WHERE label + ':' + element.ha_id = $id)
 OPTIONAL MATCH (element)-[r]-(neighbor)
 RETURN element, collect(DISTINCT neighbor)[0..26] AS nodes,
-             collect(DISTINCT {
+             collect(DISTINCT CASE WHEN r IS NULL OR neighbor IS NULL THEN null ELSE {
                  type: type(r),
                  source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
                  target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
                  id: coalesce(r.ha_id, r.id, '0'),
-                 source_class: r.source
-             })[0..51] AS relationships
+                 source_class: r.source,
+                 properties: properties(r)
+             } END)[0..51] AS relationships
 """
 _GRAPH_RELATIONSHIP = """
 MATCH ()-[r]->()
@@ -98,7 +107,8 @@ RETURN {
     source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,
     target: labels(endNode(r))[0] + ':' + endNode(r).ha_id,
     id: coalesce(r.ha_id, r.id, '0'),
-    source_class: r.source
+    source_class: r.source,
+    properties: properties(r)
 } AS relationship,
 startNode(r) AS source_node,
 endNode(r) AS target_node
@@ -196,6 +206,10 @@ def normalize_graph_node(value: Any) -> dict[str, Any]:
 
 
 def _endpoint_id(value: Any, side: str, properties: dict[str, Any]) -> str:
+    if isinstance(value, dict):
+        endpoint = value.get("source" if side == "start" else "target")
+        if endpoint:
+            return _bounded_text(endpoint, 512)
     node = getattr(value, f"{side}_node", None)
     if node is not None:
         return normalize_graph_node(node)["id"]
@@ -204,18 +218,19 @@ def _endpoint_id(value: Any, side: str, properties: dict[str, Any]) -> str:
 
 def normalize_graph_relationship(value: Any) -> dict[str, Any]:
     properties = _raw_properties(value)
-    rel_type = _bounded_text(getattr(value, "type", None) or properties.get("type") or "RELATED_TO", 128)
+    metadata = value if isinstance(value, dict) else {}
+    rel_type = _bounded_text(getattr(value, "type", None) or metadata.get("type") or properties.get("type") or "RELATED_TO", 128)
     source = _endpoint_id(value, "start", properties)
     target = _endpoint_id(value, "end", properties)
-    discriminator = _bounded_text(properties.get("ha_id") or properties.get("id") or "0", 128)
+    discriminator = _bounded_text(metadata.get("id") or properties.get("ha_id") or properties.get("id") or "0", 128)
     return {
         "id": f"{rel_type}:{source}:{target}:{discriminator}",
         "type": rel_type,
         "source": source,
         "target": target,
         "directed": True,
-        "sourceClass": str(properties.get("source_class") or properties.get("sourceClass")).upper()
-        if properties.get("source_class") or properties.get("sourceClass")
+        "sourceClass": str(metadata.get("source_class") or metadata.get("sourceClass") or properties.get("source_class") or properties.get("sourceClass")).upper()
+        if metadata.get("source_class") or metadata.get("sourceClass") or properties.get("source_class") or properties.get("sourceClass")
         else None,
         "properties": _safe_properties(properties),
     }

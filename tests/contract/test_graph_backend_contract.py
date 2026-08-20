@@ -41,6 +41,44 @@ async def test_direct_backend_uses_parameterized_bounded_read_only_cypher() -> N
 
 
 @pytest.mark.asyncio
+async def test_direct_initial_graph_returns_stable_relationship_endpoints() -> None:
+    client = AsyncMock()
+    client.run_query.return_value = [
+        {
+            "nodes": [
+                {"labels": ["Area"], "properties": {"ha_id": "kitchen", "name": "Kitchen"}},
+                {"labels": ["Device"], "properties": {"ha_id": "lamp", "name": "Lamp"}},
+            ],
+            "relationships": [
+                {
+                    "type": "HAS_DEVICE",
+                    "source": "Area:kitchen",
+                    "target": "Device:lamp",
+                    "id": "0",
+                    "source_class": "HA_REGISTRY",
+                    "properties": {},
+                }
+            ],
+        }
+    ]
+    backend = DirectMemgraphBackend(client)
+
+    result = await backend.initial_graph()
+
+    assert result["relationships"] == [
+        {
+            "id": "HAS_DEVICE:Area:kitchen:Device:lamp:0",
+            "type": "HAS_DEVICE",
+            "source": "Area:kitchen",
+            "target": "Device:lamp",
+            "directed": True,
+            "sourceClass": "HA_REGISTRY",
+            "properties": [],
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_backend_close_is_idempotent() -> None:
     client = AsyncMock()
     backend = DirectMemgraphBackend(client)
