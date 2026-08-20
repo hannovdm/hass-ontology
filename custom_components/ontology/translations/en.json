@@ -10,7 +10,9 @@
           "username": "Username",
           "password": "Password",
           "database": "Database",
-          "encrypted": "Use encrypted (TLS) connection"
+          "encrypted": "Use encrypted (TLS) connection",
+          "graphql_url": "Internal GraphQL URL (optional)",
+          "graphql_token": "Internal GraphQL bearer token (optional)"
         }
       },
       "reconfigure": {
@@ -22,7 +24,9 @@
           "username": "Username",
           "password": "Password",
           "database": "Database",
-          "encrypted": "Use encrypted (TLS) connection"
+          "encrypted": "Use encrypted (TLS) connection",
+          "graphql_url": "Internal GraphQL URL (optional)",
+          "graphql_token": "Internal GraphQL bearer token (optional)"
         }
       },
       "hassio_confirm": {
@@ -34,7 +38,9 @@
           "username": "Username",
           "password": "Password",
           "database": "Database",
-          "encrypted": "Use encrypted (TLS) connection"
+          "encrypted": "Use encrypted (TLS) connection",
+          "graphql_url": "Internal GraphQL URL (optional)",
+          "graphql_token": "Internal GraphQL bearer token (optional)"
         }
       }
     },
@@ -258,6 +264,8 @@
           "password": "Password",
           "database": "Database",
           "encrypted": "Use encrypted (TLS) connection",
+          "graphql_url": "Internal GraphQL URL (optional)",
+          "graphql_token": "Internal GraphQL bearer token (optional)",
           "auto_classify": "Automatically classify entities into semantic types",
           "mcp_enabled": "Enable local MCP-compatible endpoint (disabled by default)",
           "mcp_allowed_networks": "MCP allowed networks (comma-separated CIDRs)",

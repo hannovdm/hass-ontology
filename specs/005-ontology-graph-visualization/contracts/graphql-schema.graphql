@@ -1,0 +1,132 @@
+"Internal query-only schema. This endpoint is never exposed directly to browsers."
+schema {
+  query: Query
+}
+
+type Query {
+  initialGraph(limit: Int = 500, after: String): GraphSlice!
+  expandNode(id: ID!, nodeLimit: Int = 100, edgeLimit: Int = 250, after: String): GraphSlice!
+  searchGraph(term: String!, limit: Int = 50): GraphSearchResult!
+  graphElement(id: ID!): GraphElementResult
+  graphHealth: GraphHealth!
+  labCapability: LabCapability!
+}
+
+type GraphSlice {
+  nodes: [GraphNode!]!
+  relationships: [GraphRelationship!]!
+  pageInfo: GraphPageInfo!
+  revision: Int!
+}
+
+type GraphSearchResult {
+  matches: [GraphSearchMatch!]!
+  truncated: Boolean!
+  revision: Int!
+}
+
+type GraphElementResult {
+  node: GraphNode
+  relationship: GraphRelationship
+  directConnections: GraphSlice!
+}
+
+type GraphNode {
+  id: ID!
+  haId: String!
+  type: GraphNodeType!
+  label: String!
+  icon: String
+  state: String
+  unavailable: Boolean!
+  findingSeverity: FindingSeverity
+  properties: [GraphProperty!]!
+}
+
+type GraphRelationship {
+  id: ID!
+  type: String!
+  source: ID!
+  target: ID!
+  directed: Boolean!
+  sourceClass: SourceClass
+  properties: [GraphProperty!]!
+}
+
+type GraphProperty {
+  name: String!
+  value: GraphScalar
+  displayValue: String!
+}
+
+type GraphSearchMatch {
+  id: ID!
+  haId: String!
+  type: GraphNodeType!
+  label: String!
+  icon: String
+}
+
+type GraphPageInfo {
+  truncated: Boolean!
+  nextCursor: String
+}
+
+type GraphHealth {
+  status: GraphHealthStatus!
+  revision: Int!
+  latencyMs: Int!
+}
+
+scalar GraphScalar
+
+enum GraphNodeType {
+  AREA
+  DEVICE
+  ENTITY
+  AUTOMATION
+  SCENE
+  SCRIPT
+  DASHBOARD
+  DASHBOARD_CARD
+  SEMANTIC_TYPE
+  VALIDATION_FINDING
+  OTHER
+}
+
+enum FindingSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum SourceClass {
+  HOME_ASSISTANT
+  GENERATED
+  INFERRED
+  USER
+}
+
+enum GraphHealthStatus {
+  HEALTHY
+  DEGRADED
+  UNAVAILABLE
+}
+
+type LabCapability {
+  available: Boolean!
+  reason: LabCapabilityReason!
+  ingressPath: String
+  checkedAt: String!
+}
+
+enum LabCapabilityReason {
+  READY
+  NOT_ADDON_BACKEND
+  TRANSPORT_UNAVAILABLE
+  LAB_UNHEALTHY
+  ENTERPRISE_REQUIRED
+  READONLY_USER_MISSING
+  WRITE_PROBE_SUCCEEDED
+}

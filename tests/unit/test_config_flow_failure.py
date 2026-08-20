@@ -47,3 +47,26 @@ async def test_user_step_failure_shows_error(
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert entries == []
+
+
+async def test_memgraph_success_does_not_require_optional_graphql(
+    hass, mock_config_entry_data
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    with (
+        patch(
+            "custom_components.ontology.config_flow.MemgraphClient.test_connection",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.ontology.config_flow.MemgraphClient.close",
+            return_value=None,
+        ),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], mock_config_entry_data
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY

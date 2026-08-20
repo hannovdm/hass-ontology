@@ -1,0 +1,17 @@
+{
+  "name": "hass-ontology-graphql",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  },
+  "dependencies": {
+    "@apollo/server": "5.5.1",
+    "graphql": "16.11.0",
+    "neo4j-driver": "6.2.0"
+  }
+}

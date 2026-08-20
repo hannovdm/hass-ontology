@@ -1,0 +1,97 @@
+views:
+  - type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Ontology Control
+            heading_style: title
+          - type: tile
+            entity: button.rebuild
+            features:
+              - type: button
+          - type: tile
+            entity: button.validate
+            features:
+              - type: button
+          - type: tile
+            entity: button.resync
+            features:
+              - type: button
+      - type: grid
+        cards:
+          - type: heading
+            heading: Nodes
+            heading_style: title
+          - type: custom:bubble-card
+            card_type: button
+            entity: sensor.nodes
+            button_type: state
+            sub_button:
+              main: []
+              bottom: []
+            show_last_changed: true
+            styles: |2
+                styles: |
+                  .bubble-button-background {
+                    background:
+                      ${Number(state) > 0
+                        ? 'rgb(220,245,220)'
+                        : 'rgb(255,220,220)'} !important;
+                  }
+          - type: custom:bubble-card
+            card_type: button
+            entity: sensor.relationships
+            button_type: state
+            sub_button:
+              main: []
+              bottom: []
+            styles: |2
+                styles: |
+                  .bubble-button-background {
+                    background:
+                      ${Number(state) > 0
+                        ? 'rgb(220,245,220)'
+                        : 'rgb(255,220,220)'} !important;
+                  }
+            show_last_changed: true
+          - type: statistics-graph
+            entities:
+              - sensor.nodes
+            days_to_show: 7
+            period: day
+            chart_type: line
+            stat_types:
+              - mean
+              - min
+              - max
+          - type: statistics-graph
+            entities:
+              - sensor.relationships
+            days_to_show: 7
+            period: day
+            chart_type: line
+            stat_types:
+              - mean
+              - min
+              - max
+      - type: grid
+        cards:
+          - type: heading
+            heading: Health
+            heading_style: title
+          - type: custom:bubble-card
+            card_type: button
+            entity: sensor.health
+            button_type: state
+          - type: custom:bubble-card
+            card_type: button
+            entity: sensor.last_sync
+            button_type: state
+          - type: tile
+            entity: sensor.last_error
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.schema_version

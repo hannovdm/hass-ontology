@@ -16,8 +16,40 @@
 # so without this override, the Reaper connection is blocked and every
 # integration test (tests/integration/) fails at fixture setup.
 #
-# Usage: .\scripts\test-windows.ps1 [pytest args...]
+# Usage:
+#   .\scripts\test-windows.ps1 [pytest args...]
+#   .\scripts\test-windows.ps1 -GraphQL
+#   .\scripts\test-windows.ps1 -Browser
+
+param(
+	[switch]$GraphQL,
+	[switch]$Browser,
+	[Parameter(ValueFromRemainingArguments = $true)]
+	[string[]]$PytestArgs
+)
+
+if ($GraphQL) {
+	Push-Location "$PSScriptRoot\..\memgraph_addon\graphql"
+	try {
+		& npm test
+	}
+	finally {
+		Pop-Location
+	}
+	exit $LASTEXITCODE
+}
+
+if ($Browser) {
+	Push-Location "$PSScriptRoot\..\tests\browser"
+	try {
+		& npm test
+	}
+	finally {
+		Pop-Location
+	}
+	exit $LASTEXITCODE
+}
 
 $env:PYTHONPATH = "$PSScriptRoot\..\tests\_winstubs"
 $env:TC_HOST = "127.0.0.1"
-& "$PSScriptRoot\..\.venv\Scripts\python.exe" -m pytest @args
+& "$PSScriptRoot\..\.venv\Scripts\python.exe" -m pytest @PytestArgs

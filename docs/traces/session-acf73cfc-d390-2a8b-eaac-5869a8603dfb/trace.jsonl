@@ -1,0 +1,1 @@
+{"traceId":"trace-acf73cfc-2026-08-19","spanId":"span-mszxs2ik-0002","sessionId":"acf73cfc-d390-2a8b-eaac-5869a8603dfb","timestamp":"2026-08-19T10:16:08.636Z","eventType":"METRIC","name":"Perf.ExtensionActivation","status":"ok","source":"auto-capture","data":{"tier":"0","version":"14.0.0","totalMs":19,"syncMs":0,"journalWriteMs":0}}

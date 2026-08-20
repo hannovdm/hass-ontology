@@ -1,14 +1,17 @@
 name: Release
 
-# Automatically tag and publish a GitHub Release whenever
-# custom_components/ontology/manifest.json's "version" field changes on main.
+# Automatically tag and publish a GitHub Release whenever the version changes
+# on main or a supported release branch.
 # HACS reads GitHub Releases (not just git tags) to detect updates, so this
 # is what makes "Update available" show up with the correct version in HA.
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "release/**"
     paths:
       - "custom_components/ontology/manifest.json"
+      - "pyproject.toml"
   workflow_dispatch: {}
 
 permissions:
@@ -23,16 +26,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version from manifest.json
+      - name: Validate and classify version
         id: version
         run: |
-          version=$(jq -r '.version' custom_components/ontology/manifest.json)
-          if [ -z "$version" ] || [ "$version" = "null" ]; then
-            echo "Could not read version from manifest.json" >&2
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          manifest = json.loads(Path("custom_components/ontology/manifest.json").read_text())
+          project = tomllib.loads(Path("pyproject.toml").read_text())
+          manifest_version = manifest.get("version")
+          project_version = project.get("project", {}).get("version")
+
+          if not manifest_version:
+            raise SystemExit("manifest.json does not contain a version")
+          if manifest_version != project_version:
+            raise SystemExit(
+              f"Version mismatch: manifest.json={manifest_version!r}, "
+              f"pyproject.toml={project_version!r}"
+            )
+
+          branch = os.environ["GITHUB_REF_NAME"]
+          if branch.startswith("release/"):
+            release_line = branch.removeprefix("release/")
+            match = re.fullmatch(r"(\d+)\.(\d+)(?:\.\d+)?(?:.*)", manifest_version)
+            if match is None or f"{match.group(1)}.{match.group(2)}" != release_line:
+              raise SystemExit(
+                f"Branch {branch!r} can only publish {release_line}.x versions, "
+                f"not {manifest_version!r}"
+              )
+
+          prerelease = bool(
+            re.search(r"(?:^|[.\-_]?)(?:a|alpha|b|beta|rc|dev)\d*$", manifest_version, re.I)
+          )
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as stream:
+            stream.write(f"version={manifest_version}\n")
+            stream.write(f"tag=v{manifest_version}\n")
+            stream.write(f"prerelease={str(prerelease).lower()}\n")
+          PY
 
       - name: Check if tag already exists
         id: check_tag
@@ -57,4 +92,5 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ steps.version.outputs.prerelease }}
           generate_release_notes: true

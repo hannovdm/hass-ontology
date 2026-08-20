@@ -11,10 +11,37 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_DATABASE = "database"
 CONF_ENCRYPTED = "encrypted"
+CONF_GRAPHQL_URL = "graphql_url"
+CONF_GRAPHQL_TOKEN = "graphql_token"
 
 DEFAULT_PORT = 7687
 DEFAULT_DATABASE = ""
 DEFAULT_ENCRYPTED = False
+DEFAULT_GRAPHQL_URL = ""
+DEFAULT_GRAPHQL_TOKEN = ""
+
+# Fixed visualization operations and bounds. Callers can select an operation
+# and variables, but can never submit GraphQL or Cypher text.
+GRAPH_OPERATION_NAMES = (
+    "initial_graph",
+    "expand_node",
+    "search_graph",
+    "graph_element",
+    "graph_health",
+)
+GRAPH_INITIAL_NODE_LIMIT = 500
+GRAPH_INITIAL_EDGE_LIMIT = 1000
+GRAPH_EXPAND_NODE_LIMIT = 100
+GRAPH_EXPAND_EDGE_LIMIT = 250
+GRAPH_EXPAND_NODE_MAX = 250
+GRAPH_EXPAND_EDGE_MAX = 500
+GRAPH_SEARCH_LIMIT = 50
+GRAPH_SEARCH_MAX = 100
+GRAPH_PROPERTY_LIMIT = 25
+GRAPH_PROPERTY_VALUE_MAX_LENGTH = 2048
+GRAPH_REVISION_BUFFER_SIZE = 1000
+GRAPH_UPDATE_DEBOUNCE_SECONDS = 0.25
+GRAPH_REQUEST_TIMEOUT_SECONDS = 10.0
 
 # Options-flow keys
 CONF_AUTO_CLASSIFY = "auto_classify"
@@ -177,6 +204,12 @@ FINDING_STATUS_RESOLVED = "resolved"
 WS_TYPE_AREA_CONTEXT = "ontology/area_context"
 WS_TYPE_ENTITY_CONTEXT = "ontology/entity_context"
 WS_TYPE_SEARCH = "ontology/search"
+WS_TYPE_GRAPH_SNAPSHOT = "ontology/graph_snapshot"
+WS_TYPE_GRAPH_SEARCH = "ontology/graph_search"
+WS_TYPE_GRAPH_DETAIL = "ontology/graph_detail"
+WS_TYPE_GRAPH_EXPAND = "ontology/graph_expand"
+WS_TYPE_GRAPH_SUBSCRIBE = "ontology/graph_subscribe"
+WS_TYPE_LAB_STATUS = "ontology/lab_status"
 ATTR_AREA_ID = "area_id"
 ATTR_QUERY = "query"
 

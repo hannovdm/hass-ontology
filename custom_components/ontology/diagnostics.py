@@ -58,6 +58,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: Any) ->
     coordinator = entry.runtime_data
     state = coordinator.state
     client = coordinator.memgraph_client
+    change_buffer = getattr(coordinator, "change_buffer", None)
+    graph_gateway = getattr(coordinator, "graph_gateway", None)
+    lab_access = getattr(coordinator, "lab_access", None)
 
     return {
         "connection": {
@@ -84,4 +87,16 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: Any) ->
         # Redacted Assist/MCP audit summary (User Story 8, FR-028): counts by
         # event/status only - never raw entries containing prompts (FR-029).
         "agent_audit_summary": await agent_audit.async_summarize(hass, entry.entry_id),
+        # Graph visualization diagnostics (US3): sanitized, no credentials.
+        "graph": {
+            "current_revision": change_buffer.current_revision if change_buffer is not None else 0,
+            "subscriber_count": len(change_buffer._subscribers) if change_buffer is not None else 0,
+            "buffer_size": change_buffer.max_size if change_buffer is not None else 0,
+            "gateway_available": graph_gateway.diagnostics().get("available") if graph_gateway is not None else None,
+            "gateway_error_category": graph_gateway.diagnostics().get("error_category") if graph_gateway is not None else None,
+            "gateway_backend": graph_gateway.diagnostics().get("backend") if graph_gateway is not None else None,
+            "gateway_request_count": graph_gateway.diagnostics().get("request_count") if graph_gateway is not None else 0,
+        },
+        # Lab capability diagnostics (US4): sanitized, no credentials or URIs.
+        "lab": lab_access.diagnostics() if lab_access is not None else {"available": False, "reason": "not_addon_backend"},
     }

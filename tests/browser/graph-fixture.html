@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ontology graph fixture</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #f4f7f8; color: #172126; }
+      body { min-height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import "/custom_components/ontology/panel/ontology-panel.js";
+
+      const state = new URLSearchParams(location.search).get("state") || "populated";
+      const populated = {
+        nodes: [
+          { id: "Area:kitchen", haId: "kitchen", type: "AREA", label: "Kitchen", icon: "mdi:countertop-outline", unavailable: false, properties: [] },
+          { id: "Device:lamp", haId: "lamp", type: "DEVICE", label: "Kitchen lamp", icon: "mdi:lightbulb", unavailable: false, properties: [] },
+          { id: "Device:portable", haId: "portable", type: "DEVICE", label: "Portable sensor", icon: "invalid icon", unavailable: true, properties: [] },
+          { id: "ValidationFinding:missing-area", haId: "missing-area", type: "VALIDATION_FINDING", label: "Missing area assignment", unavailable: false, findingSeverity: "WARNING", properties: [] },
+        ],
+        relationships: [
+          { id: "HAS_DEVICE:1", type: "HAS_DEVICE", source: "Area:kitchen", target: "Device:lamp", directed: true, properties: [] },
+          { id: "AFFECTS:1", type: "AFFECTS", source: "ValidationFinding:missing-area", target: "Device:portable", directed: true, properties: [] },
+        ],
+        truncated: false,
+        next_cursor: null,
+        revision: 7,
+      };
+      const exploration = {
+        nodes: [
+          { id: "Device:lamp", haId: "lamp", type: "DEVICE", label: "Kitchen lamp", icon: "mdi:lightbulb", unavailable: false, properties: [{ name: "manufacturer", value: "Local", displayValue: "Local" }] },
+          { id: "Entity:sensor.kitchen_temperature", haId: "sensor.kitchen_temperature", type: "ENTITY", label: "Kitchen temperature", icon: "mdi:thermometer", state: "21.4", unavailable: false, properties: [{ name: "state", value: "21.4", displayValue: "21.4" }] },
+          { id: "Entity:sensor.shared_a", haId: "sensor.shared_a", type: "ENTITY", label: "Shared sensor", icon: "mdi:thermometer", unavailable: false, properties: [] },
+        ],
+        relationships: [
+          { id: "HAS_ENTITY:primary", type: "HAS_ENTITY", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
+          { id: "HAS_ENTITY:secondary", type: "HAS_ENTITY", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [{ name: "channel", value: 2, displayValue: "2" }] },
+          { id: "REFERENCES:self", type: "REFERENCES", source: "Entity:sensor.kitchen_temperature", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
+        ],
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
+
+      const searchMatches = {
+        "Entity:sensor.kitchen_temperature": [exploration.nodes[1]],
+        "Kitchen temperature": [exploration.nodes[1]],
+        "Shared sensor": [
+          exploration.nodes[2],
+          { id: "Entity:sensor.shared_b", haId: "sensor.shared_b", type: "ENTITY", label: "Shared sensor", icon: "mdi:thermometer", unavailable: false, properties: [] },
+        ],
+      };
+
+      const panel = document.createElement("ontology-panel");
+      document.body.append(panel);
+
+      const isAdmin = state === "admin" || state === "admin-lab-available";
+      const labAvailable = state === "admin-lab-available";
+
+      panel.hass = {
+        user: { id: "fixture-user", is_admin: isAdmin },
+        states: {},
+        callWS: async (message) => {
+          const { type } = message;
+          if (type === "ontology/lab_status") {
+            if (!isAdmin) throw { code: "unauthorized", message: "Administrator access required" };
+            if (labAvailable) {
+              return { available: true, reason: "READY", ingress_path: "/api/hassio_ingress/abc123test", checked_at: new Date().toISOString() };
+            }
+            return { available: false, reason: "not_addon_backend", ingress_path: null, checked_at: null };
+          }
+          if (type === "ontology/graph_search" && state === "interactive") {
+            return {
+              matches: (searchMatches[message.term] || []).map(({ id, haId, type: nodeType, label, icon }) => ({ id, haId, type: nodeType, label, icon })),
+              truncated: false,
+              revision: 8,
+            };
+          }
+          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates")) {
+            const node = [...exploration.nodes, ...(searchMatches["Shared sensor"] || [])].find(({ id }) => id === message.element_id);
+            const relationship = exploration.relationships.find(({ id }) => id === message.element_id);
+            if (!node && !relationship) throw { code: "not_found", message: "Graph element was not found" };
+            return { node: node || null, relationship: relationship || null, directConnections: exploration };
+          }
+          if (type === "ontology/graph_expand" && state === "interactive") return exploration;
+          if (type !== "ontology/graph_snapshot") throw new Error(`Unexpected command: ${type}`);
+          if (state === "loading") {
+            return new Promise(() => {});
+          }
+          if (state === "unavailable") {
+            throw { code: "gateway_unavailable", message: "Ontology graph is unavailable" };
+          }
+          if (state === "error") {
+            throw new Error("Fixture failure");
+          }
+          if (state === "empty") {
+            return { ...populated, nodes: [], relationships: [] };
+          }
+          if (state === "partial") {
+            return { ...populated, truncated: true, next_cursor: "page-2" };
+          }
+          if (state === "live-updates") {
+            return { ...populated, revision: 7 };
+          }
+          return populated;
+        },
+      };
+      // For live-updates tests: expose a helper to inject events and subscription state
+      if (state === "live-updates") {
+        panel._dispatchLiveEvent = (event) => {
+          if (typeof panel._handleLiveEvent === "function") panel._handleLiveEvent(event);
+        };
+      }
+    </script>
+  </body>
+</html>

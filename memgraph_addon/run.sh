@@ -1,20 +1,19 @@
 #!/bin/sh
-# Entrypoint for the Memgraph Home Assistant add-on.
-#
-# Persists Memgraph's storage and logs under /data (the add-on's persistent
-# volume managed by the Home Assistant Supervisor) instead of the image's
-# default in-container paths, so the ontology graph survives add-on
-# restarts, host reboots, and add-on version upgrades.
-set -e
+set -eu
 
-mkdir -p /data/memgraph/lib /data/memgraph/log
+TOKEN_FILE=/data/graphql/token
+mkdir -p /data/memgraph/lib /data/memgraph/log /data/graphql /data/lab /run/ontology
 
-# Announce this add-on to Home Assistant Core via the Supervisor Discovery
-# API (http://supervisor/discovery) so the Ontology integration's config
-# flow can auto-detect and offer to connect to this Memgraph instance
-# instead of requiring the user to enter host/port manually. Best-effort
-# and non-blocking: runs in the background and must never fail or delay
-# Memgraph startup.
+if [ ! -s "$TOKEN_FILE" ]; then
+  umask 077
+  openssl rand -hex 32 > "$TOKEN_FILE"
+fi
+chmod 600 "$TOKEN_FILE"
+export GRAPHQL_BEARER_TOKEN="$(cat "$TOKEN_FILE")"
+export MEMGRAPH_URI="bolt://127.0.0.1:7687"
+export GRAPHQL_PORT=4000
+export NODE_ENV=production
+
 register_discovery() {
   [ -z "${SUPERVISOR_TOKEN:-}" ] && return 0
 
@@ -26,16 +25,14 @@ register_discovery() {
     | sed -E 's/.*"([^"]*)"$/\1/')
   [ -z "$hostname" ] && return 0
 
+  payload=$(printf '{"service":"ontology","config":{"host":"%s","port":7687,"graphql_url":"http://%s:4000/graphql","graphql_token":"%s"}}' \
+    "$hostname" "$hostname" "$GRAPHQL_BEARER_TOKEN")
   curl -sf -X POST \
     -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"service\":\"ontology\",\"config\":{\"host\":\"${hostname}\",\"port\":7687}}" \
+    -d "$payload" \
     http://supervisor/discovery >/dev/null 2>&1 || true
 }
 register_discovery &
 
-exec /usr/lib/memgraph/memgraph \
-  --data-directory=/data/memgraph/lib \
-  --log-file=/data/memgraph/log/memgraph.log \
-  --bolt-port=7687 \
-  --also-log-to-stderr=true
+exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf

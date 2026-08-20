@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -38,6 +39,7 @@ from .const import (
     CONF_AUTO_CLASSIFY,
     DEFAULT_AUTO_CLASSIFY,
     DOMAIN,
+    GRAPH_REVISION_BUFFER_SIZE,
     HEALTH_ERROR,
     HEALTH_OK,
     HEALTH_UNAVAILABLE,
@@ -50,6 +52,139 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class GraphChangeEvent:
+    """A sanitized, property-name-only change envelope published after a successful write."""
+
+    revision: int
+    kind: str  # "upsert" | "remove" | "reconcile"
+    node_ids: list[str]
+    relationship_ids: list[str]
+    changed_properties: list[str]  # Names only, never values
+    occurred_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "revision": self.revision,
+            "kind": self.kind,
+            "node_ids": self.node_ids,
+            "relationship_ids": self.relationship_ids,
+            "changed_properties": self.changed_properties,
+            "occurred_at": self.occurred_at,
+        }
+
+
+class GraphChangeBuffer:
+    """Bounded revision buffer with subscriber callbacks for live graph updates (US3).
+
+    Monotonically increments revision on each publish call.  Bounded to
+    ``max_size`` events using a deque; oldest events are evicted when full.
+    Callers use ``events_since`` to replay or detect a buffer gap (returns
+    ``None`` when the requested revision is no longer in the buffer).
+    """
+
+    def __init__(self, max_size: int = GRAPH_REVISION_BUFFER_SIZE) -> None:
+        self.max_size = max_size
+        self._revision = 0
+        self._events: deque[GraphChangeEvent] = deque(maxlen=max_size)
+        self._subscribers: dict[str, Callable[[GraphChangeEvent], None]] = {}
+
+    @property
+    def current_revision(self) -> int:
+        return self._revision
+
+    def _next_revision(self) -> int:
+        self._revision += 1
+        return self._revision
+
+    def _publish(self, event: GraphChangeEvent) -> GraphChangeEvent:
+        self._events.append(event)
+        for callback in list(self._subscribers.values()):
+            try:
+                callback(event)
+            except Exception:  # noqa: BLE001
+                pass
+        return event
+
+    def publish_upsert(
+        self,
+        node_ids: list[str],
+        relationship_ids: list[str],
+        changed_properties: list[str],
+    ) -> GraphChangeEvent:
+        """Publish an upsert event after a successful write."""
+        return self._publish(
+            GraphChangeEvent(
+                revision=self._next_revision(),
+                kind="upsert",
+                node_ids=list(node_ids),
+                relationship_ids=list(relationship_ids),
+                changed_properties=list(changed_properties),
+                occurred_at=datetime.now(UTC).isoformat(),
+            )
+        )
+
+    def publish_remove(
+        self,
+        node_ids: list[str],
+        relationship_ids: list[str],
+    ) -> GraphChangeEvent:
+        """Publish a remove event after nodes/relationships are deleted."""
+        return self._publish(
+            GraphChangeEvent(
+                revision=self._next_revision(),
+                kind="remove",
+                node_ids=list(node_ids),
+                relationship_ids=list(relationship_ids),
+                changed_properties=[],
+                occurred_at=datetime.now(UTC).isoformat(),
+            )
+        )
+
+    def publish_reconcile(self) -> GraphChangeEvent:
+        """Publish a reconcile event (e.g. after full rebuild/resync)."""
+        return self._publish(
+            GraphChangeEvent(
+                revision=self._next_revision(),
+                kind="reconcile",
+                node_ids=[],
+                relationship_ids=[],
+                changed_properties=[],
+                occurred_at=datetime.now(UTC).isoformat(),
+            )
+        )
+
+    def events_since(self, revision: int) -> list[GraphChangeEvent] | None:
+        """Return events after ``revision``, or ``None`` when the buffer cannot bridge.
+
+        Returns ``None`` when:
+        - the requested revision is beyond the current revision (future revision), or
+        - there is a gap: events between ``revision`` and the oldest buffered event
+          have been evicted (``revision < oldest_revision - 1``).
+
+        If ``oldest_revision == revision + 1``, all events since ``revision`` are
+        still present and we return them.
+        """
+        if revision > self._revision:
+            return None
+        if not self._events:
+            return []
+        oldest_revision = self._events[0].revision
+        if revision < oldest_revision - 1:
+            return None
+        return [event for event in self._events if event.revision > revision]
+
+    def subscribe(
+        self, subscriber_id: str, callback: Callable[[GraphChangeEvent], None]
+    ) -> None:
+        """Register a callback to be invoked on every new event."""
+        self._subscribers[subscriber_id] = callback
+
+    def unsubscribe(self, subscriber_id: str) -> None:
+        """Remove a subscriber callback; silently ignored if not registered."""
+        self._subscribers.pop(subscriber_id, None)
 
 
 @dataclass
@@ -93,6 +228,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
         self.state = OntologyState()
         self._lock = asyncio.Lock()
         self._waiting = False
+        self.change_buffer = GraphChangeBuffer()
         # Optional callbacks wired by __init__.py to repairs.py (User Story 9).
         self.on_sustained_failure: Any = None
         self.on_failure_cleared: Any = None
@@ -224,6 +360,7 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             raise
         else:
             self._record_success()
+            self.change_buffer.publish_reconcile()
 
     async def async_rebuild(self) -> None:
         """Clear integration-owned data, then rebuild the full ontology (T038)."""
@@ -253,6 +390,14 @@ class OntologyCoordinator(DataUpdateCoordinator[OntologyState]):
             raise
         else:
             self._record_success()
+            # Determine whether this was an upsert or remove based on HA state.
+            from homeassistant.helpers import entity_registry as _er
+            registry = _er.async_get(self.hass)
+            node_id = f"Entity:{entity_id}"
+            if registry.entities.get(entity_id) is None and self.hass.states.get(entity_id) is None:
+                self.change_buffer.publish_remove([node_id], [])
+            else:
+                self.change_buffer.publish_upsert([node_id], [], ["state", "ha_id"])
 
     async def async_sync_entity(self, entity_id: str) -> None:
         """Refresh a single entity node/relationships (FR-016).

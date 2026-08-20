@@ -26,6 +26,7 @@ from homeassistant.core import (
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service import async_register_admin_service
 
 from . import (
@@ -111,6 +112,7 @@ from .const import (
 )
 from .coordinator import OntologyCoordinator
 from .event_listener import async_register_listeners
+from .graph_gateway import async_attach_graph_gateway
 from .memgraph_client import CannotConnect, InvalidAuth, MemgraphClient
 from .overrides import OverrideImportRejected
 from .query_service import QueryRejected
@@ -129,7 +131,7 @@ type OntologyConfigEntry = ConfigEntry[OntologyCoordinator]
 
 PANEL_URL_PATH = "ontology"
 PANEL_JS_URL = "/ontology_static/ontology-panel.js"
-PANEL_JS_PATH = os.path.join(os.path.dirname(__file__), "panel", "ontology-panel.js")
+PANEL_STATIC_PATH = os.path.join(os.path.dirname(__file__), "panel")
 
 _SYNC_ENTITY_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id})
 _REFRESH_SEMANTICS_SCHEMA = vol.Schema({vol.Optional(ATTR_ENTITY_ID): cv.entity_id})
@@ -245,6 +247,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: OntologyConfigEntry) -> 
     coordinator.on_sustained_failure = lambda: async_create_sustained_failure_issue(hass, entry)
     coordinator.on_failure_cleared = lambda: async_clear_sustained_failure_issue(hass, entry)
     entry.runtime_data = coordinator
+    await async_attach_graph_gateway(
+        entry, coordinator, session=async_get_clientsession(hass)
+    )
+    # Attach optional Lab capability consumer (US4): non-fatal.
+    from .const import CONF_GRAPHQL_URL, CONF_GRAPHQL_TOKEN
+    from .lab_access import LabAccess
+    graphql_url = str(entry.data.get(CONF_GRAPHQL_URL) or entry.options.get(CONF_GRAPHQL_URL) or "").strip()
+    graphql_token = str(entry.data.get(CONF_GRAPHQL_TOKEN) or entry.options.get(CONF_GRAPHQL_TOKEN) or "").strip()
+    if graphql_url and graphql_token:
+        coordinator.lab_access = LabAccess(graphql_url, graphql_token, session=async_get_clientsession(hass))
+    else:
+        coordinator.lab_access = None
     # Connection already validated above: record healthy state up front so
     # the health sensors (User Story 6) reflect it even before the first
     # full sync completes (User Story 2, FR-*).
@@ -319,6 +333,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: OntologyConfigEntry) ->
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
+        await entry.runtime_data.graph_gateway.close()
+        if getattr(entry.runtime_data, "lab_access", None) is not None:
+            await entry.runtime_data.lab_access.close()
         await entry.runtime_data.memgraph_client.close()
         _async_unregister_services(hass)
     return unload_ok
@@ -364,7 +381,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         # registration rather than failing config entry setup.
         return
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(PANEL_JS_URL, PANEL_JS_PATH, cache_headers=False)]
+        [StaticPathConfig("/ontology_static", PANEL_STATIC_PATH, cache_headers=False)]
     )
     await panel_custom.async_register_panel(
         hass,
@@ -373,7 +390,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         module_url=PANEL_JS_URL,
         sidebar_title="Ontology",
         sidebar_icon="mdi:graph-outline",
-        require_admin=True,
+        require_admin=False,
     )
     hass.data[f"{DOMAIN}_panel_registered"] = True
 

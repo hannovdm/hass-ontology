@@ -13,6 +13,8 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.ontology.config_flow import _options_schema
 from custom_components.ontology.const import (
     CONF_ACTIVE_POWER_THRESHOLD,
+    CONF_GRAPHQL_TOKEN,
+    CONF_GRAPHQL_URL,
     CONF_LOW_BATTERY_THRESHOLD,
     CONF_MAX_MEASUREMENT_AGE_HOURS,
     CONF_RELATIONSHIP_RESULT_LIMIT,
@@ -42,6 +44,8 @@ async def test_user_step_schema_fields(hass) -> None:
         "password",
         "database",
         "encrypted",
+        "graphql_url",
+        "graphql_token",
     }
 
 
@@ -147,3 +151,10 @@ def test_strings_declare_relationship_option_labels() -> None:
     assert CONF_ACTIVE_POWER_THRESHOLD in option_fields
     assert CONF_MAX_MEASUREMENT_AGE_HOURS in option_fields
     assert CONF_RELATIONSHIP_RESULT_LIMIT in option_fields
+
+
+def test_graphql_connection_fields_are_optional_advanced_settings() -> None:
+    validated = _options_schema()(_connection_options())
+
+    assert CONF_GRAPHQL_URL not in validated
+    assert CONF_GRAPHQL_TOKEN not in validated

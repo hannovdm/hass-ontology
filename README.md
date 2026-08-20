@@ -212,6 +212,63 @@ Integration tests require Docker (via `testcontainers`) to run a real
 Memgraph instance. See [specs/001-ha-ontology-integration/](specs/001-ha-ontology-integration/)
 for the full spec, plan, and task list.
 
+## Ontology Explorer Graph
+
+The **Ontology Explorer** panel visualizes your home's graph as an interactive canvas.
+
+### Graph controls
+
+| Control | Action |
+|---------|--------|
+| Click a node | Select and view safe properties |
+| **Expand one hop** (button) | Load direct relationships for the selected node |
+| Search box | Find nodes by name or ID and focus them in the graph |
+| Node/relationship type checkboxes | Filter visible elements |
+| **Zoom in / Zoom out** (toolbar) | Zoom the canvas |
+| **Fit graph** (toolbar) | Fit all visible nodes in view |
+| **Reset view** (toolbar) | Reset to the post-load default viewport |
+| Drag a node | Reposition it |
+| Keyboard focus on node list | Navigate and select nodes without a mouse |
+
+### Display limits
+
+The initial view loads up to **500 nodes** (areas and directly assigned devices). Expand individual nodes to load one-hop neighbours (up to 250 nodes / 500 edges per expansion).
+
+### Node styles
+
+| Style | Meaning |
+|-------|---------|
+| Hexagonal node | Area |
+| Rounded rectangle | Device / Entity |
+| Dashed border | Unavailable |
+| Diamond with amber border | Validation finding |
+| Dotted group | Unassigned devices (presentation only) |
+
+### Live updates
+
+The panel subscribes to graph changes automatically. When the Ontology integration syncs a change:
+
+- **Upsert events** refresh visible nodes' properties.
+- **Remove events** remove nodes and relationships from the canvas.
+- **Reconcile events** (after full rebuild/resync) reload the entire snapshot.
+
+A **stale indicator** appears if the subscription is interrupted. The panel reconnects automatically with bounded exponential backoff.
+
+### Privacy boundary
+
+- The browser never connects directly to Memgraph or the internal GraphQL adapter.
+- All operations are named (no query text is accepted from the browser).
+- Node properties are allowlisted and passed through the integration's redaction rules.
+- Credentials, tokens, and internal hostnames are never sent to the browser.
+
+### Accessibility
+
+The **Graph nodes** list in the sidebar mirrors the canvas and is keyboard-operable. Screen readers can navigate the node list, select nodes, and read their type and status without touching the canvas.
+
+### Memgraph Lab (administrators only)
+
+When the Memgraph add-on is running **Memgraph Enterprise** with a verified read-only database user, administrators see a **Memgraph Lab** section in the sidebar. This opens Memgraph Lab through Home Assistant Supervisor ingress. Lab is unavailable on Community edition and for non-administrators.
+
 ## License
 
 See repository license terms.

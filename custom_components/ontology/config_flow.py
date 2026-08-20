@@ -16,6 +16,8 @@ from .const import (
     CONF_AUTO_CLASSIFY,
     CONF_DATABASE,
     CONF_ENCRYPTED,
+    CONF_GRAPHQL_TOKEN,
+    CONF_GRAPHQL_URL,
     CONF_HOST,
     CONF_LOW_BATTERY_THRESHOLD,
     CONF_MAX_MEASUREMENT_AGE_HOURS,
@@ -29,6 +31,8 @@ from .const import (
     DEFAULT_AUTO_CLASSIFY,
     DEFAULT_DATABASE,
     DEFAULT_ENCRYPTED,
+    DEFAULT_GRAPHQL_TOKEN,
+    DEFAULT_GRAPHQL_URL,
     DEFAULT_LOW_BATTERY_THRESHOLD,
     DEFAULT_MAX_MEASUREMENT_AGE_HOURS,
     DEFAULT_MCP_ALLOWED_NETWORKS,
@@ -54,6 +58,16 @@ def _finite_number(value: object) -> float:
 def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Build the connection-details schema, optionally pre-filled."""
     defaults = defaults or {}
+    graphql_url = (
+        vol.Optional(CONF_GRAPHQL_URL, default=defaults[CONF_GRAPHQL_URL])
+        if CONF_GRAPHQL_URL in defaults
+        else vol.Optional(CONF_GRAPHQL_URL)
+    )
+    graphql_token = (
+        vol.Optional(CONF_GRAPHQL_TOKEN, default=defaults[CONF_GRAPHQL_TOKEN])
+        if CONF_GRAPHQL_TOKEN in defaults
+        else vol.Optional(CONF_GRAPHQL_TOKEN)
+    )
     return vol.Schema(
         {
             vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
@@ -72,6 +86,8 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Optional(
                 CONF_ENCRYPTED, default=defaults.get(CONF_ENCRYPTED, DEFAULT_ENCRYPTED)
             ): bool,
+            graphql_url: str,
+            graphql_token: str,
         }
     )
 
@@ -160,7 +176,12 @@ class OntologyConfigFlow(ConfigFlow, domain=DOMAIN):
         port = config.get(CONF_PORT, DEFAULT_PORT)
         await self.async_set_unique_id(f"{host}:{port}")
         self._abort_if_unique_id_configured()
-        self._discovery_data = {CONF_HOST: host, CONF_PORT: port}
+        self._discovery_data = {
+            CONF_HOST: host,
+            CONF_PORT: port,
+            CONF_GRAPHQL_URL: config.get(CONF_GRAPHQL_URL, DEFAULT_GRAPHQL_URL),
+            CONF_GRAPHQL_TOKEN: config.get(CONF_GRAPHQL_TOKEN, DEFAULT_GRAPHQL_TOKEN),
+        }
         return await self.async_step_hassio_confirm()
 
     async def async_step_hassio_confirm(

@@ -2,52 +2,83 @@
 
 ## About
 
-This add-on runs the official
-[`memgraph/memgraph`](https://hub.docker.com/r/memgraph/memgraph) Docker
-image, unmodified apart from redirecting its storage and log files into the
-add-on's persistent `/data` volume. It provides a local, Bolt-protocol graph
-database for the [Home Assistant Ontology](https://github.com/hannovdm/hass-ontology)
-integration (or any other Bolt-compatible client).
+This add-on runs [Memgraph](https://memgraph.com/) — the graph database
+backing the [Home Assistant Ontology](https://github.com/hannovdm/hass-ontology)
+integration — alongside an authenticated internal GraphQL adapter and optional
+Memgraph Lab access.  All data is persisted under the add-on's `/data` volume.
+
+## Internal Architecture
+
+The add-on runs three supervised processes:
+
+| Process | Purpose |
+|---------|---------|
+| **Memgraph** | Bolt graph database on port 7687 (host-published). |
+| **GraphQL adapter** | Read-only Apollo Server on internal port 4000. Never host-published. Requires bearer token generated at startup and stored at `/data/graphql/token`. |
+| **Memgraph Lab** | Optional browser-based query tool on internal port 3000. Accessible **only** through Home Assistant Supervisor ingress. Never host-published. |
+
+The GraphQL adapter and Memgraph Lab each fail independently — a crash in
+either does not stop Memgraph or the Ontology integration.
 
 ## Configuration
 
-This add-on has no configurable options — it always listens for Bolt
-connections on port `7687` with no authentication configured, matching the
-"local-first, no cloud dependency" design of the Ontology integration
-(see [plan.md](../specs/001-ha-ontology-integration/plan.md)).
+This add-on has no configurable options. The Ontology integration
+auto-discovers the GraphQL URL and bearer token via the Supervisor Discovery
+API when both the integration and this add-on are installed.
 
-### Data persistence
+## Memgraph Lab (Advanced Workspace)
 
-Memgraph's data directory and log file are stored at
-`/data/memgraph/lib` and `/data/memgraph/log/memgraph.log` inside the
-add-on's persistent volume. This means:
+Memgraph Lab is available **only** for Home Assistant administrators and
+**only** when Memgraph Enterprise edition is running with a verified read-only
+database user. Community edition does not enforce query authorization and is
+therefore excluded.
 
-- The graph survives add-on **restarts** and Home Assistant **reboots**.
-- The graph survives **add-on updates** (rebuilding the Dockerfile against
-  a newer Memgraph version does not discard `/data`).
-- Uninstalling the add-on **and** removing its data (checked explicitly in
-  the uninstall dialog) will delete the graph. A plain uninstall/reinstall
-  without that option preserves it.
+### Enterprise + read-only setup
 
-### Networking
+1. Connect to Memgraph as a privileged user (e.g. via the Terminal add-on):
+   ```sh
+   mgconsole --host 127.0.0.1 --port 7687
+   ```
+2. Create a read-only user with a password Memgraph will manage:
+   ```cypher
+   CREATE USER ontology_lab_readonly IDENTIFIED BY '<password>';
+   GRANT READ ON GRAPHS * TO ontology_lab_readonly;
+   ```
+3. Restart the add-on.  The integration will run a write-rejection probe and
+   mark Lab available once authorization is confirmed.
 
-The add-on exposes port `7687/tcp`, mapped 1:1 to the same port on the Home
-Assistant host. Point the Ontology integration's config flow at:
+The add-on generates and stores the Lab user's password in `/data/lab/` with
+owner-only permissions. It is never exposed through the WebSocket API,
+diagnostics, browser responses, or logs.
 
-- **Host**: the Home Assistant host's IP address (or a hostname that
-  resolves to it, e.g. `homeassistant.local`)
-- **Port**: `7687`
+### Upgrading
 
-### Authentication
+1. Update the add-on from the Home Assistant Supervisor.
+2. Memgraph data under `/data` survives the upgrade.
+3. If the Lab user password changes, restart the add-on — it re-reads the
+   stored credential and re-runs the authorization probe.
+4. Rolling back: downgrade the add-on version in Supervisor; data is
+   preserved as long as the schema version is compatible.
 
-No users are created by default, matching Memgraph's own default (no
-authentication) — this mirrors the "local, locally-hosted" trust model the
-integration assumes. If you need authentication or encryption in your
-environment, connect with `mgconsole` (`docker exec -it addon_local_memgraph
-mgconsole` from the host, or use the **Terminal & SSH** add-on) and follow
-[Memgraph's authentication docs](https://memgraph.com/docs/database-management/authentication-and-authorization)
-to create a user, then re-enter those credentials in the integration's
-config flow.
+## Troubleshooting
+
+- **GraphQL not reachable**: check the add-on log for `[GraphQL]` lines.
+  The integration falls back to a direct Bolt connection automatically.
+- **Lab shows "Enterprise required"**: Community edition is running.
+  Lab is unavailable by design.
+- **Lab shows "Write probe succeeded"**: The Lab user has write access.
+  Review the database privileges and restart the add-on.
+- **Lab shows "Transport unavailable"**: The GraphQL adapter failed to
+  start or crashed. Restart the add-on.
+
+## Networking
+
+| Port | Exposure | Purpose |
+|------|----------|---------|
+| 7687/tcp | Host-published | Bolt protocol (Ontology integration + external tools) |
+| 4000/tcp | Internal only | GraphQL adapter (bearer-token authenticated) |
+| 3000/tcp | Supervisor ingress only | Memgraph Lab (admin-only, Enterprise) |
+
 
 ## Updating
 
