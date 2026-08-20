@@ -14,7 +14,7 @@ import logging
 from collections.abc import Callable
 
 from homeassistant.const import EVENT_STATE_CHANGED
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import CoreState, Event, HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -92,21 +92,32 @@ def async_register_listeners(
 
     @callback
     def _on_area_registry_updated(event: Event) -> None:
+        if hass.state is not CoreState.running:
+            return
         area_id = event.data.get("area_id")
         if area_id:
             hass.async_create_task(coordinator.async_handle_area_change(area_id))
 
     @callback
     def _on_device_registry_updated(event: Event) -> None:
+        if hass.state is not CoreState.running:
+            return
         device_id = event.data.get("device_id")
         if device_id:
             hass.async_create_task(coordinator.async_handle_device_change(device_id))
 
     @callback
     def _on_entity_registry_updated(event: Event) -> None:
+        if hass.state is not CoreState.running:
+            return
         entity_id = event.data.get("entity_id")
         if entity_id:
             hass.async_create_task(coordinator.async_handle_entity_change(entity_id))
+
+    @callback
+    def _on_state_changed(event: Event) -> None:
+        if hass.state is CoreState.running:
+            debouncer.async_handle_state_changed(event)
 
     unsub_area = hass.bus.async_listen(ar.EVENT_AREA_REGISTRY_UPDATED, _on_area_registry_updated)
     unsub_device = hass.bus.async_listen(
@@ -115,7 +126,7 @@ def async_register_listeners(
     unsub_entity = hass.bus.async_listen(
         er.EVENT_ENTITY_REGISTRY_UPDATED, _on_entity_registry_updated
     )
-    unsub_state = hass.bus.async_listen(EVENT_STATE_CHANGED, debouncer.async_handle_state_changed)
+    unsub_state = hass.bus.async_listen(EVENT_STATE_CHANGED, _on_state_changed)
 
     def _unsubscribe() -> None:
         unsub_area()

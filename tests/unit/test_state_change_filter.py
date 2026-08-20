@@ -6,9 +6,49 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import EVENT_STATE_CHANGED
-from homeassistant.core import Event
+from homeassistant.core import CoreState, Event
+from homeassistant.helpers import entity_registry as er
 
-from custom_components.ontology.event_listener import StateChangeDebouncer
+from custom_components.ontology.event_listener import (
+    StateChangeDebouncer,
+    async_register_listeners,
+)
+
+
+async def test_registered_listener_ignores_startup_state_churn(hass) -> None:
+    coordinator = AsyncMock()
+
+    with patch("custom_components.ontology.event_listener.STATE_CHANGE_DEBOUNCE_SECONDS", 0.01):
+        unsubscribe = async_register_listeners(hass, coordinator)
+        hass.set_state(CoreState.starting)
+        hass.states.async_set("sensor.startup", "on")
+        await asyncio.sleep(0.02)
+        coordinator.async_handle_entity_change.assert_not_awaited()
+
+        hass.set_state(CoreState.running)
+        hass.states.async_set("sensor.startup", "off")
+        await asyncio.sleep(0.02)
+        await hass.async_block_till_done()
+
+    coordinator.async_handle_entity_change.assert_awaited_once()
+    unsubscribe()
+
+
+async def test_registered_listener_ignores_startup_registry_churn(hass) -> None:
+    coordinator = AsyncMock()
+    unsubscribe = async_register_listeners(hass, coordinator)
+
+    hass.set_state(CoreState.starting)
+    hass.bus.async_fire(er.EVENT_ENTITY_REGISTRY_UPDATED, {"entity_id": "sensor.startup"})
+    await hass.async_block_till_done()
+    coordinator.async_handle_entity_change.assert_not_awaited()
+
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(er.EVENT_ENTITY_REGISTRY_UPDATED, {"entity_id": "sensor.runtime"})
+    await hass.async_block_till_done()
+
+    coordinator.async_handle_entity_change.assert_awaited_once_with("sensor.runtime")
+    unsubscribe()
 
 
 async def test_unrelated_attribute_only_change_is_ignored(hass) -> None:
