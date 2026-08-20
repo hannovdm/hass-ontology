@@ -229,7 +229,6 @@ class OntologyPanel extends HTMLElement {
       this._labRetryButton.hidden = false;
     }
   }
-  }
 
   async _loadSnapshot(force = false) {
     if (this._loadStarted && !force) return;

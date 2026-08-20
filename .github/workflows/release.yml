@@ -26,6 +26,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate panel JavaScript syntax
+        run: |
+          node --check custom_components/ontology/panel/ontology-panel.js
+          node --check custom_components/ontology/panel/ontology-graph.js
+          node --check custom_components/ontology/panel/ontology-icons.js
+
       - name: Validate and classify version
         id: version
         run: |
