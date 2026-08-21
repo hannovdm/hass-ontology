@@ -20,12 +20,11 @@ _SAMPLE_COUNT = 20
 
 
 def _node(index: int) -> dict[str, Any]:
-    node_type = "Area" if index < 50 else "Device"
     return {
-        "labels": [node_type],
+        "labels": ["Area"],
         "properties": {
-            "ha_id": f"{node_type.lower()}-{index}",
-            "name": f"{node_type} {index}",
+            "ha_id": f"area-{index}",
+            "name": f"Area {index}",
             "source": "home_assistant",
         },
     }
@@ -53,10 +52,10 @@ class _GraphQLFixtureSession:
     def __init__(self) -> None:
         self.nodes = [
             {
-                "id": f"{'Area' if index < 50 else 'Device'}:{'area' if index < 50 else 'device'}-{index}",
-                "haId": f"{'area' if index < 50 else 'device'}-{index}",
-                "type": "AREA" if index < 50 else "DEVICE",
-                "label": f"{'Area' if index < 50 else 'Device'} {index}",
+                "id": f"Area:area-{index}",
+                "haId": f"area-{index}",
+                "type": "AREA",
+                "label": f"Area {index}",
                 "icon": None,
                 "state": None,
                 "unavailable": False,
@@ -96,7 +95,7 @@ def initial_graph_backend(request):
     )
 
 
-async def test_initial_area_device_graph_is_bounded_for_5000_node_fixture(
+async def test_initial_area_graph_is_bounded_for_5000_node_fixture(
     initial_graph_backend,
 ) -> None:
     backend_name, backend = initial_graph_backend
@@ -106,7 +105,7 @@ async def test_initial_area_device_graph_is_bounded_for_5000_node_fixture(
     assert len(result["nodes"]) == _INITIAL_LIMIT, backend_name
     assert result["truncated"] is True
     assert result["nextCursor"] in {None, "fixture-page-2"}
-    assert all(node["id"].startswith(("Area:", "Device:")) for node in result["nodes"])
+    assert all(node["id"].startswith("Area:") for node in result["nodes"])
 
 
 async def test_initial_area_device_graph_meets_three_second_p95(

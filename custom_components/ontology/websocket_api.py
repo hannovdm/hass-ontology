@@ -120,7 +120,7 @@ def _first_loaded_coordinator(hass: HomeAssistant) -> Any | None:
 async def _handle_graph_snapshot(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Return a bounded area/device graph through the selected gateway."""
+    """Return a bounded area overview through the selected gateway."""
     gateway = _first_loaded_gateway(hass)
     if gateway is None:
         connection.send_error(

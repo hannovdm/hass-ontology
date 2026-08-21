@@ -27,15 +27,12 @@ const SENSITIVE_PROPERTY = /(password|passphrase|secret|token|credential|connect
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 
 const INITIAL_GRAPH_QUERY = `
-MATCH (n)
-WHERE n:Area OR n:Device
-OPTIONAL MATCH (assigned_area:Area)-[:HAS_DEVICE]->(n)
-WITH n, count(assigned_area) > 0 AS assigned
-ORDER BY CASE WHEN n:Area THEN 0 WHEN assigned THEN 1 ELSE 2 END,
-         coalesce(n.name, n.ha_id), n.ha_id
+MATCH (n:Area)
+WITH n
+ORDER BY coalesce(n.name, n.ha_id), n.ha_id
 WITH collect(n)[0..$limit] AS nodes
-OPTIONAL MATCH (a:Area)-[r:HAS_DEVICE]->(d:Device)
-WHERE a IN nodes AND d IN nodes
+OPTIONAL MATCH (a:Area)-[r]-(b:Area)
+WHERE a IN nodes AND b IN nodes
 RETURN nodes, collect(CASE WHEN r IS NULL THEN null ELSE {
   type: type(r),
   source: labels(startNode(r))[0] + ':' + startNode(r).ha_id,

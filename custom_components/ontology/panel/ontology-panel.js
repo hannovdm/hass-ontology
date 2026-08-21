@@ -3,9 +3,9 @@ import { resolveOntologyIcon } from "./ontology-icons.js";
 import { UNASSIGNED_ID } from "./ontology-graph.js";
 
 const STATE_MESSAGES = {
-  loading: ["Loading ontology graph", "Preparing areas and devices."],
+  loading: ["Loading ontology graph", "Preparing areas."],
   empty: ["No ontology graph yet", "Run an ontology resync, then try again."],
-  partial: ["Showing partial results", "The 100-node overview limit was reached. Search or expand a node to drill down."],
+  partial: ["Showing partial results", "The 100-area overview limit was reached. Search or select an area to drill down."],
   unavailable: ["Ontology graph unavailable", "Check the integration and Memgraph connection, then retry."],
   error: ["Graph could not be loaded", "Retry the request or check Home Assistant logs."],
 };
@@ -372,10 +372,11 @@ class OntologyPanel extends HTMLElement {
 
   _renderNodeList(nodes) {
     this._list.replaceChildren();
-    const unassigned = nodes.some((node) => node.type === "DEVICE" && !this._isAssigned(node.id));
+    const uniqueNodes = [...new Map(nodes.map((node) => [node.id, node])).values()];
+    const unassigned = uniqueNodes.some((node) => node.type === "DEVICE" && !this._isAssigned(node.id));
     const visibleNodes = unassigned
-      ? [...nodes, { id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true }]
-      : nodes;
+      ? [...uniqueNodes, { id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true }]
+      : uniqueNodes;
     for (const node of visibleNodes) {
       const item = document.createElement("li");
       const button = document.createElement("button");
@@ -421,7 +422,8 @@ class OntologyPanel extends HTMLElement {
       this._details.hidden = true;
       return;
     }
-    await this._loadDetail(elementId);
+    const type = this._graph.cy?.getElementById(elementId).data("type");
+    await this._loadDetail(elementId, type === "AREA" || type === "DEVICE");
   }
 
   async _search(rawTerm) {

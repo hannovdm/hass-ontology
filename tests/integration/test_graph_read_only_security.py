@@ -46,9 +46,8 @@ async def test_search_detail_and_expand_are_bounded_redacted_and_read_only(memgr
     detail = await direct.graph_element("Device:lamp")
     expansion = await direct.expand_node("Entity:sensor.kitchen", 250, 500)
 
-    assert {node["id"] for node in overview["nodes"]} == {"Area:kitchen", "Device:lamp"}
-    assert len(overview["relationships"]) == 1
-    assert overview["relationships"][0]["type"] == "HAS_DEVICE"
+    assert {node["id"] for node in overview["nodes"]} == {"Area:kitchen"}
+    assert overview["relationships"] == []
     assert [match["id"] for match in search["matches"]] == ["Device:lamp", "Entity:sensor.kitchen"]
     assert detail and detail["node"]["id"] == "Device:lamp"
     assert {node["id"] for node in expansion["nodes"]} == {"Device:lamp", "Entity:sensor.kitchen"}

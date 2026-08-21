@@ -41,7 +41,7 @@ async def test_direct_backend_uses_parameterized_bounded_read_only_cypher() -> N
 
 
 @pytest.mark.asyncio
-async def test_direct_initial_graph_returns_stable_relationship_endpoints() -> None:
+async def test_direct_initial_graph_requests_area_only_overview() -> None:
     client = AsyncMock()
     client.run_query.return_value = [
         {
@@ -66,8 +66,8 @@ async def test_direct_initial_graph_returns_stable_relationship_endpoints() -> N
     result = await backend.initial_graph()
 
     query, parameters = client.run_query.await_args.args
-    assert "count(assigned_area) > 0 AS assigned" in query
-    assert "WHEN assigned THEN 1 ELSE 2 END" in query
+    assert "MATCH (n:Area)" in query
+    assert "n:Device" not in query
     assert parameters == {"node_limit": 101, "edge_limit": 101}
     assert result["relationships"] == [
         {

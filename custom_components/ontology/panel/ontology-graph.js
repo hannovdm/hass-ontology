@@ -8,7 +8,7 @@ function relationshipLabel(type, directed) {
   return directed ? `${words} →` : words;
 }
 
-function graphElements(snapshot, hass) {
+function graphElements(snapshot, hass, includePresentationGroups = true) {
   const nodesById = new Map();
   for (const node of snapshot.nodes || []) {
     if (node?.id && !nodesById.has(node.id)) nodesById.set(node.id, node);
@@ -33,9 +33,9 @@ function graphElements(snapshot, hass) {
     if (source?.type === "AREA" && target?.type === "DEVICE") assignedDevices.add(target.id);
     if (target?.type === "AREA" && source?.type === "DEVICE") assignedDevices.add(source.id);
   }
-  const unassignedIds = new Set(
-    snapshotNodes.filter((node) => node.type === "DEVICE" && !assignedDevices.has(node.id)).map((node) => node.id),
-  );
+  const unassignedIds = includePresentationGroups
+    ? new Set(snapshotNodes.filter((node) => node.type === "DEVICE" && !assignedDevices.has(node.id)).map((node) => node.id))
+    : new Set();
   const nodes = snapshotNodes.map((node) => ({
     data: {
       ...node,
@@ -83,6 +83,8 @@ class OntologyGraph extends HTMLElement {
 
   setSnapshot(snapshot, hass) {
     this.connectedCallback();
+    const viewport = this.cy ? { pan: this.cy.pan(), zoom: this.cy.zoom() } : null;
+    const selectedId = this.cy?.$(":selected").first().id() || null;
     this.cy?.destroy();
     this.cy = cytoscape({
       container: this._container,
@@ -104,10 +106,28 @@ class OntologyGraph extends HTMLElement {
         { selector: "edge.directed", style: { "target-arrow-shape": "triangle" } },
       ],
     });
+    if (viewport) {
+      this.cy.zoom(viewport.zoom);
+      this.cy.pan(viewport.pan);
+      if (selectedId) this.cy.getElementById(selectedId).select();
+    } else {
+      this._fitToTop();
+    }
     this._initialViewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
-    this.cy.on("select unselect", "node, edge", () => {
+    this.cy.on("select unselect", "node, edge", (event) => {
+      if (this._suppressSelectionEvents) return;
+      let selectedId = this.cy.$(":selected").first().id() || null;
+      if (event.type === "select") {
+        this._suppressSelectionEvents = true;
+        try {
+          this.cy.$(":selected").not(event.target).unselect();
+        } finally {
+          this._suppressSelectionEvents = false;
+        }
+        selectedId = event.target.id();
+      }
       this.dispatchEvent(new CustomEvent("graph-selection-changed", {
-        detail: { id: this.cy.$(":selected").first().id() || null },
+        detail: { id: selectedId },
         bubbles: true,
       }));
     });
@@ -122,21 +142,29 @@ class OntologyGraph extends HTMLElement {
     const viewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
     const center = centerId ? this.cy.getElementById(centerId) : null;
     const centerPosition = center?.nonempty() ? center.position() : { x: 0, y: 0 };
-    const incoming = graphElements(slice, hass).filter(({ data }) => data.id !== UNASSIGNED_ID);
+    const incoming = graphElements(slice, hass, false);
     const newNodes = [];
 
-    this.cy.batch(() => {
-      for (const element of incoming) {
-        const existing = this.cy.getElementById(element.data.id);
-        if (existing.nonempty()) {
-          existing.data(element.data);
-          existing.classes(element.classes || elementClasses(element.data));
-          continue;
+    this._suppressSelectionEvents = true;
+    try {
+      this.cy.batch(() => {
+        for (const element of incoming) {
+          const existing = this.cy.getElementById(element.data.id);
+          if (existing.nonempty()) {
+            existing.data(element.data);
+            existing.classes(element.classes || elementClasses(element.data));
+            continue;
+          }
+          const added = this.cy.add(element);
+          if (added.isNode()) newNodes.push(added);
         }
-        const added = this.cy.add(element);
-        if (added.isNode()) newNodes.push(added);
-      }
-    });
+      });
+
+      const selected = selectedId ? this.cy.getElementById(selectedId) : null;
+      if (selected?.nonempty() && !selected.selected()) selected.select();
+    } finally {
+      this._suppressSelectionEvents = false;
+    }
 
     newNodes.forEach((node, index) => {
       const angle = (2 * Math.PI * index) / Math.max(newNodes.length, 1);
@@ -145,7 +173,6 @@ class OntologyGraph extends HTMLElement {
         y: centerPosition.y + Math.sin(angle) * 120,
       });
     });
-    if (selectedId) this.cy.getElementById(selectedId).select();
     this.cy.zoom(viewport.zoom);
     this.cy.pan(viewport.pan);
   }
@@ -188,13 +215,21 @@ class OntologyGraph extends HTMLElement {
   }
 
   fit() {
-    this.cy?.fit(this.cy.$(":visible"), 36);
+    this._fitToTop();
   }
 
   resetView() {
     if (!this.cy) return;
-    this.cy.fit(this.cy.$(":visible"), 36);
+    this._fitToTop();
     this._initialViewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
+  }
+
+  _fitToTop() {
+    if (!this.cy) return;
+    const visible = this.cy.$(":visible");
+    this.cy.fit(visible, 36);
+    const bounds = visible.renderedBoundingBox({ includeLabels: true });
+    this.cy.panBy({ x: 0, y: 36 - bounds.y1 });
   }
 
   selectNode(nodeId) {
@@ -203,7 +238,7 @@ class OntologyGraph extends HTMLElement {
     const node = this.cy.getElementById(nodeId);
     if (node.nonempty()) {
       node.select();
-      this.cy.animate({ center: { eles: node }, duration: 150 });
+      this.cy.center(node);
     }
   }
 }

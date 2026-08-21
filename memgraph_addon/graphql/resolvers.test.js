@@ -25,6 +25,8 @@ test("initialGraph uses fixed parameterized Cypher and clamps its limit", async 
   assert.equal(calls[0].parameters.limit, HARD_LIMITS.initialNodes + 1);
   assert.deepEqual(result.nodes, []);
   assert.equal(result.pageInfo.truncated, false);
+  assert.match(calls[0].query, /MATCH \(n:Area\)/);
+  assert.doesNotMatch(calls[0].query, /n:Device/);
   assert.match(calls[0].query, /startNode\(r\).*ha_id/s);
   assert.match(calls[0].query, /endNode\(r\).*ha_id/s);
 });

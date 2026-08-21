@@ -33,6 +33,27 @@ test("authenticated non-admin sees a nonblank area and device graph", async ({ p
   expect(graphFacts.edges.find(({ id }) => id === "HAS_DEVICE:1").label).toBe("has device →");
 });
 
+test("starts with areas and drills into an area on selection", async ({ page }) => {
+  await openFixture(page, "area-overview");
+  await expect(page.getByRole("button", { name: "Kitchen, area" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Kitchen, area" }).click();
+
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Portable sensor, device, unavailable" })).toBeVisible();
+  await expect(page.getByText("3 nodes and 1 relationships")).toBeVisible();
+});
+
+test("positions the initial graph at the top of the stage", async ({ page }) => {
+  await openFixture(page, "area-overview");
+  const top = await page.locator("ontology-panel").evaluate((panel) =>
+    panel.graph.cy.nodes(":visible").renderedBoundingBox({ includeLabels: true }).y1,
+  );
+  expect(top).toBeGreaterThanOrEqual(30);
+  expect(top).toBeLessThanOrEqual(42);
+});
+
 test("renders a snapshot containing duplicate and orphaned elements", async ({ page }) => {
   await openFixture(page, "malformed");
 
@@ -81,8 +102,13 @@ test(`finds exact ${exactTerm.includes(":") ? "ID" : "name"} and focuses it with
 test("shows safe relationship details", async ({ page }) => {
   await openFixture(page, "interactive");
   await page.getByRole("button", { name: "Kitchen lamp, device" }).click();
-  await page.getByRole("button", { name: "Expand one hop" }).click();
-  await page.locator("ontology-panel").evaluate((panel) => panel.graph.cy.getElementById("HAS_ENTITY:primary").select());
+  await expect.poll(() => page.locator("ontology-panel").evaluate((panel) =>
+    panel.graph.cy.getElementById("HAS_ENTITY:primary").nonempty(),
+  )).toBe(true);
+  await page.locator("ontology-panel").evaluate((panel) => {
+    panel.graph.cy.getElementById("HAS_ENTITY:primary").select();
+    return null;
+  });
   await expect(page.getByRole("heading", { name: "HAS_ENTITY" })).toBeVisible();
   await expect(page.getByText("Relationship · HAS_ENTITY:primary")).toBeVisible();
 });
@@ -337,4 +363,21 @@ test("admin sees Launch Lab link when Lab is available", async ({ page }) => {
   const href = await page.getByRole("link", { name: "Open Memgraph Lab" }).getAttribute("href");
   expect(href).toBeTruthy();
   expect(href).toContain("/hassio_ingress/");
+});
+
+test("keeps toolbar zoom across a delayed full snapshot refresh", async ({ page }) => {
+  await openFixture(page, "area-overview");
+  const panel = page.locator("ontology-panel");
+  const initialZoom = await panel.evaluate((element) => element.graph.cy.zoom());
+
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  const zoomed = await panel.evaluate((element) => element.graph.cy.zoom());
+  expect(zoomed).toBeLessThan(initialZoom);
+
+  await panel.evaluate((element) => {
+    setTimeout(() => element.graph.setSnapshot(element._snapshot, element._hass), 500);
+  });
+  await page.waitForTimeout(800);
+
+  expect(await panel.evaluate((element) => element.graph.cy.zoom())).toBeCloseTo(zoomed);
 });

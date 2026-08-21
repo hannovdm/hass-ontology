@@ -44,6 +44,20 @@
         next_cursor: null,
         revision: 8,
       };
+      const areaOverview = {
+        nodes: [populated.nodes[0]],
+        relationships: [],
+        truncated: false,
+        next_cursor: null,
+        revision: 7,
+      };
+      const areaExploration = {
+        nodes: populated.nodes.slice(0, 3),
+        relationships: populated.relationships.slice(0, 1),
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
 
       const searchMatches = {
         "Entity:sensor.kitchen_temperature": [exploration.nodes[1]],
@@ -79,11 +93,13 @@
               revision: 8,
             };
           }
-          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates")) {
-            const node = [...exploration.nodes, ...(searchMatches["Shared sensor"] || [])].find(({ id }) => id === message.element_id);
+          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview")) {
+            const nodes = [...populated.nodes, ...exploration.nodes, ...(searchMatches["Shared sensor"] || [])];
+            const node = nodes.find(({ id }) => id === message.element_id);
             const relationship = exploration.relationships.find(({ id }) => id === message.element_id);
             if (!node && !relationship) throw { code: "not_found", message: "Graph element was not found" };
-            return { node: node || null, relationship: relationship || null, directConnections: exploration };
+            const directConnections = node?.type === "AREA" ? areaExploration : exploration;
+            return { node: node || null, relationship: relationship || null, directConnections };
           }
           if (type === "ontology/graph_expand" && state === "interactive") return exploration;
           if (type !== "ontology/graph_snapshot") throw new Error(`Unexpected command: ${type}`);
@@ -104,6 +120,9 @@
           }
           if (state === "live-updates") {
             return { ...populated, revision: 7 };
+          }
+          if (state === "area-overview") {
+            return areaOverview;
           }
           if (state === "malformed") {
             return {
