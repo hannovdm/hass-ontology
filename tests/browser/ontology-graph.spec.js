@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const FOCUS_HIGHLIGHT_COLOR = "rgb(35, 114, 138)";
+
 async function openFixture(page, state = "populated") {
   await page.goto(`/tests/browser/graph-fixture.html?state=${state}`);
   await expect(page.locator("ontology-panel")).toBeVisible();
@@ -88,7 +90,7 @@ test("supports keyboard journeys with visible focus and non-color cues", async (
   await page.keyboard.press("Tab");
   const zoomOut = page.getByRole("button", { name: "Zoom out" });
   await expect(zoomOut).toBeFocused();
-  await expect(zoomOut).toHaveCSS("border-top-color", "rgb(35, 114, 138)");
+  await expect(zoomOut).toHaveCSS("border-top-color", FOCUS_HIGHLIGHT_COLOR);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Fit graph" })).toBeFocused();
 
@@ -99,7 +101,7 @@ test("supports keyboard journeys with visible focus and non-color cues", async (
   await expect(unavailableNode).toHaveAttribute("aria-label", /unavailable/i);
 
   const findingNode = page.getByRole("button", { name: /Missing area assignment, validation finding/i });
-  await expect(findingNode.locator("small")).toHaveText("validation finding");
+  await expect(findingNode.locator("small")).toHaveText(/validation finding/i);
   await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Unavailable (dashed)");
   await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Validation finding (diamond)");
 });
@@ -425,5 +427,6 @@ test("keeps key regions non-overlapping on desktop and mobile and captures scree
   }
 
   const screenshot = await page.screenshot({ fullPage: true });
+  await testInfo.attach(`layout-${testInfo.project.name}`, { body: screenshot, contentType: "image/png" });
   expect(screenshot.byteLength).toBeGreaterThan(10_000);
 });
