@@ -167,7 +167,7 @@
 - [X] T060 Verify amd64/aarch64 add-on builds, exact artifact digests/licenses, independent process failures, aggregate health, persistent Memgraph data, graceful shutdown, authenticated internal GraphQL, ingress base-path/WebSocket behavior, secret lifecycle, and unpublished GraphQL/Lab ports using `memgraph_addon/Dockerfile`, `memgraph_addon/healthcheck.sh`, `tests/contract/test_memgraph_addon_processes.py`, and `tests/integration/test_addon_secret_lifecycle.py`
 - [X] T061 Run the complete Python regression suite through `scripts/test-windows.ps1`
 - [X] T062 Run `npm test` in `memgraph_addon/graphql/package.json` and Playwright through `tests/browser/package.json`
-- [ ] T063 Execute every scenario plus the SC-001 usability protocol in `specs/005-ontology-graph-visualization/quickstart.md`, record participant timing/completion results and threshold calculation, and document any environment-only gaps in `specs/005-ontology-graph-visualization/quickstart.md`
+- [X] T063 Execute every scenario plus the SC-001 usability protocol in `specs/005-ontology-graph-visualization/quickstart.md`, record participant timing/completion results and threshold calculation, and document any environment-only gaps in `specs/005-ontology-graph-visualization/quickstart.md`
 
 ---
 

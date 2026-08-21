@@ -48,10 +48,12 @@ async def test_integration_unload_closes_gateway_and_memgraph_client() -> None:
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     coordinator = MagicMock()
     coordinator.graph_gateway.close = AsyncMock(return_value=None)
+    coordinator.lab_access.close = AsyncMock(return_value=None)
     coordinator.memgraph_client.close = AsyncMock(return_value=None)
     entry = MagicMock()
     entry.runtime_data = coordinator
 
     assert await async_unload_entry(hass, entry) is True
     coordinator.graph_gateway.close.assert_awaited_once()
+    coordinator.lab_access.close.assert_awaited_once()
     coordinator.memgraph_client.close.assert_awaited_once()

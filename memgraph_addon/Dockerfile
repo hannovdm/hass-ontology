@@ -16,7 +16,7 @@ RUN apt-get update \
 
 COPY --from=graphql /opt/ontology-graphql /opt/ontology-graphql
 COPY --from=graphql /usr/local/bin/node /usr/local/bin/node
-COPY --from=lab /app /opt/memgraph-lab
+COPY --from=lab /home/lab /opt/memgraph-lab
 COPY --chmod=755 run.sh healthcheck.sh /usr/local/bin/
 COPY supervisor.conf /etc/supervisor/conf.d/ontology.conf
 COPY THIRD_PARTY_NOTICES.md /opt/ontology-licenses/THIRD_PARTY_NOTICES.md
