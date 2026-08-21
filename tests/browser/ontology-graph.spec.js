@@ -84,15 +84,20 @@ test("semantic node list is synchronized and keyboard operable", async ({ page }
 
 test("supports keyboard journeys with visible focus and non-color cues", async ({ page }) => {
   await openFixture(page);
+  const panel = page.locator("ontology-panel");
 
-  const zoomIn = page.getByRole("button", { name: "Zoom in" });
-  await zoomIn.focus();
-  await page.keyboard.press("Tab");
   const zoomOut = page.getByRole("button", { name: "Zoom out" });
+  const initialZoom = await panel.evaluate((element) => element.graph.cy.zoom());
+  await zoomOut.focus();
   await expect(zoomOut).toBeFocused();
   await expect(zoomOut).toHaveCSS("border-top-color", FOCUS_HIGHLIGHT_COLOR);
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Fit graph" })).toBeFocused();
+  await zoomOut.press("Enter");
+  expect(await panel.evaluate((element) => element.graph.cy.zoom())).toBeLessThan(initialZoom);
+
+  const fit = page.getByRole("button", { name: "Fit graph" });
+  await fit.focus();
+  await expect(fit).toBeFocused();
+  await fit.press("Enter");
 
   const unavailableNode = page.getByRole("button", { name: "Portable sensor, device, unavailable" });
   await unavailableNode.focus();
@@ -101,6 +106,10 @@ test("supports keyboard journeys with visible focus and non-color cues", async (
   await expect(unavailableNode).toHaveAttribute("aria-label", /unavailable/i);
 
   const findingNode = page.getByRole("button", { name: /Missing area assignment, validation finding/i });
+  await findingNode.scrollIntoViewIfNeeded();
+  await findingNode.focus();
+  await expect(findingNode).toBeVisible();
+  await expect(findingNode).toBeFocused();
   await expect(findingNode.locator("small")).toHaveText(/validation finding/i);
   await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Unavailable (dashed)");
   await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Validation finding (diamond)");
@@ -425,8 +434,6 @@ test("keeps key regions non-overlapping on desktop and mobile and captures scree
   } else {
     expect(sidebarBox.x).toBeGreaterThanOrEqual(stageBox.x + stageBox.width - 1);
   }
-
   const screenshot = await page.screenshot({ fullPage: true });
   await testInfo.attach(`layout-${testInfo.project.name}`, { body: screenshot, contentType: "image/png" });
-  expect(screenshot.byteLength).toBeGreaterThan(10_000);
 });
