@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const FOCUS_HIGHLIGHT_COLOR = "rgb(35, 114, 138)";
+
 async function openFixture(page, state = "populated") {
   await page.goto(`/tests/browser/graph-fixture.html?state=${state}`);
   await expect(page.locator("ontology-panel")).toBeVisible();
@@ -78,6 +80,39 @@ test("semantic node list is synchronized and keyboard operable", async ({ page }
   await portable.press("Enter");
   await expect(portable).toHaveAttribute("aria-pressed", "true");
   await expect(portable.locator("ha-icon")).toHaveAttribute("icon", "mdi:devices");
+});
+
+test("supports keyboard journeys with visible focus and non-color cues", async ({ page }) => {
+  await openFixture(page);
+  const panel = page.locator("ontology-panel");
+
+  const zoomOut = page.getByRole("button", { name: "Zoom out" });
+  const initialZoom = await panel.evaluate((element) => element.graph.cy.zoom());
+  await zoomOut.focus();
+  await expect(zoomOut).toBeFocused();
+  await expect(zoomOut).toHaveCSS("border-top-color", FOCUS_HIGHLIGHT_COLOR);
+  await zoomOut.press("Enter");
+  expect(await panel.evaluate((element) => element.graph.cy.zoom())).toBeLessThan(initialZoom);
+
+  const fit = page.getByRole("button", { name: "Fit graph" });
+  await fit.focus();
+  await expect(fit).toBeFocused();
+  await fit.press("Enter");
+
+  const unavailableNode = page.getByRole("button", { name: "Portable sensor, device, unavailable" });
+  await unavailableNode.focus();
+  await expect(unavailableNode).toBeFocused();
+  await expect(unavailableNode.locator("small")).toHaveText("Unavailable");
+  await expect(unavailableNode).toHaveAttribute("aria-label", /unavailable/i);
+
+  const findingNode = page.getByRole("button", { name: /Missing area assignment, validation finding/i });
+  await findingNode.scrollIntoViewIfNeeded();
+  await findingNode.focus();
+  await expect(findingNode).toBeVisible();
+  await expect(findingNode).toBeFocused();
+  await expect(findingNode.locator("small")).toHaveText(/validation finding/i);
+  await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Unavailable (dashed)");
+  await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("Validation finding (diamond)");
 });
 
 for (const state of ["loading", "empty", "partial", "unavailable", "error"]) {
@@ -380,4 +415,25 @@ test("keeps toolbar zoom across a delayed full snapshot refresh", async ({ page 
   await page.waitForTimeout(800);
 
   expect(await panel.evaluate((element) => element.graph.cy.zoom())).toBeCloseTo(zoomed);
+});
+
+test("keeps key regions non-overlapping on desktop and mobile and captures screenshots", async ({ page }, testInfo) => {
+  await openFixture(page, "interactive");
+  const box = (locator) => locator.boundingBox();
+  const header = page.locator(".ontology-header");
+  const stage = page.locator(".graph-stage");
+  const sidebar = page.locator(".ontology-sidebar");
+
+  const [headerBox, stageBox, sidebarBox] = await Promise.all([box(header), box(stage), box(sidebar)]);
+  expect(headerBox).toBeTruthy();
+  expect(stageBox).toBeTruthy();
+  expect(sidebarBox).toBeTruthy();
+
+  if (testInfo.project.name === "mobile-chromium") {
+    expect(sidebarBox.y).toBeGreaterThanOrEqual(stageBox.y + stageBox.height - 1);
+  } else {
+    expect(sidebarBox.x).toBeGreaterThanOrEqual(stageBox.x + stageBox.width - 1);
+  }
+  const screenshot = await page.screenshot({ fullPage: true });
+  await testInfo.attach(`layout-${testInfo.project.name}`, { body: screenshot, contentType: "image/png" });
 });
