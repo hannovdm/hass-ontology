@@ -1,6 +1,5 @@
 ---
-description: Companion implement — execute tasks.md in dependency order, then mark
-  complete
+description: Companion implement — execute tasks.md in dependency order, then mark complete
 ---
 
 

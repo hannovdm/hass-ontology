@@ -1,7 +1,5 @@
 ---
-description: Sync living specs from your current changes — group working-tree changes
-  (uncommitted included) by capability and update every affected spec in one pass
-  (opt-in, update-not-regenerate, never halts)
+description: Sync living specs from your current changes — group working-tree changes (uncommitted included) by capability and update every affected spec in one pass (opt-in, update-not-regenerate, never halts)
 ---
 
 

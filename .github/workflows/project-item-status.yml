@@ -1,0 +1,125 @@
+name: Update project item status
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - closed
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  update-status:
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update linked project items
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN || github.token }}
+          script: |
+            const statusName = context.payload.action === "closed" ? "Done" : "Review";
+            const pullRequestNumber = context.payload.pull_request.number;
+
+            const closingIssues = await github.graphql(
+              `query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 100) {
+                      nodes {
+                        number
+                        projectItems(first: 100) {
+                          nodes {
+                            id
+                            project {
+                              id
+                              title
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }`,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                number: pullRequestNumber,
+              },
+            );
+
+            const issues = closingIssues.repository.pullRequest.closingIssuesReferences.nodes;
+            if (issues.length === 0) {
+              core.notice(`PR #${pullRequestNumber} does not close any issues; no project items updated.`);
+              return;
+            }
+
+            for (const issue of issues) {
+              for (const item of issue.projectItems.nodes) {
+                const projectData = await github.graphql(
+                  `query($projectId: ID!) {
+                    node(id: $projectId) {
+                      ... on ProjectV2 {
+                        fields(first: 100) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }`,
+                  { projectId: item.project.id },
+                );
+
+                const statusField = projectData.node.fields.nodes.find(
+                  (field) => field.name === "Status",
+                );
+                const statusOption = statusField?.options.find(
+                  (option) => option.name.toLowerCase() === statusName.toLowerCase(),
+                );
+
+                if (!statusField || !statusOption) {
+                  core.warning(
+                    `Project "${item.project.title}" has no Status option named "${statusName}"; ` +
+                    `issue #${issue.number} was not updated.`,
+                  );
+                  continue;
+                }
+
+                await github.graphql(
+                  `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: { singleSelectOptionId: $optionId }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }`,
+                  {
+                    projectId: item.project.id,
+                    itemId: item.id,
+                    fieldId: statusField.id,
+                    optionId: statusOption.id,
+                  },
+                );
+
+                core.info(
+                  `Set issue #${issue.number} to "${statusName}" in "${item.project.title}".`,
+                );
+              }
+            }

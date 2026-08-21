@@ -1,6 +1,5 @@
 ---
-description: Move a living spec between central and colocated storage — file, tiers,
-  and registry together (opt-in, reversible)
+description: Move a living spec between central and colocated storage — file, tiers, and registry together (opt-in, reversible)
 ---
 
 

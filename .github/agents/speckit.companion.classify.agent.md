@@ -1,6 +1,5 @@
 ---
-description: Classify the change size (small | normal | oversized) so the Companion
-  workflow can right-size the pipeline
+description: Classify the change size (small | normal | oversized) so the Companion workflow can right-size the pipeline
 ---
 
 

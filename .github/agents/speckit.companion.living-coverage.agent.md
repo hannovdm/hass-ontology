@@ -1,6 +1,5 @@
 ---
-description: Report living-spec requirement→test coverage — per requirement, whether
-  its coverage tier maps a test (opt-in, read-only, never halts)
+description: Report living-spec requirement→test coverage — per requirement, whether its coverage tier maps a test (opt-in, read-only, never halts)
 ---
 
 

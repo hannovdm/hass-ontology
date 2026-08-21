@@ -1,6 +1,5 @@
 ---
-description: Capture the current spec-kit step into .spec-context.json for the Companion
-  GUI
+description: Capture the current spec-kit step into .spec-context.json for the Companion GUI
 ---
 
 

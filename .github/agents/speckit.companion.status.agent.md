@@ -1,6 +1,5 @@
 ---
-description: Report where the active spec stands — current step, status, recorded
-  decisions, and the next action — from .spec-context.json
+description: Report where the active spec stands — current step, status, recorded decisions, and the next action — from .spec-context.json
 ---
 
 

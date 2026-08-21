@@ -1,6 +1,5 @@
 ---
-description: Report living-spec drift — per capability, the source files changed since
-  the spec was last committed (opt-in, never halts)
+description: Report living-spec drift — per capability, the source files changed since the spec was last committed (opt-in, never halts)
 ---
 
 

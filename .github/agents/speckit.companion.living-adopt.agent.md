@@ -1,6 +1,5 @@
 ---
-description: Brownfield adoption wizard — draft living specs for the code areas you
-  name, central or colocated, and register them (opt-in, surface-first, [DRAFT])
+description: Brownfield adoption wizard — draft living specs for the code areas you name, central or colocated, and register them (opt-in, surface-first, [DRAFT])
 ---
 
 

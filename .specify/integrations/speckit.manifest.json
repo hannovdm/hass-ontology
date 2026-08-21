@@ -1,17 +1,19 @@
 {
   "integration": "speckit",
-  "version": "0.14.1",
+  "version": "1.0.0",
   "installed_at": "2026-07-22T09:41:51.206693+00:00",
   "files": {
-    ".specify/scripts/powershell/check-prerequisites.ps1": "d48ce91b63312e482057739ab99ecef4f29e4402e67539ca2f93f0cefdfb9352",
-    ".specify/scripts/powershell/common.ps1": "9c78cd7165e4646087742b384ac3b67142ca4c719552150501e2591ec39e7252",
-    ".specify/scripts/powershell/create-new-feature.ps1": "245b450336e2573b5f13592dd3a35f79a1763b41c96ecd9e4d82e8d01de4671b",
-    ".specify/scripts/powershell/setup-plan.ps1": "76262f13b36c02244aa4217b076997c1489da27528e3d4eb01fcf639bff50eaf",
-    ".specify/scripts/powershell/setup-tasks.ps1": "a64e101665477c620b3e0958686f38e2d45e389117eb463778ba4c512fa6f608",
-    ".specify/templates/checklist-template.md": "0ad704b60af2df817aee1c0a2ecc0e0304b271d2de34047df1c891735967033e",
+    ".specify/scripts/powershell/check-prerequisites.ps1": "1e45b39521e1e6187c7c3e55a8200f2df49e1d80b49db4bd9d9480ce4297e639",
+    ".specify/scripts/powershell/common.ps1": "69c2bc6c40455a268c02d53ca4c8ac5f2e2df98f05293ea05245b0d462040bda",
+    ".specify/scripts/powershell/create-new-feature.ps1": "c6d5e64455635bc9d19e2ec902de2f72a7f834afd8b47a1a3d6323f7ed0cbb62",
+    ".specify/scripts/powershell/setup-plan.ps1": "089362994a002bb91d9b93daea2dc21676119839d700d79e7b69f4a72e623ed1",
+    ".specify/scripts/powershell/setup-tasks.ps1": "5aebeff2b84d6e369ec9bb3b5b73a9a1195ec4b927274f6a2df95aa9eba7e949",
+    ".specify/templates/checklist-template.md": "3f4124a13ffbc0c2d8e979d9a08248f29ce53cc6c324a8303a6ae0d231b78836",
     ".specify/templates/constitution-template.md": "ce7549540fa45543cca797a150201d868e64495fdff39dc38246fb17bd4024b3",
     ".specify/templates/plan-template.md": "5ef0e4c97b36e9f91372dc6eb8e5a7e515af8958cf1a9286e43a1ebd9bd48540",
     ".specify/templates/spec-template.md": "3945437fc35cd30a5b2bf7beea680337c3516826d3efa5a6b92c4a7eca1ba28e",
-    ".specify/templates/tasks-template.md": "c731575d8099b3f871861186fbd1a592b51b2ba57fb99e1a0dab439ff6d5608f"
+    ".specify/templates/tasks-template.md": "c731575d8099b3f871861186fbd1a592b51b2ba57fb99e1a0dab439ff6d5608f",
+    ".specify/scripts/powershell/resolve-template.ps1": "e49c565a09902e4ebd4b5a51c4e014d5067fdee5b1592f15cb44ef31f430d745",
+    ".specify/.gitignore": "8c908410d177a1ef3d0dee16d7ad55f2ac3333df3104c4d4adee1c9b82f1dbc1"
   }
 }

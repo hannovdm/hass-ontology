@@ -1,6 +1,5 @@
 ---
-description: Continue the spec-driven pipeline from the last completed step, carrying
-  recorded decisions into scope, and dispatch the next command
+description: Continue the spec-driven pipeline from the last completed step, carrying recorded decisions into scope, and dispatch the next command
 ---
 
 

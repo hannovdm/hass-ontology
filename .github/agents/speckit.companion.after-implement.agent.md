@@ -1,6 +1,5 @@
 ---
-description: Capture per-task implement progress (currentStep=implement) into .spec-context.json
-  for the Companion GUI
+description: Capture per-task implement progress (currentStep=implement) into .spec-context.json for the Companion GUI
 ---
 
 

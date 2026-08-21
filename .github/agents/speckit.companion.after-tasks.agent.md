@@ -1,6 +1,5 @@
 ---
-description: Capture tasks completion (currentStep=tasks, status=ready-to-implement)
-  into .spec-context.json for the Companion GUI
+description: Capture tasks completion (currentStep=tasks, status=ready-to-implement) into .spec-context.json for the Companion GUI
 ---
 
 

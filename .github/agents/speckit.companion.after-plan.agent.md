@@ -1,6 +1,5 @@
 ---
-description: Capture plan completion (currentStep=plan, status=planned) into .spec-context.json
-  for the Companion GUI
+description: Capture plan completion (currentStep=plan, status=planned) into .spec-context.json for the Companion GUI
 ---
 
 

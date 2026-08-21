@@ -1,6 +1,5 @@
 ---
-description: Companion auto — run the whole pipeline hands-off (specify → plan → tasks
-  → implement → mark-complete), no pauses
+description: Companion auto — run the whole pipeline hands-off (specify → plan → tasks → implement → mark-complete), no pauses
 ---
 
 

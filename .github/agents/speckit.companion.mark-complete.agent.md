@@ -1,6 +1,5 @@
 ---
-description: 'Mark the active spec completed — the Companion workflow''s terminal
-  step (writes status: completed)'
+description: 'Mark the active spec completed — the Companion workflow''s terminal step (writes status: completed)'
 ---
 
 

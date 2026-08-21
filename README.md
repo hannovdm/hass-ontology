@@ -212,6 +212,21 @@ Integration tests require Docker (via `testcontainers`) to run a real
 Memgraph instance. See [specs/001-ha-ontology-integration/](specs/001-ha-ontology-integration/)
 for the full spec, plan, and task list.
 
+### Project task automation
+
+The `Update project item status` workflow moves task issues in GitHub Projects
+when a pull request uses a closing keyword such as `Closes #123`, `Fixes #123`,
+or `Resolves #123`:
+
+- Opening or reopening the pull request sets the linked item to `Review`.
+- Merging the pull request sets the linked item to `Done`.
+
+Create a repository Actions secret named `PROJECT_TOKEN` containing a token
+with read/write access to Projects and read access to this repository. For a
+classic personal access token used with a private repository, grant the
+`project` and `repo` scopes. The project must have a single-select field named
+`Status` with options named `Review` and `Done`.
+
 ## Ontology Explorer Graph
 
 The **Ontology Explorer** panel visualizes your home's graph as an interactive canvas.
