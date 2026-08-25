@@ -190,6 +190,7 @@ test("expands one hop and preserves selection and viewport", async ({ page }) =>
 });
 
 test("single-clicking an area replaces the view with its complete focused context", async ({ page }) => {
+  test.setTimeout(60_000);
   await openFixture(page, "double-click-expansion");
   await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
   await expect(page.getByRole("button", { name: "Garage, area" })).toBeVisible();
@@ -202,6 +203,7 @@ test("single-clicking an area replaces the view with its complete focused contex
   await expect(page.locator(".detail-record")).toHaveText("AREA · kitchen");
   await expect(page.getByRole("heading", { name: "Nodes in Kitchen" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hall display, device" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Morning routine, automation" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();
@@ -209,11 +211,14 @@ test("single-clicking an area replaces the view with its complete focused contex
   await expect(page.getByRole("heading", { name: "Relationships in Kitchen" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen, has device, Kitchen lamp" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen lamp, has entity, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hall display, has entity, Kitchen temperature" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Morning routine, references, Kitchen temperature" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen card, displays entity, Kitchen temperature" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Home dashboard, contains card, Kitchen card" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Garage, area" })).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen, area" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Graph legend" }).locator('ha-icon[icon="mdi:tablet-dashboard"]')).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Graph legend" })).toContainText("device · Hall display");
   await expect(page.getByText("All available relationships loaded.")).toBeVisible();
   await page.getByRole("button", { name: "Morning routine, references, Kitchen temperature" }).click();
   await expect(page.locator(".details h2")).toHaveText("REFERENCES");
@@ -237,12 +242,14 @@ test("single-clicking an area replaces the view with its complete focused contex
     "Area:kitchen",
     "Device:lamp",
     "Entity:sensor.kitchen_temperature",
+    "Device:hall-display",
     "DashboardCard:lovelace::0::0",
   ]);
   expect(facts.expansionLimits).toEqual(facts.expansionIds.map(() => ({ nodeLimit: 250, edgeLimit: 500 })));
   expect(facts.graphNodeIds).toEqual(expect.arrayContaining([
     "Area:kitchen",
     "Device:lamp",
+    "Device:hall-display",
     "Entity:sensor.kitchen_temperature",
     "Automation:morning",
     "DashboardCard:lovelace::0::0",
@@ -254,6 +261,7 @@ test("single-clicking an area replaces the view with its complete focused contex
   expect(facts.links).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: "HAS_DEVICE:1", source: "Area:kitchen", target: "Device:lamp" }),
     expect.objectContaining({ id: "HAS_ENTITY:primary", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature" }),
+    expect.objectContaining({ id: "HAS_ENTITY:external", source: "Device:hall-display", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "REFERENCES:1", source: "Automation:morning", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "DISPLAYS_ENTITY:1", source: "DashboardCard:lovelace::0::0", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "CONTAINS_CARD:1", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0" }),
@@ -305,6 +313,12 @@ test("single-clicking an area replaces the view with its complete focused contex
   await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Garage, area" })).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Home dashboard, contains card, Kitchen card" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Hall display, device" }).click();
+  await expect(page.locator(".details h2")).toHaveText("Hall display");
+  await expect(page.getByRole("heading", { name: "Nodes in Hall display" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hall display, has entity, Kitchen temperature" })).toBeVisible();
 });
 
 test("single-clicking a dashboard loads every direct card relationship", async ({ page }) => {

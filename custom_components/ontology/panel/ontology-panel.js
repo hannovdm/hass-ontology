@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b29";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b29";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b30";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b30";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -77,11 +77,9 @@ class OntologyPanel extends HTMLElement {
         .detail-properties dd { margin: 0; overflow-wrap: anywhere; }
         .filter-group { display: grid; gap: 7px; margin-bottom: 12px; }
         .filter-group label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-        .legend { display: grid; grid-template-columns: 12px 1fr; gap: 8px; align-items: center; margin: 0 0 20px; font-size: 13px; }
-        .legend-swatch { width: 10px; height: 10px; border: 2px solid #35697e; background: #dcecf4; }
-        .legend-swatch.area { border-color: #3b6f47; background: #dcebdc; }
-        .legend-swatch.finding { transform: rotate(45deg); border-color: #9b6500; background: #fff1c7; }
-        .legend-swatch.unavailable { border-style: dashed; opacity: .65; }
+        .legend { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; margin: 0 0 20px; font-size: 13px; }
+        .legend ha-icon { color: var(--primary-text-color, #172126); }
+        .legend small { color: var(--secondary-text-color, #56666d); }
         .node-list, .relationship-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
         .node-list button, .relationship-list button { width: 100%; min-height: 42px; padding: 7px 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
         .node-list button { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; }
@@ -136,13 +134,7 @@ class OntologyPanel extends HTMLElement {
             </section>
             <section class="sidebar-section" aria-label="Graph legend" role="region">
               <h2>Legend</h2>
-              <div class="legend">
-                <span class="legend-swatch area"></span><span>Area</span>
-                <span class="legend-swatch"></span><span>Device</span>
-                <span class="legend-swatch unavailable"></span><span>Unavailable (dashed)</span>
-                <span class="legend-swatch finding"></span><span>Validation finding (diamond)</span>
-                <span class="legend-swatch unavailable"></span><span>Presentation group</span>
-              </div>
+              <div class="legend"></div>
             </section>
             <section class="sidebar-section" aria-labelledby="ontology-node-list-heading">
               <h2 id="ontology-node-list-heading">Graph nodes</h2>
@@ -168,6 +160,7 @@ class OntologyPanel extends HTMLElement {
     this._subscriptionIndicator = this.querySelector(".subscription-indicator");
     this._list = this.querySelector(".node-list");
     this._relationshipList = this.querySelector(".relationship-list");
+    this._legend = this.querySelector(".legend");
     this._searchForm = this.querySelector(".search-form");
     this._searchResults = this.querySelector(".search-results");
     this._details = this.querySelector(".details");
@@ -462,6 +455,31 @@ class OntologyPanel extends HTMLElement {
     }
   }
 
+  _renderLegend(context) {
+    this._legend.replaceChildren();
+    const representatives = new Map();
+    for (const node of context?.nodes || []) {
+      if (node.synthetic) continue;
+      const icon = resolveOntologyIcon(node, this._hass);
+      const key = `${node.type}\u0000${icon}`;
+      if (!representatives.has(key)) representatives.set(key, { node, icon });
+    }
+    for (const { node, icon: iconName } of [...representatives.values()].sort((left, right) => left.node.type.localeCompare(right.node.type))) {
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", iconName);
+      icon.setAttribute("aria-hidden", "true");
+      const label = document.createElement("span");
+      label.textContent = `${node.type.toLowerCase().replaceAll("_", " ")} · ${node.label}`;
+      this._legend.append(icon, label);
+    }
+    const unavailableIcon = document.createElement("ha-icon");
+    unavailableIcon.setAttribute("icon", "mdi:eye-off-outline");
+    unavailableIcon.setAttribute("aria-hidden", "true");
+    const unavailableLabel = document.createElement("small");
+    unavailableLabel.textContent = "Unavailable nodes are dimmed";
+    this._legend.append(unavailableIcon, unavailableLabel);
+  }
+
   _isAssigned(deviceId, context = this._snapshot) {
     const nodes = new Map((context?.nodes || []).map((node) => [node.id, node]));
     return (context?.relationships || []).some((relationship) => {
@@ -567,30 +585,41 @@ class OntologyPanel extends HTMLElement {
     try {
       const slices = [await this._requestExpansion(nodeId)];
       const focusedType = this._graph.getNodeType(nodeId) || this._snapshot?.nodes.find((node) => node.id === nodeId)?.type;
-      let entitySlices = focusedType === "ENTITY" ? slices : [];
-      if (focusedType === "AREA" || focusedType === "DEVICE") {
-        const deviceIds = focusedType === "AREA" ? slices[0].nodes
-          .filter((node) => node.type === "DEVICE")
-          .map((node) => node.id) : [nodeId];
-        const expandedDeviceIds = deviceIds.slice(0, AREA_NEIGHBOR_EXPANSION_LIMIT);
-        const deviceResults = focusedType === "AREA"
-          ? await Promise.allSettled(expandedDeviceIds.map((id) => this._requestExpansion(id))) : [];
-        const deviceSlices = focusedType === "AREA"
-          ? deviceResults.filter((result) => result.status === "fulfilled").map((result) => result.value) : slices;
-        if (focusedType === "AREA") slices.push(...deviceSlices);
-        const entityIds = this._connectedNodeIds(deviceSlices, new Set(expandedDeviceIds), "ENTITY");
-        let remaining = Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - expandedDeviceIds.length, 0);
-        const expandedEntityIds = entityIds.slice(0, remaining);
-        const entityResults = await Promise.allSettled(expandedEntityIds.map((id) => this._requestExpansion(id)));
-        entitySlices = entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
-        slices.push(...entitySlices);
-        if (deviceIds.length > expandedDeviceIds.length || entityIds.length > expandedEntityIds.length) {
-          slices[0] = { ...slices[0], truncated: true };
+      const entitySlices = focusedType === "ENTITY" ? [slices[0]] : [];
+      const seenDeviceIds = new Set();
+      const seenEntityIds = new Set(focusedType === "ENTITY" ? [nodeId] : []);
+      const deviceQueue = focusedType === "AREA"
+        ? slices[0].nodes.filter((node) => node.type === "DEVICE").map((node) => node.id)
+        : focusedType === "DEVICE" ? [nodeId]
+          : focusedType === "ENTITY" ? this._connectedNodeIds(slices, new Set([nodeId]), "DEVICE") : [];
+      let expansionCount = 0;
+      while (deviceQueue.length && expansionCount < AREA_NEIGHBOR_EXPANSION_LIMIT) {
+        const deviceId = deviceQueue.shift();
+        if (seenDeviceIds.has(deviceId)) continue;
+        seenDeviceIds.add(deviceId);
+        const deviceSlice = deviceId === nodeId ? slices[0] : await this._requestExpansion(deviceId);
+        if (deviceId !== nodeId) {
+          slices.push(deviceSlice);
+          expansionCount += 1;
+        }
+        const entityIds = this._connectedNodeIds([deviceSlice], new Set([deviceId]), "ENTITY")
+          .filter((entityId) => !seenEntityIds.has(entityId));
+        for (const entityId of entityIds) {
+          if (expansionCount >= AREA_NEIGHBOR_EXPANSION_LIMIT) break;
+          seenEntityIds.add(entityId);
+          const entitySlice = await this._requestExpansion(entityId);
+          entitySlices.push(entitySlice);
+          slices.push(entitySlice);
+          expansionCount += 1;
+          for (const relatedDeviceId of this._connectedNodeIds([entitySlice], new Set([entityId]), "DEVICE")) {
+            if (!seenDeviceIds.has(relatedDeviceId)) deviceQueue.push(relatedDeviceId);
+          }
         }
       }
+      if (deviceQueue.length) slices[0] = { ...slices[0], truncated: true };
       const entityIds = entitySlices.flatMap((slice) => slice.nodes || []).filter((node) => node.type === "ENTITY").map((node) => node.id);
       const cardIds = this._connectedNodeIds(entitySlices, new Set(entityIds), "DASHBOARD_CARD");
-      const expandedCardIds = cardIds.slice(0, AREA_NEIGHBOR_EXPANSION_LIMIT);
+      const expandedCardIds = cardIds.slice(0, Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - expansionCount, 0));
       const cardResults = await Promise.allSettled(expandedCardIds.map((id) => this._requestExpansion(id)));
       slices.push(...cardResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
       if (cardIds.length > expandedCardIds.length) slices[0] = { ...slices[0], truncated: true };
@@ -665,6 +694,7 @@ class OntologyPanel extends HTMLElement {
   }
 
   _renderFilters(context = this._focusSlice || this._snapshot) {
+    this._renderLegend(context);
     const nodeTypes = [...new Set((context?.nodes || []).map((node) => node.type))].sort();
     const relationshipTypes = [...new Set((context?.relationships || []).map((relationship) => relationship.type))].sort();
     this._renderFilterGroup(this._nodeFilters, nodeTypes, this._hiddenNodeTypes, "node");

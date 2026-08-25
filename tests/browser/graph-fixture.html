@@ -76,12 +76,16 @@
       const entityNeighborhood = {
         nodes: [
           exploration.nodes[1],
+          { id: "Device:hall-display", haId: "hall-display", type: "DEVICE", label: "Hall display", icon: "mdi:tablet-dashboard", unavailable: false, properties: [] },
           { id: "Automation:morning", haId: "morning", type: "AUTOMATION", label: "Morning routine", icon: "mdi:robot", unavailable: false, properties: [] },
           { id: "DashboardCard:lovelace::0::0", haId: "lovelace::0::0", type: "DASHBOARD_CARD", label: "Kitchen card", icon: "mdi:card-outline", unavailable: false, properties: [] },
+          exploration.nodes[0],
         ],
         relationships: [
+          { id: "HAS_ENTITY:external", type: "HAS_ENTITY", source: "Device:hall-display", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
           { id: "REFERENCES:1", type: "REFERENCES", source: "Automation:morning", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
           { id: "DISPLAYS_ENTITY:1", type: "DISPLAYS_ENTITY", source: "DashboardCard:lovelace::0::0", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
+          exploration.relationships[0],
         ],
         truncated: false,
         next_cursor: null,
@@ -89,12 +93,12 @@
       };
       const cardNeighborhood = {
         nodes: [
-          entityNeighborhood.nodes[2],
+          entityNeighborhood.nodes[3],
           exploration.nodes[1],
           { id: "Dashboard:lovelace", haId: "lovelace", type: "DASHBOARD", label: "Home dashboard", icon: "mdi:view-dashboard-outline", unavailable: false, properties: [] },
         ],
         relationships: [
-          entityNeighborhood.relationships[1],
+          entityNeighborhood.relationships[2],
           { id: "CONTAINS_CARD:1", type: "CONTAINS_CARD", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0", directed: true, properties: [] },
         ],
         truncated: false,
@@ -102,7 +106,7 @@
         revision: 8,
       };
       const dashboardNeighborhood = {
-        nodes: [cardNeighborhood.nodes[2], entityNeighborhood.nodes[2]],
+        nodes: [cardNeighborhood.nodes[2], entityNeighborhood.nodes[3]],
         relationships: [cardNeighborhood.relationships[1]],
         truncated: false,
         next_cursor: null,
@@ -145,9 +149,10 @@
             };
           }
           if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview" || state === "double-click-expansion" || state === "dashboard-focus")) {
-            const nodes = [...populated.nodes, ...exploration.nodes, ...cardNeighborhood.nodes, ...(searchMatches["Shared sensor"] || [])];
+            const nodes = [...populated.nodes, ...exploration.nodes, ...entityNeighborhood.nodes, ...cardNeighborhood.nodes, ...(searchMatches["Shared sensor"] || [])];
             const node = nodes.find(({ id }) => id === message.element_id);
-            const relationship = exploration.relationships.find(({ id }) => id === message.element_id);
+            const relationship = [...exploration.relationships, ...entityNeighborhood.relationships, ...cardNeighborhood.relationships]
+              .find(({ id }) => id === message.element_id);
             if (!node && !relationship) throw { code: "not_found", message: "Graph element was not found" };
             const directConnections = node?.type === "AREA" ? areaExploration
               : node?.type === "DASHBOARD" ? dashboardNeighborhood : exploration;
@@ -160,6 +165,15 @@
               return { ...exploration, nodes: exploration.nodes.filter((node) => node.type === "ENTITY") };
             }
             if (message.node_id === "Entity:sensor.kitchen_temperature") return entityNeighborhood;
+            if (message.node_id === "Device:hall-display") {
+              return {
+                nodes: [entityNeighborhood.nodes[1], exploration.nodes[1]],
+                relationships: [entityNeighborhood.relationships[0]],
+                truncated: false,
+                next_cursor: null,
+                revision: 8,
+              };
+            }
             if (message.node_id === "DashboardCard:lovelace::0::0") return cardNeighborhood;
             throw { code: "not_found", message: "Graph element was not found" };
           }

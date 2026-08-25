@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b29";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b30";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
