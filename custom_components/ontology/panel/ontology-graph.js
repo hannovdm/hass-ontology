@@ -1,302 +1,320 @@
-import cytoscape from "./vendor/cytoscape.esm.min.js";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b12";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b13";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
 
-// MDI SVG path strings used as inline node icons in the Cytoscape canvas
-const _MDI_HOME = "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z";
-const _MDI_SOFA = "M21,9V7A2,2 0 0,0 19,5H5C3.89,5 3,5.89 3,7V9A2,2 0 0,0 1,11V17H3V19H5V17H19V19H21V17H23V11A2,2 0 0,0 21,9M5,7H19V9H5V7M23,15H1V11A1,1 0 0,1 2,10H22A1,1 0 0,1 23,11V15Z";
+// ─── Visual constants ────────────────────────────────────────────────────────
 
-// Base64-encoded SVG data URI — more reliable than URL-encoded across browsers
-function _svgUri(path, color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" d="${path}"/></svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+const NODE_COLORS = Object.freeze({
+  HOME: "#1565c0", FLOOR: "#5c5fa6", AREA: "#3b6f47",
+  DEVICE: "#35697e", ENTITY: "#68777d", AUTOMATION: "#7e5721",
+  SCENE: "#6b4fa0", SCRIPT: "#4a7050", DASHBOARD: "#236779",
+  SEMANTIC_TYPE: "#9b6500", VALIDATION_FINDING: "#9e2f2a",
+  PRESENTATION_GROUP: "#8899aa",
+});
+
+// nodeVal drives sphere volume; radius = ∛(val × nodeRelSize), default nodeRelSize = 4
+const NODE_VALS = Object.freeze({
+  HOME: 20, FLOOR: 10, AREA: 8, DEVICE: 3, ENTITY: 2,
+  AUTOMATION: 3, SCENE: 3, SCRIPT: 3, DASHBOARD: 3,
+  VALIDATION_FINDING: 4, PRESENTATION_GROUP: 5,
+});
+
+// ─── Vendor library loader ───────────────────────────────────────────────────
+// three.min.js is loaded first to set window.THREE; the 3d-force-graph UMD
+// factory then receives global.THREE, so both share the same Three.js instance.
+
+let _libPromise = null;
+let _THREE = null;
+
+function _loadLibs() {
+  if (_libPromise) return _libPromise;
+  _libPromise = _injectScript("/ontology_static/vendor/three.min.js")
+    .then(() => { _THREE = window.THREE; })
+    .then(() => _injectScript("/ontology_static/vendor/3d-force-graph.min.js"));
+  return _libPromise;
 }
 
-function relationshipLabel(type, directed) {
-  const words = String(type || "related to").replaceAll("_", " ").toLowerCase();
-  return directed ? `${words} →` : words;
+function _injectScript(src) {
+  return new Promise((ok, fail) => {
+    if (document.head.querySelector(`script[src="${src}"]`)) { ok(); return; }
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = ok;
+    s.onerror = () => fail(new Error(`Cannot load ${src}`));
+    document.head.appendChild(s);
+  });
 }
 
-function graphElements(snapshot, hass, includePresentationGroups = true) {
-  const nodesById = new Map();
-  for (const node of snapshot.nodes || []) {
-    if (node?.id && !nodesById.has(node.id)) nodesById.set(node.id, node);
+// ─── Three.js helpers ────────────────────────────────────────────────────────
+
+function _nodeColor(node) {
+  if (node._selected) return "#ffffff";
+  if (node.findingSeverity === "CRITICAL" || node.findingSeverity === "ERROR") return "#9e2f2a";
+  return NODE_COLORS[node.type] ?? "#718087";
+}
+
+// Canvas text sprite added below each sphere; returns null if THREE unavailable.
+function _labelSprite(text) {
+  if (!_THREE?.CanvasTexture) return null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256; canvas.height = 44;
+    const ctx = canvas.getContext("2d");
+    ctx.font = "bold 20px system-ui, -apple-system, sans-serif";
+    const label = text.length > 22 ? `${text.substring(0, 21)}\u2026` : text;
+    const bgW = Math.min(ctx.measureText(label).width + 16, 250);
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    if (ctx.roundRect) ctx.roundRect((256 - bgW) / 2, 6, bgW, 32, 6); else ctx.rect((256 - bgW) / 2, 6, bgW, 32);
+    ctx.fill();
+    ctx.fillStyle = "#14252b";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 128, 22);
+    const mat = new _THREE.SpriteMaterial({ map: new _THREE.CanvasTexture(canvas), depthWrite: false, transparent: true });
+    const sp = new _THREE.Sprite(mat);
+    sp.scale.set(30, 4.5, 1);
+    return sp;
+  } catch { return null; }
+}
+
+// ─── Graph data builder ──────────────────────────────────────────────────────
+
+function _buildData(snapshot, hass, includePresentation = true) {
+  const byId = new Map();
+  for (const n of snapshot.nodes ?? []) if (n?.id && !byId.has(n.id)) byId.set(n.id, n);
+  const snapshotNodes = [...byId.values()];
+
+  const seen = new Set(byId.keys());
+  const rels = [];
+  for (const r of snapshot.relationships ?? []) {
+    if (!r?.id || !byId.has(r.source) || !byId.has(r.target) || seen.has(r.id)) continue;
+    seen.add(r.id); rels.push(r);
   }
-  const snapshotNodes = [...nodesById.values()];
-  const relationships = [];
-  const elementIds = new Set(nodesById.keys());
-  for (const relationship of snapshot.relationships || []) {
-    if (
-      !relationship?.id
-      || !nodesById.has(relationship.source)
-      || !nodesById.has(relationship.target)
-      || elementIds.has(relationship.id)
-    ) continue;
-    elementIds.add(relationship.id);
-    relationships.push(relationship);
+
+  const assigned = new Set();
+  for (const r of rels) {
+    const s = byId.get(r.source), t = byId.get(r.target);
+    if (s?.type === "AREA" && t?.type === "DEVICE") assigned.add(t.id);
+    if (t?.type === "AREA" && s?.type === "DEVICE") assigned.add(s.id);
   }
-  const assignedDevices = new Set();
-  for (const relationship of relationships) {
-    const source = nodesById.get(relationship.source);
-    const target = nodesById.get(relationship.target);
-    if (source?.type === "AREA" && target?.type === "DEVICE") assignedDevices.add(target.id);
-    if (target?.type === "AREA" && source?.type === "DEVICE") assignedDevices.add(source.id);
-  }
-  const unassignedIds = includePresentationGroups
-    ? new Set(snapshotNodes.filter((node) => node.type === "DEVICE" && !assignedDevices.has(node.id)).map((node) => node.id))
+
+  const unassigned = includePresentation
+    ? new Set(snapshotNodes.filter((n) => n.type === "DEVICE" && !assigned.has(n.id)).map((n) => n.id))
     : new Set();
-  const nodes = snapshotNodes.map((node) => ({
-    data: {
-      ...node,
-      icon: resolveOntologyIcon(node, hass),
-      parent: unassignedIds.has(node.id) ? UNASSIGNED_ID : undefined,
-    },
-    classes: [
-      String(node.type || "other").toLowerCase().replaceAll("_", "-"),
-      node.unavailable ? "unavailable" : "",
-      node.type === "VALIDATION_FINDING" ? "validation-finding" : "",
-      node.findingSeverity ? `severity-${String(node.findingSeverity).toLowerCase()}` : "",
-    ].filter(Boolean).join(" "),
-  }));
-  if (unassignedIds.size) {
-    nodes.push({
-      data: { id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true },
-      classes: "presentation-group",
-    });
-  }
-  const edges = relationships.map((relationship) => ({
-    data: { ...relationship, label: relationshipLabel(relationship.type, relationship.directed) },
-    classes: relationship.directed ? "directed" : "",
-  }));
 
-  // Add synthetic HOME node + edges when the snapshot has no HOME node but has areas.
-  // This ensures the star layout always has a central hub regardless of backend.
-  const hasHomeNode = snapshotNodes.some((n) => n.type === "HOME");
   const areaNodes = snapshotNodes.filter((n) => n.type === "AREA");
-  if (includePresentationGroups && !hasHomeNode && areaNodes.length > 0) {
-    const homeName = hass?.config?.location_name || "Home";
-    nodes.push({
-      data: { id: SYNTHETIC_HOME_ID, haId: SYNTHETIC_HOME_ID, type: "HOME", label: homeName, icon: "mdi:home", synthetic: true },
-      classes: "home synthetic",
-    });
+
+  const nodes = snapshotNodes.map((node) => {
+    const n = { ...node, icon: resolveOntologyIcon(node, hass) };
+    // Pin HOME at origin so areas orbit it during force simulation
+    if (node.type === "HOME") { n.fx = 0; n.fy = 0; n.fz = 0; }
+    // Seed area positions in a circle to speed up force convergence
+    if (node.type === "AREA") {
+      const idx = areaNodes.indexOf(node);
+      const a = (2 * Math.PI * idx) / Math.max(areaNodes.length, 1);
+      n.x = Math.cos(a) * 250; n.y = Math.sin(a) * 250; n.z = 0;
+    }
+    return n;
+  });
+
+  if (unassigned.size) {
+    nodes.push({ id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true });
+  }
+
+  const links = rels.map((r) => ({ id: r.id, source: r.source, target: r.target, type: r.type, directed: !!r.directed }));
+
+  const hasHome = snapshotNodes.some((n) => n.type === "HOME");
+  if (includePresentation && !hasHome && areaNodes.length > 0) {
+    nodes.push({ id: SYNTHETIC_HOME_ID, haId: SYNTHETIC_HOME_ID, type: "HOME", label: hass?.config?.location_name || "Home", icon: "mdi:home", synthetic: true, fx: 0, fy: 0, fz: 0, x: 0, y: 0, z: 0 });
     for (const area of areaNodes) {
-      const edgeId = `${SYNTHETIC_HOME_ID}\u2192${area.id}`;
-      if (!elementIds.has(edgeId)) {
-        elementIds.add(edgeId);
-        edges.push({
-          data: { id: edgeId, source: SYNTHETIC_HOME_ID, target: area.id, type: "HAS_AREA", label: "", directed: false },
-          classes: "home-edge synthetic",
-        });
-      }
+      const lid = `${SYNTHETIC_HOME_ID}\u2192${area.id}`;
+      if (!seen.has(lid)) { seen.add(lid); links.push({ id: lid, source: SYNTHETIC_HOME_ID, target: area.id, type: "HAS_AREA", directed: false, synthetic: true }); }
     }
   }
 
-  return [...nodes, ...edges];
+  return { nodes, links };
 }
 
-function elementClasses(element) {
-  if (element.source && element.target) return element.directed ? "directed" : "";
-  return [
-    String(element.type || "other").toLowerCase().replaceAll("_", "-"),
-    element.unavailable ? "unavailable" : "",
-    element.type === "VALIDATION_FINDING" ? "validation-finding" : "",
-    element.findingSeverity ? `severity-${String(element.findingSeverity).toLowerCase()}` : "",
-  ].filter(Boolean).join(" ");
-}
+// d3-force mutates link.source/target from id strings to node objects after layout
+const _normalise = (l) => ({ ...l, source: l.source?.id ?? l.source, target: l.target?.id ?? l.target });
+
+// ─── Custom element ──────────────────────────────────────────────────────────
 
 class OntologyGraph extends HTMLElement {
+  constructor() {
+    super();
+    this._fg = null; this._container = null;
+    this._nodeMap = new Map(); this._linkMap = new Map();
+    this._selectedId = null;
+    this._hiddenNodeTypes = new Set(); this._hiddenLinkTypes = new Set();
+    this._ro = null;
+  }
+
+  // Public query API consumed by ontology-panel.js
+  get selectedId() { return this._selectedId; }
+  hasNode(id) { return this._nodeMap.has(id); }
+  hasNodes() { return this._nodeMap.size > 0; }
+  getNodeType(id) { return this._nodeMap.get(id)?.type; }
+
   connectedCallback() {
     if (this._container) return;
     Object.assign(this.style, { display: "block", width: "100%", height: "100%" });
     this._container = document.createElement("div");
-    Object.assign(this._container.style, { width: "100%", height: "100%" });
+    Object.assign(this._container.style, { width: "100%", height: "100%", overflow: "hidden" });
     this.append(this._container);
+    _loadLibs().catch(console.error);
+  }
+
+  disconnectedCallback() {
+    this._ro?.disconnect();
+    if (this._fg) { this._fg.pauseAnimation(); this._fg._destructor?.(); this._fg = null; }
   }
 
   setSnapshot(snapshot, hass) {
     this.connectedCallback();
-    const viewport = this.cy ? { pan: this.cy.pan(), zoom: this.cy.zoom() } : null;
-    const selectedId = this.cy?.$(":selected").first().id() || null;
-    this.cy?.destroy();
-    this.cy = cytoscape({
-      container: this._container,
-      elements: graphElements(snapshot, hass),
-      layout: {
-        name: "concentric",
-        concentric: (node) => {
-          switch (node.data("type")) {
-            case "HOME": return 2;
-            case "FLOOR": case "AREA": return 1;
-            default: return 1;
-          }
-        },
-        levelWidth: () => 1,
-        minNodeSpacing: 60,
-        padding: 48,
-        startAngle: 3 * Math.PI / 2,
-      },
-      minZoom: 0.2,
-      maxZoom: 3,
-      style: [
-        { selector: "node", style: { "background-color": "#e8f3f5", "border-color": "#236779", "border-width": 2, color: "#14252b", content: "data(label)", "font-size": 11, height: 46, shape: "round-rectangle", "text-background-color": "#fff", "text-background-opacity": 0.9, "text-background-padding": 3, "text-margin-y": 34, width: 56 } },
-        { selector: "node.home", style: { "background-color": "#e3f2fd", "border-color": "#1565c0", "border-width": 3, shape: "ellipse", width: 72, height: 72, "font-size": 13, "font-weight": 600, "text-margin-y": 42, "background-image": _svgUri(_MDI_HOME, "#1565c0"), "background-fit": "contain", "background-clip": "node", "background-width": "55%", "background-height": "55%" } },
-        { selector: "node.area", style: { "background-color": "#dcebdc", "border-color": "#3b6f47", shape: "ellipse", width: 58, height: 58, "text-margin-y": 34, "background-image": _svgUri(_MDI_SOFA, "#3b6f47"), "background-fit": "contain", "background-clip": "node", "background-width": "52%", "background-height": "52%" } },
-        { selector: "node.device", style: { "background-color": "#dcecf4", "border-color": "#35697e" } },
-        { selector: "node.entity", style: { "background-color": "#f0eff8", "border-color": "#5c5fa6" } },
-        { selector: "node.unavailable", style: { "border-style": "dashed", "border-width": 4, opacity: 0.65 } },
-        { selector: "node.validation-finding", style: { "background-color": "#fff1c7", "border-color": "#9b6500", "border-width": 4, shape: "diamond" } },
-        { selector: "node.severity-error, node.severity-critical", style: { "background-color": "#f9d7d5", "border-color": "#9e2f2a" } },
-        { selector: "node.presentation-group", style: { "background-color": "#f7f8f8", "border-color": "#68777d", "border-style": "dotted", "text-valign": "top", padding: 18 } },
-        { selector: "node:selected", style: { "border-color": "#111", "border-width": 5, "overlay-opacity": 0.08 } },
-        { selector: "edge", style: { "curve-style": "bezier", "font-size": 9, label: "data(label)", "line-color": "#718087", "target-arrow-color": "#718087", "target-arrow-shape": "none", "text-background-color": "#fff", "text-background-opacity": 0.85, "text-background-padding": 2, width: 2 } },
-        { selector: "edge.home-edge", style: { "line-color": "#90caf9", "line-style": "solid", width: 1, label: "", opacity: 0.6 } },
-        { selector: "edge:loop", style: { "curve-style": "bezier", "loop-direction": "45deg", "loop-sweep": "70deg" } },
-        { selector: "edge.directed", style: { "target-arrow-shape": "triangle" } },
-      ],
-    });
-    if (viewport) {
-      this.cy.zoom(viewport.zoom);
-      this.cy.pan(viewport.pan);
-      if (selectedId) this.cy.getElementById(selectedId).select();
-    } else {
-      this._fitToTop();
-    }
-    this._initialViewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
-    this.cy.on("select unselect", "node, edge", (event) => {
-      if (this._suppressSelectionEvents) return;
-      let selectedId = this.cy.$(":selected").first().id() || null;
-      if (event.type === "select") {
-        this._suppressSelectionEvents = true;
-        try {
-          this.cy.$(":selected").not(event.target).unselect();
-        } finally {
-          this._suppressSelectionEvents = false;
-        }
-        selectedId = event.target.id();
-      }
-      this.dispatchEvent(new CustomEvent("graph-selection-changed", {
-        detail: { id: selectedId },
-        bubbles: true,
-      }));
-    });
+    _loadLibs().then(() => {
+      if (!this._fg) this._init();
+      const { nodes, links } = _buildData(snapshot, hass);
+      this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
+      this._linkMap = new Map(links.map((l) => [l.id, l]));
+      this._selectedId = null;
+      this._fg.graphData({ nodes: nodes.slice(), links: links.slice() });
+      this._fg.onEngineStop(() => { this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
+    }).catch(console.error);
   }
 
   applySlice(slice, hass, centerId = null) {
-    if (!this.cy) {
-      this.setSnapshot(slice, hass);
-      return;
-    }
-    const selectedId = this.cy.$(":selected").first().id() || null;
-    // Only preserve viewport when not centering on a specific element
-    const savedViewport = centerId ? null : { pan: this.cy.pan(), zoom: this.cy.zoom() };
-    const center = centerId ? this.cy.getElementById(centerId) : null;
-    const centerPosition = center?.nonempty() ? center.position() : { x: 0, y: 0 };
-    const incoming = graphElements(slice, hass, false);
-    const newNodes = [];
+    if (!this._fg) return;
+    const { nodes: inc, links: incLinks } = _buildData(slice, hass, false);
+    const { nodes: cur, links: curL } = this._fg.graphData();
+    const curIds = new Set(cur.map((n) => n.id));
+    const curLIds = new Set(curL.map((l) => l.id));
 
-    this._suppressSelectionEvents = true;
-    try {
-      this.cy.batch(() => {
-        for (const element of incoming) {
-          const existing = this.cy.getElementById(element.data.id);
-          if (existing.nonempty()) {
-            existing.data(element.data);
-            existing.classes(element.classes || elementClasses(element.data));
-            continue;
-          }
-          const added = this.cy.add(element);
-          if (added.isNode()) newNodes.push(added);
-        }
-      });
-
-      const selected = selectedId ? this.cy.getElementById(selectedId) : null;
-      if (selected?.nonempty() && !selected.selected()) selected.select();
-    } finally {
-      this._suppressSelectionEvents = false;
+    // Update existing nodes in-place to preserve force-simulation positions
+    for (const n of inc) {
+      if (!curIds.has(n.id)) continue;
+      const ex = cur.find((e) => e.id === n.id);
+      if (ex) Object.assign(ex, n);
+      this._nodeMap.set(n.id, ex ?? n);
     }
 
-    newNodes.forEach((node, index) => {
-      const angle = (2 * Math.PI * index) / Math.max(newNodes.length, 1);
-      node.position({
-        x: centerPosition.x + Math.cos(angle) * 120,
-        y: centerPosition.y + Math.sin(angle) * 120,
-      });
-    });
+    const add = inc.filter((n) => !curIds.has(n.id));
+    const addL = incLinks.filter((l) => !curLIds.has(l.id));
 
-    if (savedViewport) {
-      this.cy.zoom(savedViewport.zoom);
-      this.cy.pan(savedViewport.pan);
-    } else if (center?.nonempty()) {
-      // Zoom in and center on the clicked area so it fills the viewport comfortably
-      this.cy.animate({ center: { eles: center }, zoom: 1.5 }, { duration: 300 });
+    if (centerId) {
+      const c = cur.find((n) => n.id === centerId);
+      const cx = c?.x ?? 0, cy = c?.y ?? 0, cz = c?.z ?? 0;
+      add.forEach((n, i) => { const a = (2 * Math.PI * i) / Math.max(add.length, 1); n.x = cx + Math.cos(a) * 60; n.y = cy + Math.sin(a) * 60; n.z = cz; });
     }
+
+    add.forEach((n) => this._nodeMap.set(n.id, n));
+    addL.forEach((l) => this._linkMap.set(l.id, l));
+    this._fg.graphData({ nodes: [...cur, ...add], links: [...curL.map(_normalise), ...addL] });
+
+    if (centerId) setTimeout(() => this.selectNode(centerId), 150);
   }
 
-  removeElements(elementIds) {
-    if (!this.cy) return;
-    const viewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
-    this.cy.batch(() => {
-      for (const elementId of new Set(elementIds || [])) this.cy.getElementById(elementId).remove();
+  removeElements(ids) {
+    if (!this._fg) return;
+    const rm = new Set(ids ?? []);
+    rm.forEach((id) => { this._nodeMap.delete(id); this._linkMap.delete(id); });
+    const { nodes, links } = this._fg.graphData();
+    this._fg.graphData({
+      nodes: nodes.filter((n) => !rm.has(n.id)),
+      links: links.map(_normalise).filter((l) => !rm.has(l.id) && !rm.has(l.source) && !rm.has(l.target)),
     });
-    this.cy.zoom(viewport.zoom);
-    this.cy.pan(viewport.pan);
   }
 
   updateElements(elements, hass) {
-    this.applySlice({
-      nodes: (elements || []).filter((element) => !element.source),
-      relationships: (elements || []).filter((element) => element.source),
-    }, hass);
+    this.applySlice({ nodes: (elements ?? []).filter((e) => !e.source), relationships: (elements ?? []).filter((e) => e.source) }, hass);
   }
 
-  setFilters(hiddenNodeTypes = new Set(), hiddenRelationshipTypes = new Set()) {
-    if (!this.cy) return;
-    this.cy.batch(() => {
-      this.cy.nodes().forEach((node) => {
-        const visible = node.data("presentationOnly") || !hiddenNodeTypes.has(node.data("type"));
-        node.style("display", visible ? "element" : "none");
-      });
-      this.cy.edges().forEach((edge) => {
-        const endpointsVisible = edge.source().visible() && edge.target().visible();
-        const typeVisible = !hiddenRelationshipTypes.has(edge.data("type"));
-        edge.style("display", endpointsVisible && typeVisible ? "element" : "none");
-      });
-    });
+  setFilters(hiddenNodeTypes = new Set(), hiddenRelTypes = new Set()) {
+    this._hiddenNodeTypes = hiddenNodeTypes; this._hiddenLinkTypes = hiddenRelTypes;
+    if (!this._fg) return;
+    this._fg
+      .nodeVisibility((n) => n.presentationOnly || !this._hiddenNodeTypes.has(n.type))
+      .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type));
   }
 
   zoomBy(factor) {
-    if (!this.cy) return;
-    this.cy.zoom({ level: Math.min(3, Math.max(0.2, this.cy.zoom() * factor)), renderedPosition: { x: this.clientWidth / 2, y: this.clientHeight / 2 } });
+    if (!this._fg) return;
+    const { x, y, z } = this._fg.camera().position;
+    const s = 1 / factor;
+    this._fg.cameraPosition({ x: x * s, y: y * s, z: z * s }, { x: 0, y: 0, z: 0 }, 200);
   }
 
-  fit() {
-    this._fitToTop();
-  }
-
-  resetView() {
-    if (!this.cy) return;
-    this._fitToTop();
-    this._initialViewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
-  }
-
-  _fitToTop() {
-    if (!this.cy) return;
-    const visible = this.cy.$(":visible");
-    this.cy.fit(visible, 36);
-    const bounds = visible.renderedBoundingBox({ includeLabels: true });
-    this.cy.panBy({ x: 0, y: 36 - bounds.y1 });
-  }
+  fit() { this._fg?.zoomToFit(400, 80); }
+  resetView() { this._fg?.zoomToFit(400, 80); }
 
   selectNode(nodeId) {
-    if (!this.cy) return;
-    this.cy.nodes().unselect();
-    const node = this.cy.getElementById(nodeId);
-    if (node.nonempty()) {
-      node.select();
-      this.cy.center(node);
+    if (!this._fg) return;
+    this._setSelected(nodeId);
+    if (nodeId) this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: nodeId }, bubbles: true }));
+    const n = this._nodeMap.get(nodeId ?? "");
+    if (!n) return;
+    const { x = 0, y = 0, z = 0 } = n;
+    this._fg.cameraPosition({ x: x + 100, y: y + 40, z: z + 100 }, { x, y, z }, 600);
+  }
+
+  _setSelected(id) {
+    const prev = this._nodeMap.get(this._selectedId ?? "");
+    if (prev) delete prev._selected;
+    this._selectedId = id;
+    const next = this._nodeMap.get(id ?? "");
+    if (next) next._selected = true;
+    this._fg?.refresh(); // redraws spheres and label sprites with updated _selected flag
+  }
+
+  _init() {
+    this._fg = window.ForceGraph3D()(this._container)
+      .backgroundColor("rgba(0,0,0,0)")
+      .showNavInfo(false)
+      .nodeId("id")
+      .linkSource("source")
+      .linkTarget("target")
+      .nodeLabel((n) => `${n.label ?? n.id} · ${(n.type ?? "").toLowerCase().replaceAll("_", " ")}`)
+      .nodeColor((n) => _nodeColor(n))
+      .nodeVal((n) => NODE_VALS[n.type] ?? 2)
+      .nodeVisibility((n) => !this._hiddenNodeTypes.has(n.type))
+      .linkColor((l) => l.synthetic ? "#90caf9" : "#9ab4bc")
+      .linkWidth((l) => l.directed ? 1.5 : 0.8)
+      .linkOpacity(0.6)
+      .linkDirectionalArrowLength((l) => l.directed ? 4 : 0)
+      .linkDirectionalArrowRelPos(1)
+      .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type))
+      .nodeThreeObject((n) => {
+        const sp = _labelSprite(n.label ?? n.id);
+        if (sp) { const r = Math.cbrt((NODE_VALS[n.type] ?? 2) * 4); sp.position.set(0, -(r + 4), 0); }
+        return sp;
+      })
+      .nodeThreeObjectExtend(true)
+      .onNodeClick((n) => {
+        this._setSelected(n.id);
+        this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
+      })
+      .onBackgroundClick(() => {
+        this._setSelected(null);
+        this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: null }, bubbles: true }));
+      });
+
+    try {
+      this._fg.d3Force("charge").strength(-250);
+      this._fg.d3Force("link").distance((l) => (l.synthetic || l.type === "HAS_AREA") ? 220 : (l.type === "HAS_DEVICE" ? 110 : 80));
+    } catch { /* non-d3 build variant */ }
+
+    if (_THREE?.AmbientLight) {
+      const dir = new _THREE.DirectionalLight(0xffffff, 1);
+      dir.position.set(300, 300, 300);
+      this._fg.lights([new _THREE.AmbientLight(0xcccccc, 2), dir]);
     }
+
+    this._ro = new ResizeObserver(() => {
+      const { clientWidth: w, clientHeight: h } = this._container;
+      if (this._fg && w > 0 && h > 0) this._fg.width(w).height(h);
+    });
+    this._ro.observe(this._container);
   }
 }
 

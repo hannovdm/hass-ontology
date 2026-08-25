@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b12";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b12";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b13";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b13";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -243,7 +243,7 @@ class OntologyPanel extends HTMLElement {
         this._showState("empty", true);
         return;
       }
-      if (silent && this._graph.cy?.elements().length > 0) {
+      if (silent && this._graph.hasNodes()) {
         // Silent reconcile: refresh base-node data without rebuilding the graph.
         // Preserves device/entity nodes the user expanded by clicking areas.
         this._graph.updateElements(snapshot.nodes, this._hass);
@@ -344,7 +344,7 @@ class OntologyPanel extends HTMLElement {
       return;
     }
     if (kind === "remove") {
-      const currentSelectedId = this._graph.cy?.$(":selected").first().id() || null;
+      const currentSelectedId = this._graph.selectedId;
       this._graph.removeElements([...node_ids, ...relationship_ids]);
       if (currentSelectedId && node_ids.includes(currentSelectedId)) {
         this._details.hidden = true;
@@ -365,7 +365,7 @@ class OntologyPanel extends HTMLElement {
     if (kind === "upsert") {
       // Refresh visible nodes that are in the changed set
       for (const nodeId of node_ids) {
-        if (this._graph.cy?.getElementById(nodeId).nonempty()) {
+        if (this._graph.hasNode(nodeId)) {
           this._hass.callWS({ type: "ontology/graph_detail", element_id: nodeId })
             .then((detail) => {
               if (detail?.node) this._graph.updateElements([detail.node], this._hass);
@@ -451,7 +451,7 @@ class OntologyPanel extends HTMLElement {
       this._details.hidden = true;
       return;
     }
-    const type = this._graph.cy?.getElementById(elementId).data("type");
+    const type = this._graph.getNodeType(elementId);
     await this._loadDetail(elementId, type === "AREA" || type === "DEVICE");
   }
 
@@ -480,7 +480,7 @@ class OntologyPanel extends HTMLElement {
   }
 
   async _focusSearchResult(match) {
-    if (!this._graph.cy.getElementById(match.id).nonempty()) await this._loadDetail(match.id, true);
+    if (!this._graph.hasNode(match.id)) await this._loadDetail(match.id, true);
     this._graph.selectNode(match.id);
   }
 
@@ -521,7 +521,7 @@ class OntologyPanel extends HTMLElement {
   }
 
   async _expandSelection() {
-    const nodeId = this._graph.cy.$("node:selected").first().id();
+    const nodeId = this._graph.selectedId;
     if (!nodeId || nodeId === UNASSIGNED_ID) return;
     const status = this._details.querySelector(".expansion-status");
     try {

@@ -1,8 +1,17 @@
 # Vendored Frontend Dependencies
 
-## Cytoscape.js 3.34.1
+## Three.js 0.155.0
 
-- Package: `cytoscape@3.34.1`
+- Package: `three@0.155.0`
+- License: MIT
+- URL: https://threejs.org/
+
+## 3D Force-Directed Graph 1.80.0
+
+- Package: `3d-force-graph@1.80.0`
+- License: MIT
+- URL: https://github.com/vasturiano/3d-force-graph
+
 - Source file: `package/dist/cytoscape.esm.min.mjs`
 - npm tarball SHA-256: `c508af4d23966eff4d71c3da8996281c2b0a7973c538d3df5c157aed9ec60b60`
 - Vendored file SHA-256: `d268787dc74a63807b1c1d240c0790fb4def01e845d058ba6f9c2a45717f9bc9`
