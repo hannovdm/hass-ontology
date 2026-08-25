@@ -189,7 +189,7 @@ test("expands one hop and preserves selection and viewport", async ({ page }) =>
   expect(after.zoom).toBeCloseTo(before.zoom);
 });
 
-test("double-clicking an area loads device, entity, and automation relationships", async ({ page }) => {
+test("double-clicking an area loads all available relationships including dashboards", async ({ page }) => {
   await openFixture(page, "double-click-expansion");
   await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
   await page.locator("ontology-panel").evaluate((panel) => {
@@ -202,15 +202,97 @@ test("double-clicking an area loads device, entity, and automation relationships
   await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Morning routine, automation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).toBeVisible();
+  await expect(page.getByText("All available relationships loaded.")).toBeVisible();
 
   const facts = await page.locator("ontology-panel").evaluate((panel) => ({
     expansionIds: panel._wsCalls
       .filter(({ type }) => type === "ontology/graph_expand")
       .map(({ node_id: nodeId }) => nodeId),
-    linkIds: panel.graph._fg.graphData().links.map(({ id }) => id),
+    expansionLimits: panel._wsCalls
+      .filter(({ type }) => type === "ontology/graph_expand")
+      .map(({ node_limit: nodeLimit, edge_limit: edgeLimit }) => ({ nodeLimit, edgeLimit })),
+    links: panel.graph._fg.graphData().links.map(({ id, source, target }) => ({
+      id,
+      source: source.id || source,
+      target: target.id || target,
+    })),
   }));
-  expect(facts.expansionIds).toEqual(["Area:kitchen", "Device:lamp", "Entity:sensor.kitchen_temperature"]);
-  expect(facts.linkIds).toEqual(expect.arrayContaining(["HAS_DEVICE:1", "HAS_ENTITY:primary", "REFERENCES:1"]));
+  expect(facts.expansionIds).toEqual([
+    "Area:kitchen",
+    "Device:lamp",
+    "Entity:sensor.kitchen_temperature",
+    "DashboardCard:lovelace::0::0",
+  ]);
+  expect(facts.expansionLimits).toEqual(facts.expansionIds.map(() => ({ nodeLimit: 250, edgeLimit: 500 })));
+  expect(facts.links).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: "HAS_DEVICE:1", source: "Area:kitchen", target: "Device:lamp" }),
+    expect.objectContaining({ id: "HAS_ENTITY:primary", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature" }),
+    expect.objectContaining({ id: "REFERENCES:1", source: "Automation:morning", target: "Entity:sensor.kitchen_temperature" }),
+    expect.objectContaining({ id: "DISPLAYS_ENTITY:1", source: "DashboardCard:lovelace::0::0", target: "Entity:sensor.kitchen_temperature" }),
+    expect.objectContaining({ id: "CONTAINS_CARD:1", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0" }),
+  ]));
+
+  await page.waitForTimeout(1200);
+  const framing = await page.locator("ontology-panel").evaluate((panel) => {
+    const graph = panel.graph;
+    const width = graph.clientWidth;
+    const height = graph.clientHeight;
+    const ids = [
+      "Area:kitchen",
+      "Device:lamp",
+      "Entity:sensor.kitchen_temperature",
+      "Automation:morning",
+      "DashboardCard:lovelace::0::0",
+      "Dashboard:lovelace",
+    ];
+    return ids.map((id) => {
+      const node = graph._nodeMap.get(id);
+      const point = graph._fg.graph2ScreenCoords(node.x, node.y, node.z);
+      return { id, x: point.x, y: point.y, width, height };
+    });
+  });
+  for (const node of framing) {
+    expect(node.x, `${node.id} should fit horizontally`).toBeGreaterThan(0);
+    expect(node.x, `${node.id} should fit horizontally`).toBeLessThan(node.width);
+    expect(node.y, `${node.id} should fit vertically`).toBeGreaterThan(0);
+    expect(node.y, `${node.id} should fit vertically`).toBeLessThan(node.height);
+  }
+});
+
+test("double-clicking a dashboard loads every direct card relationship", async ({ page }) => {
+  await openFixture(page, "dashboard-focus");
+  await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
+  await page.locator("ontology-panel").evaluate((panel) => {
+    const dashboard = panel.graph._fg.graphData().nodes.find(({ id }) => id === "Dashboard:lovelace");
+    const onNodeClick = panel.graph._fg.onNodeClick();
+    onNodeClick(dashboard);
+    onNodeClick(dashboard);
+  });
+
+  await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();
+  await expect(page.getByText("All available relationships loaded.")).toBeVisible();
+  const facts = await page.locator("ontology-panel").evaluate((panel) => {
+    const expansion = panel._wsCalls.find(({ type }) => type === "ontology/graph_expand");
+    const relationship = panel.graph._fg.graphData().links.find(({ id }) => id === "CONTAINS_CARD:1");
+    return {
+      expansion,
+      relationship: relationship && {
+        source: relationship.source.id || relationship.source,
+        target: relationship.target.id || relationship.target,
+      },
+    };
+  });
+  expect(facts.expansion).toMatchObject({
+    node_id: "Dashboard:lovelace",
+    node_limit: 250,
+    edge_limit: 500,
+  });
+  expect(facts.relationship).toEqual({
+    source: "Dashboard:lovelace",
+    target: "DashboardCard:lovelace::0::0",
+  });
 });
 
 test("supports filter, clear, pan, zoom, fit, reset, and drag", async ({ page }) => {

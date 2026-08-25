@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b25";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b27";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -56,7 +56,7 @@ function _nodeColor(node) {
 
 // ─── Graph data builder ──────────────────────────────────────────────────────
 
-function _buildData(snapshot, hass, includePresentation = true) {
+function _buildData(snapshot, hass, includePresentation = true, knownNodeIds = new Set()) {
   const byId = new Map();
   for (const n of snapshot.nodes ?? []) if (n?.id && !byId.has(n.id)) byId.set(n.id, n);
   const snapshotNodes = [...byId.values()];
@@ -64,7 +64,9 @@ function _buildData(snapshot, hass, includePresentation = true) {
   const seen = new Set(byId.keys());
   const rels = [];
   for (const r of snapshot.relationships ?? []) {
-    if (!r?.id || !byId.has(r.source) || !byId.has(r.target) || seen.has(r.id)) continue;
+    const sourceKnown = byId.has(r.source) || knownNodeIds.has(r.source);
+    const targetKnown = byId.has(r.target) || knownNodeIds.has(r.target);
+    if (!r?.id || !sourceKnown || !targetKnown || seen.has(r.id)) continue;
     seen.add(r.id); rels.push(r);
   }
 
@@ -205,9 +207,9 @@ class OntologyGraph extends HTMLElement {
 
   applySlice(slice, hass, centerId = null) {
     if (!this._fg) return;
-    const { nodes: inc, links: incLinks } = _buildData(slice, hass, false);
     const { nodes: cur, links: curL } = this._fg.graphData();
     const curIds = new Set(cur.map((n) => n.id));
+    const { nodes: inc, links: incLinks } = _buildData(slice, hass, false, curIds);
     const curLIds = new Set(curL.map((l) => l.id));
 
     // Update existing nodes in-place to preserve force-simulation positions
@@ -244,6 +246,14 @@ class OntologyGraph extends HTMLElement {
     }
 
     if (centerId) setTimeout(() => this._focusNode(centerId), 150);
+  }
+
+  fitNodes(nodeIds) {
+    if (!this._fg) return;
+    const ids = new Set(nodeIds || []);
+    if (!ids.size) return;
+    this._viewInteracted = true;
+    setTimeout(() => this._fg?.zoomToFit(650, 90, (node) => ids.has(node.id)), 350);
   }
 
   removeElements(ids) {

@@ -1,7 +1,7 @@
 {
   "domain": "ontology",
   "name": "Home Assistant Ontology",
-  "version": "4.0.0b25",
+  "version": "4.0.0b27",
   "config_flow": true,
   "iot_class": "local_push",
   "requirements": ["neo4j==6.2.0"],

@@ -74,10 +74,33 @@
         nodes: [
           exploration.nodes[1],
           { id: "Automation:morning", haId: "morning", type: "AUTOMATION", label: "Morning routine", icon: "mdi:robot", unavailable: false, properties: [] },
+          { id: "DashboardCard:lovelace::0::0", haId: "lovelace::0::0", type: "DASHBOARD_CARD", label: "Kitchen card", icon: "mdi:card-outline", unavailable: false, properties: [] },
         ],
         relationships: [
           { id: "REFERENCES:1", type: "REFERENCES", source: "Automation:morning", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
+          { id: "DISPLAYS_ENTITY:1", type: "DISPLAYS_ENTITY", source: "DashboardCard:lovelace::0::0", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
         ],
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
+      const cardNeighborhood = {
+        nodes: [
+          entityNeighborhood.nodes[2],
+          exploration.nodes[1],
+          { id: "Dashboard:lovelace", haId: "lovelace", type: "DASHBOARD", label: "Home dashboard", icon: "mdi:view-dashboard-outline", unavailable: false, properties: [] },
+        ],
+        relationships: [
+          entityNeighborhood.relationships[1],
+          { id: "CONTAINS_CARD:1", type: "CONTAINS_CARD", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0", directed: true, properties: [] },
+        ],
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
+      const dashboardNeighborhood = {
+        nodes: [cardNeighborhood.nodes[2], entityNeighborhood.nodes[2]],
+        relationships: [cardNeighborhood.relationships[1]],
         truncated: false,
         next_cursor: null,
         revision: 8,
@@ -118,18 +141,23 @@
               revision: 8,
             };
           }
-          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview" || state === "double-click-expansion")) {
-            const nodes = [...populated.nodes, ...exploration.nodes, ...(searchMatches["Shared sensor"] || [])];
+          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview" || state === "double-click-expansion" || state === "dashboard-focus")) {
+            const nodes = [...populated.nodes, ...exploration.nodes, ...cardNeighborhood.nodes, ...(searchMatches["Shared sensor"] || [])];
             const node = nodes.find(({ id }) => id === message.element_id);
             const relationship = exploration.relationships.find(({ id }) => id === message.element_id);
             if (!node && !relationship) throw { code: "not_found", message: "Graph element was not found" };
-            const directConnections = node?.type === "AREA" ? areaExploration : exploration;
+            const directConnections = node?.type === "AREA" ? areaExploration
+              : node?.type === "DASHBOARD" ? dashboardNeighborhood : exploration;
             return { node: node || null, relationship: relationship || null, directConnections };
           }
+          if (type === "ontology/graph_expand" && state === "dashboard-focus") return dashboardNeighborhood;
           if (type === "ontology/graph_expand" && state === "double-click-expansion") {
             if (message.node_id === "Area:kitchen") return areaNeighborhood;
-            if (message.node_id === "Device:lamp") return exploration;
+            if (message.node_id === "Device:lamp") {
+              return { ...exploration, nodes: exploration.nodes.filter((node) => node.type === "ENTITY") };
+            }
             if (message.node_id === "Entity:sensor.kitchen_temperature") return entityNeighborhood;
+            if (message.node_id === "DashboardCard:lovelace::0::0") return cardNeighborhood;
             throw { code: "not_found", message: "Graph element was not found" };
           }
           if (type === "ontology/graph_expand" && state === "interactive") return exploration;
@@ -154,6 +182,9 @@
           }
           if (state === "area-overview" || state === "double-click-expansion") {
             return areaOverview;
+          }
+          if (state === "dashboard-focus") {
+            return { ...dashboardNeighborhood, nodes: [cardNeighborhood.nodes[2]], relationships: [] };
           }
           if (state === "malformed") {
             return {

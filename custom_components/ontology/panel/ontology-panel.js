@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b25";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b25";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b27";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b27";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -12,6 +12,8 @@ const STATE_MESSAGES = {
 const SUBSCRIPTION_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000, 10000];
 const SUBSCRIPTION_MAX_RECONNECT_ATTEMPTS = 5;
 const AREA_NEIGHBOR_EXPANSION_LIMIT = 50;
+const FOCUS_EXPANSION_NODE_LIMIT = 250;
+const FOCUS_EXPANSION_EDGE_LIMIT = 500;
 
 class OntologyPanel extends HTMLElement {
   connectedCallback() {
@@ -522,28 +524,47 @@ class OntologyPanel extends HTMLElement {
         const deviceIds = slices[0].nodes
           .filter((node) => node.type === "DEVICE")
           .map((node) => node.id);
-        const deviceResults = await Promise.allSettled(deviceIds.map((id) => this._requestExpansion(id)));
+        const expandedDeviceIds = deviceIds.slice(0, AREA_NEIGHBOR_EXPANSION_LIMIT);
+        const deviceResults = await Promise.allSettled(expandedDeviceIds.map((id) => this._requestExpansion(id)));
         const deviceSlices = deviceResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
         slices.push(...deviceSlices);
-        const entityIds = this._connectedNodeIds(deviceSlices, new Set(deviceIds), "ENTITY");
-        const remaining = Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - deviceIds.length, 0);
-        const entityResults = await Promise.allSettled(entityIds.slice(0, remaining).map((id) => this._requestExpansion(id)));
-        slices.push(...entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
-        if (entityIds.length > remaining) slices[0] = { ...slices[0], truncated: true };
+        const entityIds = this._connectedNodeIds(deviceSlices, new Set(expandedDeviceIds), "ENTITY");
+        let remaining = Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - expandedDeviceIds.length, 0);
+        const expandedEntityIds = entityIds.slice(0, remaining);
+        const entityResults = await Promise.allSettled(expandedEntityIds.map((id) => this._requestExpansion(id)));
+        const entitySlices = entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
+        slices.push(...entitySlices);
+        remaining = Math.max(remaining - expandedEntityIds.length, 0);
+        const cardIds = this._connectedNodeIds(entitySlices, new Set(expandedEntityIds), "DASHBOARD_CARD");
+        const expandedCardIds = cardIds.slice(0, remaining);
+        const cardResults = await Promise.allSettled(expandedCardIds.map((id) => this._requestExpansion(id)));
+        slices.push(...cardResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
+        if (deviceIds.length > expandedDeviceIds.length || entityIds.length > expandedEntityIds.length || cardIds.length > expandedCardIds.length) {
+          slices[0] = { ...slices[0], truncated: true };
+        }
       }
       const slice = this._combineSlices(slices);
       this._mergeSnapshot(slice);
-      this._graph.applySlice(slice, this._hass, nodeId);
+      this._graph.applySlice(slice, this._hass);
+      this._graph.fitNodes(slice.nodes.map((node) => node.id));
       this._renderNodeList(this._snapshot.nodes);
       this._renderFilters();
-      status.textContent = slice.truncated ? "Expansion is truncated. Expand again to continue." : "Related devices, entities, and automations loaded.";
+      status.textContent = slice.truncated
+        ? "Expansion reached its safety limit. Some relationships may not be shown."
+        : "All available relationships loaded.";
     } catch (error) {
       status.textContent = error?.code === "stale_cursor" ? "The graph changed. Start this expansion again." : "Expansion could not be completed.";
     }
   }
 
   _requestExpansion(nodeId) {
-    return this._hass.callWS({ type: "ontology/graph_expand", node_id: nodeId, node_limit: 25, edge_limit: 50, cursor: null });
+    return this._hass.callWS({
+      type: "ontology/graph_expand",
+      node_id: nodeId,
+      node_limit: FOCUS_EXPANSION_NODE_LIMIT,
+      edge_limit: FOCUS_EXPANSION_EDGE_LIMIT,
+      cursor: null,
+    });
   }
 
   _connectedNodeIds(slices, sourceIds, nodeType) {
