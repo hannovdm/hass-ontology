@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b23";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b23";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b24";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b24";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -205,28 +205,15 @@ class OntologyPanel extends HTMLElement {
       this._labWorkspace.hidden = true;
       return;
     }
-    this._labWorkspace.hidden = false;
-    const REASON_MESSAGES = {
-      READY: "Available",
-      NOT_ADDON_BACKEND: "Requires the Memgraph add-on.",
-      not_addon_backend: "Requires the Memgraph add-on.",
-      TRANSPORT_UNAVAILABLE: "Add-on GraphQL adapter not reachable.",
-      LAB_UNHEALTHY: "Memgraph Lab process is not healthy.",
-      ENTERPRISE_REQUIRED: "Requires Memgraph Enterprise edition.",
-      READONLY_USER_MISSING: "Read-only Lab user not configured.",
-      WRITE_PROBE_SUCCEEDED: "Write authorization probe failed — Lab disabled for safety.",
-    };
-    if (status.available) {
-      this._labStatusText.textContent = "Memgraph Lab is available.";
-      this._labLaunchLink.href = status.ingress_path || "#";
-      this._labLaunchLink.hidden = false;
-      this._labRetryButton.hidden = true;
-    } else {
-      const reason = REASON_MESSAGES[status.reason] || status.reason || "Unavailable.";
-      this._labStatusText.textContent = reason;
-      this._labLaunchLink.hidden = true;
-      this._labRetryButton.hidden = false;
+    if (!status.available) {
+      this._labWorkspace.hidden = true;
+      return;
     }
+    this._labWorkspace.hidden = false;
+    this._labStatusText.textContent = "Memgraph Lab is available.";
+    this._labLaunchLink.href = status.ingress_path || "#";
+    this._labLaunchLink.hidden = false;
+    this._labRetryButton.hidden = true;
   }
 
   async _loadSnapshot(force = false, silent = false) {

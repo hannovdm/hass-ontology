@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b23";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b24";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -52,30 +52,6 @@ function _nodeColor(node) {
   if (node._selected) return "#ffffff";
   if (node.findingSeverity === "CRITICAL" || node.findingSeverity === "ERROR") return "#9e2f2a";
   return NODE_COLORS[node.type] ?? "#718087";
-}
-
-// Canvas text sprite added below each sphere; returns null if THREE unavailable.
-function _labelSprite(text) {
-  if (!_THREE?.CanvasTexture) return null;
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 256; canvas.height = 44;
-    const ctx = canvas.getContext("2d");
-    ctx.font = "bold 20px system-ui, -apple-system, sans-serif";
-    const label = text.length > 22 ? `${text.substring(0, 21)}\u2026` : text;
-    const bgW = Math.min(ctx.measureText(label).width + 16, 250);
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    if (ctx.roundRect) ctx.roundRect((256 - bgW) / 2, 6, bgW, 32, 6); else ctx.rect((256 - bgW) / 2, 6, bgW, 32);
-    ctx.fill();
-    ctx.fillStyle = "#14252b";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, 128, 22);
-    const mat = new _THREE.SpriteMaterial({ map: new _THREE.CanvasTexture(canvas), depthWrite: false, transparent: true });
-    const sp = new _THREE.Sprite(mat);
-    sp.scale.set(30, 4.5, 1);
-    return sp;
-  } catch { return null; }
 }
 
 // ─── Graph data builder ──────────────────────────────────────────────────────
@@ -145,7 +121,8 @@ class OntologyGraph extends HTMLElement {
   constructor() {
     super();
     this._fg = null; this._container = null;
-    this._iconLayer = null; this._iconElements = new Map(); this._linkLabelElements = new Map();
+    this._iconLayer = null; this._iconElements = new Map();
+    this._nodeLabelElements = new Map(); this._linkLabelElements = new Map();
     this._nodeMap = new Map(); this._linkMap = new Map();
     this._selectedId = null;
     this._hiddenNodeTypes = new Set(); this._hiddenLinkTypes = new Set();
@@ -247,7 +224,13 @@ class OntologyGraph extends HTMLElement {
     if (centerId) {
       const c = cur.find((n) => n.id === centerId);
       const cx = c?.x ?? 0, cy = c?.y ?? 0, cz = c?.z ?? 0;
-      add.forEach((n, i) => { const a = (2 * Math.PI * i) / Math.max(add.length, 1); n.x = cx + Math.cos(a) * 60; n.y = cy + Math.sin(a) * 60; n.z = cz; });
+      add.forEach((n, i) => {
+        const a = (2 * Math.PI * i) / Math.max(add.length, 1);
+        const radius = n.type === "ENTITY" ? 125 : 90;
+        n.x = cx + Math.cos(a) * radius;
+        n.y = cy + Math.sin(a) * radius;
+        n.z = cz + ((i % 3) - 1) * 28;
+      });
     }
 
     add.forEach((n) => this._nodeMap.set(n.id, n));
@@ -330,6 +313,7 @@ class OntologyGraph extends HTMLElement {
   _rebuildIconOverlay() {
     this._iconLayer.replaceChildren();
     this._iconElements.clear();
+    this._nodeLabelElements.clear();
     this._linkLabelElements.clear();
     for (const link of this._linkMap.values()) {
       const label = document.createElement("span");
@@ -355,6 +339,19 @@ class OntologyGraph extends HTMLElement {
       icon.style.setProperty("--mdc-icon-size", node.type === "HOME" ? "28px" : "20px");
       this._iconLayer.append(icon);
       this._iconElements.set(node.id, icon);
+      const label = document.createElement("span");
+      label.textContent = node.label ?? node.haId ?? node.id;
+      Object.assign(label.style, {
+        position: "absolute", left: "0", top: "0", display: "none",
+        transform: "translate(-50%, 12px)", maxWidth: "150px",
+        padding: "2px 5px", borderRadius: "3px",
+        background: "rgb(255 255 255 / 90%)", color: "#14252b",
+        font: "600 11px/1.25 sans-serif", textAlign: "center",
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        boxShadow: "0 1px 2px rgb(0 0 0 / 18%)",
+      });
+      this._iconLayer.append(label);
+      this._nodeLabelElements.set(node.id, label);
     }
     this._syncIconPositions();
   }
@@ -387,13 +384,18 @@ class OntologyGraph extends HTMLElement {
       const visible = node && (node.presentationOnly || !this._hiddenNodeTypes.has(node.type));
       if (!visible || ![node.x, node.y, node.z].every(Number.isFinite)) {
         icon.style.display = "none";
+        this._nodeLabelElements.get(id).style.display = "none";
         continue;
       }
       const { x, y } = this._fg.graph2ScreenCoords(node.x, node.y, node.z);
+      const label = this._nodeLabelElements.get(id);
       icon.style.display = "block";
       icon.style.color = node._selected ? "#1565c0" : "white";
       icon.style.left = `${x}px`;
       icon.style.top = `${y}px`;
+      label.style.display = "block";
+      label.style.left = `${x}px`;
+      label.style.top = `${y}px`;
     }
   }
 
@@ -422,18 +424,12 @@ class OntologyGraph extends HTMLElement {
       .nodeColor((n) => _nodeColor(n))
       .nodeVal((n) => NODE_VALS[n.type] ?? 2)
       .nodeVisibility((n) => !this._hiddenNodeTypes.has(n.type))
-      .linkColor((l) => l.synthetic ? "#90caf9" : "#9ab4bc")
-      .linkWidth((l) => l.directed ? 1.5 : 0.8)
-      .linkOpacity(0.6)
+      .linkColor((l) => l.synthetic ? "#6aa7c8" : "#547984")
+      .linkWidth((l) => l.synthetic ? 1.2 : (l.directed ? 2.2 : 1.7))
+      .linkOpacity(0.9)
       .linkDirectionalArrowLength((l) => l.directed ? 4 : 0)
       .linkDirectionalArrowRelPos(1)
       .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type))
-      .nodeThreeObject((n) => {
-        const sp = _labelSprite(n.label ?? n.id);
-        if (sp) { const r = Math.cbrt((NODE_VALS[n.type] ?? 2) * 4); sp.position.set(0, -(r + 4), 0); }
-        return sp;
-      })
-      .nodeThreeObjectExtend(true)
       .onNodeClick((n) => {
         this._viewInteracted = true;
         const now = performance.now();
@@ -465,7 +461,7 @@ class OntologyGraph extends HTMLElement {
     this._animationFrame = requestAnimationFrame(syncOverlay);
 
     try {
-      this._fg.d3Force("charge").strength(-250);
+      this._fg.d3Force("charge").strength(-340);
       this._fg.d3Force("link").distance((l) => (l.synthetic || l.type === "HAS_AREA") ? 220 : (l.type === "HAS_DEVICE" ? 110 : 80));
     } catch { /* non-d3 build variant */ }
 
