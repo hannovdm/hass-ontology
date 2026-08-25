@@ -1,16 +1,17 @@
 import cytoscape from "./vendor/cytoscape.esm.min.js";
-import { resolveOntologyIcon } from "./ontology-icons.js";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b11";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
 
-// MDI SVG path strings for types that need in-graph icons
+// MDI SVG path strings used as inline node icons in the Cytoscape canvas
 const _MDI_HOME = "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z";
 const _MDI_SOFA = "M21,9V7A2,2 0 0,0 19,5H5C3.89,5 3,5.89 3,7V9A2,2 0 0,0 1,11V17H3V19H5V17H19V19H21V17H23V11A2,2 0 0,0 21,9M5,7H19V9H5V7M23,15H1V11A1,1 0 0,1 2,10H22A1,1 0 0,1 23,11V15Z";
 
+// Base64-encoded SVG data URI — more reliable than URL-encoded across browsers
 function _svgUri(path, color) {
-  const fill = color.replace(/#/g, "%23");
-  return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='${fill}' d='${path}'/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" d="${path}"/></svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 function relationshipLabel(type, directed) {
@@ -126,10 +127,8 @@ class OntologyGraph extends HTMLElement {
         name: "concentric",
         concentric: (node) => {
           switch (node.data("type")) {
-            case "HOME": return 5;
-            case "FLOOR": return 4;
-            case "AREA": return 3;
-            case "DEVICE": return 2;
+            case "HOME": return 2;
+            case "FLOOR": case "AREA": return 1;
             default: return 1;
           }
         },
@@ -142,8 +141,8 @@ class OntologyGraph extends HTMLElement {
       maxZoom: 3,
       style: [
         { selector: "node", style: { "background-color": "#e8f3f5", "border-color": "#236779", "border-width": 2, color: "#14252b", content: "data(label)", "font-size": 11, height: 46, shape: "round-rectangle", "text-background-color": "#fff", "text-background-opacity": 0.9, "text-background-padding": 3, "text-margin-y": 34, width: 56 } },
-        { selector: "node.home", style: { "background-color": "#e3f2fd", "border-color": "#1565c0", "border-width": 3, shape: "ellipse", width: 72, height: 72, "font-size": 13, "font-weight": 600, "text-margin-y": 40, "background-image": _svgUri(_MDI_HOME, "#1565c0"), "background-clip": "none", "background-fit": "none", "background-width": "48%", "background-height": "48%", "background-position-x": "50%", "background-position-y": "22%" } },
-        { selector: "node.area", style: { "background-color": "#dcebdc", "border-color": "#3b6f47", shape: "ellipse", width: 58, height: 58, "text-margin-y": 32, "background-image": _svgUri(_MDI_SOFA, "#3b6f47"), "background-clip": "none", "background-fit": "none", "background-width": "46%", "background-height": "46%", "background-position-x": "50%", "background-position-y": "20%" } },
+        { selector: "node.home", style: { "background-color": "#e3f2fd", "border-color": "#1565c0", "border-width": 3, shape: "ellipse", width: 72, height: 72, "font-size": 13, "font-weight": 600, "text-margin-y": 42, "background-image": _svgUri(_MDI_HOME, "#1565c0"), "background-fit": "contain", "background-clip": "node", "background-width": "55%", "background-height": "55%" } },
+        { selector: "node.area", style: { "background-color": "#dcebdc", "border-color": "#3b6f47", shape: "ellipse", width: 58, height: 58, "text-margin-y": 34, "background-image": _svgUri(_MDI_SOFA, "#3b6f47"), "background-fit": "contain", "background-clip": "node", "background-width": "52%", "background-height": "52%" } },
         { selector: "node.device", style: { "background-color": "#dcecf4", "border-color": "#35697e" } },
         { selector: "node.entity", style: { "background-color": "#f0eff8", "border-color": "#5c5fa6" } },
         { selector: "node.unavailable", style: { "border-style": "dashed", "border-width": 4, opacity: 0.65 } },
