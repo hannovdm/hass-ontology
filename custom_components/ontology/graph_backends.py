@@ -260,7 +260,7 @@ def _slice(rows: list[dict[str, Any]], node_limit: int, edge_limit: int) -> dict
 
 
 def _unique_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep the first node for each Cytoscape element identifier."""
+    """Keep the first node for each graph element identifier."""
     seen: set[str] = set()
     result: list[dict[str, Any]] = []
     for node in nodes:
@@ -273,7 +273,7 @@ def _unique_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _renderable_relationships(
     nodes: list[dict[str, Any]], relationships: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Remove elements that Cytoscape cannot add to a snapshot."""
+    """Remove relationships that cannot be added to a graph snapshot."""
     node_ids = {node["id"] for node in nodes}
     seen = set(node_ids)
     result: list[dict[str, Any]] = []

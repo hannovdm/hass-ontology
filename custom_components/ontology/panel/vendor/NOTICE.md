@@ -1,28 +1,18 @@
 # Vendored Frontend Dependencies
 
-## Three.js 0.155.0
+## Three.js 0.179.1
 
-- Package: `three@0.155.0`
+- Package: `three@0.179.1`
+- Files: `build/three.module.min.js`, `build/three.core.min.js`
 - License: MIT
 - URL: https://threejs.org/
+- Vendored SHA-256:
+	- `three.module.min.js`: `06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463`
+	- `three.core.min.js`: `79f2b4f58d3e99a9948a4d3b7f6d5c2daf705bdefe9fb82ebec715623966551c`
 
 ## 3D Force-Directed Graph 1.80.0
 
 - Package: `3d-force-graph@1.80.0`
 - License: MIT
 - URL: https://github.com/vasturiano/3d-force-graph
-
-- Source file: `package/dist/cytoscape.esm.min.mjs`
-- npm tarball SHA-256: `c508af4d23966eff4d71c3da8996281c2b0a7973c538d3df5c157aed9ec60b60`
-- Vendored file SHA-256: `d268787dc74a63807b1c1d240c0790fb4def01e845d058ba6f9c2a45717f9bc9`
-- License: MIT
-- Upstream: https://github.com/cytoscape/cytoscape.js
-
-Copyright (c) 2016-2025, The Cytoscape Consortium.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the conditions of the MIT License.
+- File: `dist/3d-force-graph.min.js`

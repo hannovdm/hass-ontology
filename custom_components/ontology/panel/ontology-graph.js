@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b15";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b20";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -21,16 +21,16 @@ const NODE_VALS = Object.freeze({
 });
 
 // ─── Vendor library loader ───────────────────────────────────────────────────
-// three.min.js is loaded first to set window.THREE; the 3d-force-graph UMD
-// factory then receives global.THREE, so both share the same Three.js instance.
+// Load a compatible Three.js module first; the 3d-force-graph UMD factory then
+// adopts window.THREE so custom objects and the renderer share one instance.
 
 let _libPromise = null;
 let _THREE = null;
 
 function _loadLibs() {
   if (_libPromise) return _libPromise;
-  _libPromise = _injectScript("/ontology_static/vendor/three.min.js")
-    .then(() => { _THREE = window.THREE; })
+  _libPromise = import("/ontology_static/vendor/three.module.min.js?v=0.179.1")
+    .then((three) => { _THREE = three; window.THREE = three; })
     .then(() => _injectScript("/ontology_static/vendor/3d-force-graph.min.js"));
   return _libPromise;
 }
@@ -185,31 +185,34 @@ class OntologyGraph extends HTMLElement {
     }
     this._overlay.textContent = text;
     this._overlay.style.color = isError ? "#9e2f2a" : "#555";
-    this._overlay.hidden = false;
+    this._overlay.style.display = "flex";
   }
 
-  _hideOverlay() { if (this._overlay) this._overlay.hidden = true; }
+  _hideOverlay() { if (this._overlay) this._overlay.style.display = "none"; }
 
-  setSnapshot(snapshot, hass) {
+  async setSnapshot(snapshot, hass) {
     this.connectedCallback();
     this._showOverlay("Loading 3D visualization…");
-    _loadLibs().then(() => {
+    try {
+      await _loadLibs();
       if (!window.ForceGraph3D) {
         throw new Error("vendor/3d-force-graph.min.js loaded but ForceGraph3D global is missing — check vendor deployment");
       }
-      this._hideOverlay();
       if (!this._fg) this._init();
       const { nodes, links } = _buildData(snapshot, hass);
       this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
       this._linkMap = new Map(links.map((l) => [l.id, l]));
       this._selectedId = null;
       this._fg.graphData({ nodes: nodes.slice(), links: links.slice() });
+      setTimeout(() => this._fg?.zoomToFit(500, 80), 300);
       this._fg.onEngineStop(() => { this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
-    }).catch((err) => {
+      this._hideOverlay();
+    } catch (err) {
       const msg = err?.message ?? String(err);
       this._showOverlay(`3D graph error: ${msg}`, true);
       console.error("[ontology-graph]", err);
-    });
+      throw err;
+    }
   }
 
   applySlice(slice, hass, centerId = null) {
@@ -350,4 +353,4 @@ class OntologyGraph extends HTMLElement {
   }
 }
 
-customElements.define("ontology-graph", OntologyGraph);
+if (!customElements.get("ontology-graph")) customElements.define("ontology-graph", OntologyGraph);

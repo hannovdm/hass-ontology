@@ -398,7 +398,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         webcomponent_name="ontology-panel",
         frontend_url_path=PANEL_URL_PATH,
         module_url=f"{PANEL_JS_URL}?v={integration.version}",
-        sidebar_title="Ontology",
+        sidebar_title="Ontology Explorer",
         sidebar_icon="mdi:graph-outline",
         require_admin=False,
     )

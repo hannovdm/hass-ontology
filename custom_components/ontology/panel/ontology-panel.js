@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b15";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b15";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b20";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b20";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -248,7 +248,7 @@ class OntologyPanel extends HTMLElement {
         // Preserves device/entity nodes the user expanded by clicking areas.
         this._graph.updateElements(snapshot.nodes, this._hass);
       } else {
-        this._graph.setSnapshot(snapshot, this._hass);
+        await this._graph.setSnapshot(snapshot, this._hass);
       }
       const homeName = this._hass?.config?.location_name || "Home";
       this._summary.textContent = `${snapshot.nodes.length} nodes · ${snapshot.relationships?.length || 0} relationships · ${homeName}`;
@@ -323,7 +323,7 @@ class OntologyPanel extends HTMLElement {
       try {
         const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
         this._snapshot = snapshot;
-        this._graph.setSnapshot(snapshot, this._hass);
+        await this._graph.setSnapshot(snapshot, this._hass);
         this._renderNodeList(snapshot.nodes);
         this._renderFilters();
         this._subscriptionReconnectAttempt = 0;
