@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b28";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b28";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b29";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b29";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -82,10 +82,12 @@ class OntologyPanel extends HTMLElement {
         .legend-swatch.area { border-color: #3b6f47; background: #dcebdc; }
         .legend-swatch.finding { transform: rotate(45deg); border-color: #9b6500; background: #fff1c7; }
         .legend-swatch.unavailable { border-style: dashed; opacity: .65; }
-        .node-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
-        .node-list button { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; width: 100%; min-height: 42px; padding: 7px 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-        .node-list button:hover, .node-list button:focus-visible, .node-list button[aria-pressed="true"] { border-color: var(--primary-color, #23728a); background: var(--card-background-color, #fff); outline: none; }
-        .node-list small { display: block; color: var(--secondary-text-color, #56666d); }
+        .node-list, .relationship-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+        .node-list button, .relationship-list button { width: 100%; min-height: 42px; padding: 7px 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+        .node-list button { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; }
+        .node-list button:hover, .node-list button:focus-visible, .node-list button[aria-pressed="true"], .relationship-list button:hover, .relationship-list button:focus-visible { border-color: var(--primary-color, #23728a); background: var(--card-background-color, #fff); outline: none; }
+        .node-list small, .relationship-list small { display: block; color: var(--secondary-text-color, #56666d); overflow-wrap: anywhere; }
+        .relationship-list strong { display: block; font-size: 12px; font-weight: 600; }
         @media (max-width: 720px) {
           .ontology-shell { grid-template-rows: auto auto; }
           .ontology-header { align-items: start; padding: 16px; }
@@ -142,9 +144,13 @@ class OntologyPanel extends HTMLElement {
                 <span class="legend-swatch unavailable"></span><span>Presentation group</span>
               </div>
             </section>
-            <section aria-labelledby="ontology-node-list-heading">
+            <section class="sidebar-section" aria-labelledby="ontology-node-list-heading">
               <h2 id="ontology-node-list-heading">Graph nodes</h2>
               <ul class="node-list" aria-label="Ontology graph nodes"></ul>
+            </section>
+            <section aria-labelledby="ontology-relationship-list-heading">
+              <h2 id="ontology-relationship-list-heading">Graph relationships</h2>
+              <ul class="relationship-list" aria-label="Ontology graph relationships"></ul>
             </section>
             <section class="sidebar-section lab-workspace" hidden aria-label="Advanced graph workspace">
               <h2>Memgraph Lab</h2>
@@ -161,10 +167,12 @@ class OntologyPanel extends HTMLElement {
     this._state = this.querySelector(".graph-state");
     this._subscriptionIndicator = this.querySelector(".subscription-indicator");
     this._list = this.querySelector(".node-list");
+    this._relationshipList = this.querySelector(".relationship-list");
     this._searchForm = this.querySelector(".search-form");
     this._searchResults = this.querySelector(".search-results");
     this._details = this.querySelector(".details");
     this._nodeListHeading = this.querySelector("#ontology-node-list-heading");
+    this._relationshipListHeading = this.querySelector("#ontology-relationship-list-heading");
     this._nodeFilters = this.querySelector(".node-filters");
     this._relationshipFilters = this.querySelector(".relationship-filters");
     this._labWorkspace = this.querySelector(".lab-workspace");
@@ -227,11 +235,13 @@ class OntologyPanel extends HTMLElement {
     this._unsubscribe();
     try {
       const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
+      const focusedContext = silent ? this._focusSlice : null;
       this._snapshot = snapshot;
-      this._focusSlice = null;
+      this._focusSlice = focusedContext;
       if (!snapshot.nodes?.length) {
         this._summary.textContent = "0 nodes and 0 relationships";
         this._renderNodeList([]);
+        this._renderRelationshipList(snapshot);
         this._showState("empty", true);
         return;
       }
@@ -244,8 +254,10 @@ class OntologyPanel extends HTMLElement {
       }
       const homeName = this._hass?.config?.location_name || "Home";
       this._summary.textContent = `${snapshot.nodes.length} nodes · ${snapshot.relationships?.length || 0} relationships · ${homeName}`;
-      this._renderNodeList(snapshot.nodes);
-      this._renderFilters();
+      const visibleContext = this._focusSlice || snapshot;
+      this._renderNodeList(visibleContext.nodes, visibleContext);
+      this._renderRelationshipList(visibleContext);
+      this._renderFilters(visibleContext);
       this._showState(snapshot.truncated ? "partial" : null);
       this._subscriptionReconnectAttempt = 0;
       this._startSubscription(snapshot.revision ?? 0);
@@ -388,10 +400,10 @@ class OntologyPanel extends HTMLElement {
     }
   }
 
-  _renderNodeList(nodes) {
+  _renderNodeList(nodes, context = this._focusSlice || this._snapshot) {
     this._list.replaceChildren();
     const uniqueNodes = [...new Map(nodes.map((node) => [node.id, node])).values()];
-    const unassigned = uniqueNodes.some((node) => node.type === "DEVICE" && !this._isAssigned(node.id));
+    const unassigned = !this._focusSlice && uniqueNodes.some((node) => node.type === "DEVICE" && !this._isAssigned(node.id, context));
     const visibleNodes = unassigned
       ? [...uniqueNodes, { id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true }]
       : uniqueNodes;
@@ -420,9 +432,39 @@ class OntologyPanel extends HTMLElement {
     }
   }
 
-  _isAssigned(deviceId) {
-    const nodes = new Map((this._snapshot?.nodes || []).map((node) => [node.id, node]));
-    return (this._snapshot?.relationships || []).some((relationship) => {
+  _renderRelationshipList(context) {
+    this._relationshipList.replaceChildren();
+    const nodes = new Map((context?.nodes || []).map((node) => [node.id, node]));
+    const relationships = [...new Map((context?.relationships || []).map((relationship) => [
+      `${relationship.source}\u0000${relationship.type}\u0000${relationship.target}`,
+      relationship,
+    ])).values()];
+    for (const relationship of relationships) {
+      const source = nodes.get(relationship.source);
+      const target = nodes.get(relationship.target);
+      if (!source || !target) continue;
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.relationshipId = relationship.id;
+      button.setAttribute("aria-label", `${source.label}, ${relationship.type.toLowerCase().replaceAll("_", " ")}, ${target.label}`);
+      const type = document.createElement("strong");
+      type.textContent = relationship.type.replaceAll("_", " ");
+      const endpoints = document.createElement("small");
+      endpoints.textContent = `${source.label} → ${target.label}`;
+      button.append(type, endpoints);
+      button.addEventListener("click", () => {
+        this._currentDetailId = relationship.id;
+        this._loadDetail(relationship.id);
+      });
+      item.append(button);
+      this._relationshipList.append(item);
+    }
+  }
+
+  _isAssigned(deviceId, context = this._snapshot) {
+    const nodes = new Map((context?.nodes || []).map((node) => [node.id, node]));
+    return (context?.relationships || []).some((relationship) => {
       const source = nodes.get(relationship.source);
       const target = nodes.get(relationship.target);
       return (source?.type === "AREA" && relationship.target === deviceId) || (target?.type === "AREA" && relationship.source === deviceId);
@@ -443,9 +485,11 @@ class OntologyPanel extends HTMLElement {
       this._details.hidden = true;
       this._focusSlice = null;
       this._nodeListHeading.textContent = "Graph nodes";
+        this._relationshipListHeading.textContent = "Graph relationships";
       if (this._snapshot?.nodes?.length) {
         await this._graph.setSnapshot(this._snapshot, this._hass);
-        this._renderNodeList(this._snapshot.nodes);
+          this._renderNodeList(this._snapshot.nodes, this._snapshot);
+          this._renderRelationshipList(this._snapshot);
         this._renderFilters();
       }
       return;
@@ -522,29 +566,34 @@ class OntologyPanel extends HTMLElement {
     const status = this._details.querySelector(".expansion-status");
     try {
       const slices = [await this._requestExpansion(nodeId)];
-      if (this._graph.getNodeType(nodeId) === "AREA") {
-        const deviceIds = slices[0].nodes
+      const focusedType = this._graph.getNodeType(nodeId) || this._snapshot?.nodes.find((node) => node.id === nodeId)?.type;
+      let entitySlices = focusedType === "ENTITY" ? slices : [];
+      if (focusedType === "AREA" || focusedType === "DEVICE") {
+        const deviceIds = focusedType === "AREA" ? slices[0].nodes
           .filter((node) => node.type === "DEVICE")
-          .map((node) => node.id);
+          .map((node) => node.id) : [nodeId];
         const expandedDeviceIds = deviceIds.slice(0, AREA_NEIGHBOR_EXPANSION_LIMIT);
-        const deviceResults = await Promise.allSettled(expandedDeviceIds.map((id) => this._requestExpansion(id)));
-        const deviceSlices = deviceResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
-        slices.push(...deviceSlices);
+        const deviceResults = focusedType === "AREA"
+          ? await Promise.allSettled(expandedDeviceIds.map((id) => this._requestExpansion(id))) : [];
+        const deviceSlices = focusedType === "AREA"
+          ? deviceResults.filter((result) => result.status === "fulfilled").map((result) => result.value) : slices;
+        if (focusedType === "AREA") slices.push(...deviceSlices);
         const entityIds = this._connectedNodeIds(deviceSlices, new Set(expandedDeviceIds), "ENTITY");
         let remaining = Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - expandedDeviceIds.length, 0);
         const expandedEntityIds = entityIds.slice(0, remaining);
         const entityResults = await Promise.allSettled(expandedEntityIds.map((id) => this._requestExpansion(id)));
-        const entitySlices = entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
+        entitySlices = entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
         slices.push(...entitySlices);
-        remaining = Math.max(remaining - expandedEntityIds.length, 0);
-        const cardIds = this._connectedNodeIds(entitySlices, new Set(expandedEntityIds), "DASHBOARD_CARD");
-        const expandedCardIds = cardIds.slice(0, remaining);
-        const cardResults = await Promise.allSettled(expandedCardIds.map((id) => this._requestExpansion(id)));
-        slices.push(...cardResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
-        if (deviceIds.length > expandedDeviceIds.length || entityIds.length > expandedEntityIds.length || cardIds.length > expandedCardIds.length) {
+        if (deviceIds.length > expandedDeviceIds.length || entityIds.length > expandedEntityIds.length) {
           slices[0] = { ...slices[0], truncated: true };
         }
       }
+      const entityIds = entitySlices.flatMap((slice) => slice.nodes || []).filter((node) => node.type === "ENTITY").map((node) => node.id);
+      const cardIds = this._connectedNodeIds(entitySlices, new Set(entityIds), "DASHBOARD_CARD");
+      const expandedCardIds = cardIds.slice(0, AREA_NEIGHBOR_EXPANSION_LIMIT);
+      const cardResults = await Promise.allSettled(expandedCardIds.map((id) => this._requestExpansion(id)));
+      slices.push(...cardResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
+      if (cardIds.length > expandedCardIds.length) slices[0] = { ...slices[0], truncated: true };
       const slice = this._combineSlices(slices);
       const cachedFocusedNode = this._snapshot?.nodes.find((node) => node.id === nodeId);
       if (cachedFocusedNode && !slice.nodes.some((node) => node.id === nodeId)) slice.nodes.unshift(cachedFocusedNode);
@@ -554,7 +603,9 @@ class OntologyPanel extends HTMLElement {
       await this._graph.setFocus(slice, this._hass, nodeId);
       const visibleFocusedNode = slice.nodes.find((node) => node.id === nodeId);
       this._nodeListHeading.textContent = `Nodes in ${visibleFocusedNode?.label || "focus"}`;
-      this._renderNodeList(slice.nodes);
+      this._relationshipListHeading.textContent = `Relationships in ${visibleFocusedNode?.label || "focus"}`;
+      this._renderNodeList(slice.nodes, slice);
+      this._renderRelationshipList(slice);
       this._syncSelection(nodeId);
       this._renderFilters(slice);
       status.textContent = slice.truncated

@@ -206,9 +206,18 @@ test("single-clicking an area replaces the view with its complete focused contex
   await expect(page.getByRole("button", { name: "Morning routine, automation" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relationships in Kitchen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen, has device, Kitchen lamp" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen lamp, has entity, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Morning routine, references, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen card, displays entity, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, contains card, Kitchen card" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Garage, area" })).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen, area" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("All available relationships loaded.")).toBeVisible();
+  await page.getByRole("button", { name: "Morning routine, references, Kitchen temperature" }).click();
+  await expect(page.locator(".details h2")).toHaveText("REFERENCES");
+  await expect(page.locator(".detail-record")).toContainText("Relationship");
 
   const facts = await page.locator("ontology-panel").evaluate((panel) => ({
     expansionIds: panel._wsCalls
@@ -283,9 +292,19 @@ test("single-clicking an area replaces the view with its complete focused contex
   await expect(page.locator(".details h2")).toHaveText("Kitchen lamp");
   await expect(page.locator(".detail-record")).toHaveText("DEVICE · lamp");
   await expect(page.getByRole("heading", { name: "Nodes in Kitchen lamp" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relationships in Kitchen lamp" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Morning routine, references, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen card, displays entity, Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, contains card, Kitchen card" })).toBeVisible();
+
+  await page.locator("ontology-panel").evaluate((panel) => panel._loadSnapshot(true, true));
+  await expect(page.getByRole("heading", { name: "Nodes in Kitchen lamp" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Garage, area" })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, contains card, Kitchen card" })).toBeVisible();
 });
 
 test("single-clicking a dashboard loads every direct card relationship", async ({ page }) => {
