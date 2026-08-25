@@ -189,6 +189,30 @@ test("expands one hop and preserves selection and viewport", async ({ page }) =>
   expect(after.zoom).toBeCloseTo(before.zoom);
 });
 
+test("double-clicking an area loads device, entity, and automation relationships", async ({ page }) => {
+  await openFixture(page, "double-click-expansion");
+  await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
+  await page.locator("ontology-panel").evaluate((panel) => {
+    const area = panel.graph._fg.graphData().nodes.find(({ id }) => id === "Area:kitchen");
+    const onNodeClick = panel.graph._fg.onNodeClick();
+    onNodeClick(area);
+    onNodeClick(area);
+  });
+
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Morning routine, automation" })).toBeVisible();
+
+  const facts = await page.locator("ontology-panel").evaluate((panel) => ({
+    expansionIds: panel._wsCalls
+      .filter(({ type }) => type === "ontology/graph_expand")
+      .map(({ node_id: nodeId }) => nodeId),
+    linkIds: panel.graph._fg.graphData().links.map(({ id }) => id),
+  }));
+  expect(facts.expansionIds).toEqual(["Area:kitchen", "Device:lamp", "Entity:sensor.kitchen_temperature"]);
+  expect(facts.linkIds).toEqual(expect.arrayContaining(["HAS_DEVICE:1", "HAS_ENTITY:primary", "REFERENCES:1"]));
+});
+
 test("supports filter, clear, pan, zoom, fit, reset, and drag", async ({ page }) => {
   await openFixture(page, "interactive");
   const panel = page.locator("ontology-panel");

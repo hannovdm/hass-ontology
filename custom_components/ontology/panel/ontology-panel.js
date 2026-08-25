@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b24";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b24";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b25";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b25";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -11,6 +11,7 @@ const STATE_MESSAGES = {
 
 const SUBSCRIPTION_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000, 10000];
 const SUBSCRIPTION_MAX_RECONNECT_ATTEMPTS = 5;
+const AREA_NEIGHBOR_EXPANSION_LIMIT = 50;
 
 class OntologyPanel extends HTMLElement {
   connectedCallback() {
@@ -176,6 +177,7 @@ class OntologyPanel extends HTMLElement {
       if (event.target.closest("button")) this._loadSnapshot(true);
     });
     this.addEventListener("graph-selection-changed", ({ detail }) => this._selectionChanged(detail.id));
+    this.addEventListener("graph-node-expand", ({ detail }) => this._expandNodeNeighborhood(detail.id));
     this._searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
       this._search(this._searchForm.elements[0].value);
@@ -508,19 +510,69 @@ class OntologyPanel extends HTMLElement {
   }
 
   async _expandSelection() {
-    const nodeId = this._graph.selectedId;
+    await this._expandNodeNeighborhood(this._graph.selectedId);
+  }
+
+  async _expandNodeNeighborhood(nodeId) {
     if (!nodeId || nodeId === UNASSIGNED_ID) return;
     const status = this._details.querySelector(".expansion-status");
     try {
-      const slice = await this._hass.callWS({ type: "ontology/graph_expand", node_id: nodeId, node_limit: 25, edge_limit: 50, cursor: null });
+      const slices = [await this._requestExpansion(nodeId)];
+      if (this._graph.getNodeType(nodeId) === "AREA") {
+        const deviceIds = slices[0].nodes
+          .filter((node) => node.type === "DEVICE")
+          .map((node) => node.id);
+        const deviceResults = await Promise.allSettled(deviceIds.map((id) => this._requestExpansion(id)));
+        const deviceSlices = deviceResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
+        slices.push(...deviceSlices);
+        const entityIds = this._connectedNodeIds(deviceSlices, new Set(deviceIds), "ENTITY");
+        const remaining = Math.max(AREA_NEIGHBOR_EXPANSION_LIMIT - deviceIds.length, 0);
+        const entityResults = await Promise.allSettled(entityIds.slice(0, remaining).map((id) => this._requestExpansion(id)));
+        slices.push(...entityResults.filter((result) => result.status === "fulfilled").map((result) => result.value));
+        if (entityIds.length > remaining) slices[0] = { ...slices[0], truncated: true };
+      }
+      const slice = this._combineSlices(slices);
       this._mergeSnapshot(slice);
       this._graph.applySlice(slice, this._hass, nodeId);
       this._renderNodeList(this._snapshot.nodes);
       this._renderFilters();
-      status.textContent = slice.truncated ? "Expansion is truncated. Expand again to continue." : "One-hop relationships loaded.";
+      status.textContent = slice.truncated ? "Expansion is truncated. Expand again to continue." : "Related devices, entities, and automations loaded.";
     } catch (error) {
       status.textContent = error?.code === "stale_cursor" ? "The graph changed. Start this expansion again." : "Expansion could not be completed.";
     }
+  }
+
+  _requestExpansion(nodeId) {
+    return this._hass.callWS({ type: "ontology/graph_expand", node_id: nodeId, node_limit: 25, edge_limit: 50, cursor: null });
+  }
+
+  _connectedNodeIds(slices, sourceIds, nodeType) {
+    const nodes = new Map(slices.flatMap((slice) => slice.nodes || []).map((node) => [node.id, node]));
+    const ids = new Set();
+    for (const slice of slices) {
+      for (const relationship of slice.relationships || []) {
+        const candidate = sourceIds.has(relationship.source) ? relationship.target
+          : sourceIds.has(relationship.target) ? relationship.source : null;
+        if (candidate && nodes.get(candidate)?.type === nodeType) ids.add(candidate);
+      }
+    }
+    return [...ids];
+  }
+
+  _combineSlices(slices) {
+    const nodes = new Map();
+    const relationships = new Map();
+    for (const slice of slices) {
+      for (const node of slice.nodes || []) nodes.set(node.id, node);
+      for (const relationship of slice.relationships || []) relationships.set(relationship.id, relationship);
+    }
+    return {
+      nodes: [...nodes.values()],
+      relationships: [...relationships.values()],
+      truncated: slices.some((slice) => slice.truncated),
+      nextCursor: null,
+      revision: Math.max(0, ...slices.map((slice) => slice.revision || 0)),
+    };
   }
 
   _mergeSnapshot(slice) {

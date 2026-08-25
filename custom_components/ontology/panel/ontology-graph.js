@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b24";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b25";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -438,6 +438,7 @@ class OntologyGraph extends HTMLElement {
         this._setSelected(n.id);
         if (isDoubleClick) {
           this._focusNode(n.id);
+          this.dispatchEvent(new CustomEvent("graph-node-expand", { detail: { id: n.id }, bubbles: true }));
         } else {
           this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
         }

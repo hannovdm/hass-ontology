@@ -58,6 +58,30 @@
         next_cursor: null,
         revision: 8,
       };
+      const areaNeighborhood = {
+        nodes: [
+          populated.nodes[0],
+          populated.nodes[1],
+        ],
+        relationships: [
+          populated.relationships[0],
+        ],
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
+      const entityNeighborhood = {
+        nodes: [
+          exploration.nodes[1],
+          { id: "Automation:morning", haId: "morning", type: "AUTOMATION", label: "Morning routine", icon: "mdi:robot", unavailable: false, properties: [] },
+        ],
+        relationships: [
+          { id: "REFERENCES:1", type: "REFERENCES", source: "Automation:morning", target: "Entity:sensor.kitchen_temperature", directed: true, properties: [] },
+        ],
+        truncated: false,
+        next_cursor: null,
+        revision: 8,
+      };
 
       const searchMatches = {
         "Entity:sensor.kitchen_temperature": [exploration.nodes[1]],
@@ -78,6 +102,7 @@
         user: { id: "fixture-user", is_admin: isAdmin },
         states: {},
         callWS: async (message) => {
+          (panel._wsCalls ||= []).push(message);
           const { type } = message;
           if (type === "ontology/lab_status") {
             if (!isAdmin) throw { code: "unauthorized", message: "Administrator access required" };
@@ -93,13 +118,19 @@
               revision: 8,
             };
           }
-          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview")) {
+          if (type === "ontology/graph_detail" && (state === "interactive" || state === "live-updates" || state === "area-overview" || state === "double-click-expansion")) {
             const nodes = [...populated.nodes, ...exploration.nodes, ...(searchMatches["Shared sensor"] || [])];
             const node = nodes.find(({ id }) => id === message.element_id);
             const relationship = exploration.relationships.find(({ id }) => id === message.element_id);
             if (!node && !relationship) throw { code: "not_found", message: "Graph element was not found" };
             const directConnections = node?.type === "AREA" ? areaExploration : exploration;
             return { node: node || null, relationship: relationship || null, directConnections };
+          }
+          if (type === "ontology/graph_expand" && state === "double-click-expansion") {
+            if (message.node_id === "Area:kitchen") return areaNeighborhood;
+            if (message.node_id === "Device:lamp") return exploration;
+            if (message.node_id === "Entity:sensor.kitchen_temperature") return entityNeighborhood;
+            throw { code: "not_found", message: "Graph element was not found" };
           }
           if (type === "ontology/graph_expand" && state === "interactive") return exploration;
           if (type !== "ontology/graph_snapshot") throw new Error(`Unexpected command: ${type}`);
@@ -121,7 +152,7 @@
           if (state === "live-updates") {
             return { ...populated, revision: 7 };
           }
-          if (state === "area-overview") {
+          if (state === "area-overview" || state === "double-click-expansion") {
             return areaOverview;
           }
           if (state === "malformed") {
