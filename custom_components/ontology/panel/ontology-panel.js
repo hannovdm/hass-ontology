@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b13";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b13";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b14";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b14";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],

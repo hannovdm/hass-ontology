@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b13";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b14";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -268,7 +268,11 @@ class OntologyGraph extends HTMLElement {
   }
 
   _init() {
+    const w = this._container.clientWidth || 800;
+    const h = this._container.clientHeight || 600;
     this._fg = window.ForceGraph3D()(this._container)
+      .width(w)
+      .height(h)
       .backgroundColor("rgba(0,0,0,0)")
       .showNavInfo(false)
       .nodeId("id")
