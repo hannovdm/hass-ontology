@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b14";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b15";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -159,7 +159,7 @@ class OntologyGraph extends HTMLElement {
 
   connectedCallback() {
     if (this._container) return;
-    Object.assign(this.style, { display: "block", width: "100%", height: "100%" });
+    Object.assign(this.style, { display: "block", width: "100%", height: "100%", position: "relative" });
     this._container = document.createElement("div");
     Object.assign(this._container.style, { width: "100%", height: "100%", overflow: "hidden" });
     this.append(this._container);
@@ -171,9 +171,33 @@ class OntologyGraph extends HTMLElement {
     if (this._fg) { this._fg.pauseAnimation(); this._fg._destructor?.(); this._fg = null; }
   }
 
+  // Overlay shown while vendor libraries load or when they fail
+  _showOverlay(text, isError = false) {
+    if (!this._overlay) {
+      this._overlay = document.createElement("div");
+      Object.assign(this._overlay.style, {
+        position: "absolute", inset: "0", display: "flex",
+        alignItems: "center", justifyContent: "center", zIndex: "5",
+        background: "rgba(255,255,255,0.92)", fontFamily: "sans-serif",
+        fontSize: "13px", padding: "20px", textAlign: "center",
+      });
+      this.append(this._overlay);
+    }
+    this._overlay.textContent = text;
+    this._overlay.style.color = isError ? "#9e2f2a" : "#555";
+    this._overlay.hidden = false;
+  }
+
+  _hideOverlay() { if (this._overlay) this._overlay.hidden = true; }
+
   setSnapshot(snapshot, hass) {
     this.connectedCallback();
+    this._showOverlay("Loading 3D visualization…");
     _loadLibs().then(() => {
+      if (!window.ForceGraph3D) {
+        throw new Error("vendor/3d-force-graph.min.js loaded but ForceGraph3D global is missing — check vendor deployment");
+      }
+      this._hideOverlay();
       if (!this._fg) this._init();
       const { nodes, links } = _buildData(snapshot, hass);
       this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -181,7 +205,11 @@ class OntologyGraph extends HTMLElement {
       this._selectedId = null;
       this._fg.graphData({ nodes: nodes.slice(), links: links.slice() });
       this._fg.onEngineStop(() => { this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
-    }).catch(console.error);
+    }).catch((err) => {
+      const msg = err?.message ?? String(err);
+      this._showOverlay(`3D graph error: ${msg}`, true);
+      console.error("[ontology-graph]", err);
+    });
   }
 
   applySlice(slice, hass, centerId = null) {
