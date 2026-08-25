@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b27";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b28";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -176,7 +176,7 @@ class OntologyGraph extends HTMLElement {
 
   _hideOverlay() { if (this._overlay) this._overlay.style.display = "none"; }
 
-  async setSnapshot(snapshot, hass) {
+  async setSnapshot(snapshot, hass, includePresentation = true) {
     this.connectedCallback();
     this._showOverlay("Loading 3D visualization…");
     try {
@@ -185,7 +185,7 @@ class OntologyGraph extends HTMLElement {
         throw new Error("vendor/3d-force-graph.min.js loaded but ForceGraph3D global is missing — check vendor deployment");
       }
       if (!this._fg) this._init();
-      const { nodes, links } = _buildData(snapshot, hass);
+      const { nodes, links } = _buildData(snapshot, hass, includePresentation);
       this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
       this._linkMap = new Map(links.map((l) => [l.id, l]));
       this._selectedId = null;
@@ -203,6 +203,12 @@ class OntologyGraph extends HTMLElement {
       console.error("[ontology-graph]", err);
       throw err;
     }
+  }
+
+  async setFocus(slice, hass, nodeId) {
+    await this.setSnapshot(slice, hass, false);
+    this._setSelected(nodeId);
+    this.fitNodes((slice.nodes || []).map((node) => node.id), nodeId);
   }
 
   applySlice(slice, hass, centerId = null) {
@@ -248,12 +254,32 @@ class OntologyGraph extends HTMLElement {
     if (centerId) setTimeout(() => this._focusNode(centerId), 150);
   }
 
-  fitNodes(nodeIds) {
+  fitNodes(nodeIds, centerId = null) {
     if (!this._fg) return;
     const ids = new Set(nodeIds || []);
     if (!ids.size) return;
     this._viewInteracted = true;
-    setTimeout(() => this._fg?.zoomToFit(650, 90, (node) => ids.has(node.id)), 350);
+    setTimeout(() => {
+      this._fg?.zoomToFit(650, 110, (node) => ids.has(node.id));
+      if (!centerId) return;
+      setTimeout(() => {
+        const center = this._nodeMap.get(centerId);
+        if (!center || !this._fg) return;
+        const target = this._fg.controls().target;
+        const camera = this._fg.camera().position;
+        const centerPosition = { x: center.x ?? 0, y: center.y ?? 0, z: center.z ?? 0 };
+        const distanceScale = 1.65;
+        this._fg.cameraPosition(
+          {
+            x: centerPosition.x + (camera.x - target.x) * distanceScale,
+            y: centerPosition.y + (camera.y - target.y) * distanceScale,
+            z: centerPosition.z + (camera.z - target.z) * distanceScale,
+          },
+          centerPosition,
+          350,
+        );
+      }, 700);
+    }, 350);
   }
 
   removeElements(ids) {
@@ -442,16 +468,9 @@ class OntologyGraph extends HTMLElement {
       .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type))
       .onNodeClick((n) => {
         this._viewInteracted = true;
-        const now = performance.now();
-        const isDoubleClick = this._lastNodeClick?.id === n.id && now - this._lastNodeClick.time < 350;
-        this._lastNodeClick = { id: n.id, time: now };
         this._setSelected(n.id);
-        if (isDoubleClick) {
-          this._focusNode(n.id);
-          this.dispatchEvent(new CustomEvent("graph-node-expand", { detail: { id: n.id }, bubbles: true }));
-        } else {
-          this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
-        }
+        this._focusNode(n.id);
+        this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
       })
       .onBackgroundClick(() => {
         this._viewInteracted = true;

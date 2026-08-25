@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b27";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b27";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b28";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b28";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -164,6 +164,7 @@ class OntologyPanel extends HTMLElement {
     this._searchForm = this.querySelector(".search-form");
     this._searchResults = this.querySelector(".search-results");
     this._details = this.querySelector(".details");
+    this._nodeListHeading = this.querySelector("#ontology-node-list-heading");
     this._nodeFilters = this.querySelector(".node-filters");
     this._relationshipFilters = this.querySelector(".relationship-filters");
     this._labWorkspace = this.querySelector(".lab-workspace");
@@ -179,7 +180,6 @@ class OntologyPanel extends HTMLElement {
       if (event.target.closest("button")) this._loadSnapshot(true);
     });
     this.addEventListener("graph-selection-changed", ({ detail }) => this._selectionChanged(detail.id));
-    this.addEventListener("graph-node-expand", ({ detail }) => this._expandNodeNeighborhood(detail.id));
     this._searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
       this._search(this._searchForm.elements[0].value);
@@ -228,6 +228,7 @@ class OntologyPanel extends HTMLElement {
     try {
       const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
       this._snapshot = snapshot;
+      this._focusSlice = null;
       if (!snapshot.nodes?.length) {
         this._summary.textContent = "0 nodes and 0 relationships";
         this._renderNodeList([]);
@@ -440,10 +441,18 @@ class OntologyPanel extends HTMLElement {
     this._syncSelection(elementId);
     if (!elementId || elementId === UNASSIGNED_ID || elementId === SYNTHETIC_HOME_ID) {
       this._details.hidden = true;
+      this._focusSlice = null;
+      this._nodeListHeading.textContent = "Graph nodes";
+      if (this._snapshot?.nodes?.length) {
+        await this._graph.setSnapshot(this._snapshot, this._hass);
+        this._renderNodeList(this._snapshot.nodes);
+        this._renderFilters();
+      }
       return;
     }
-    const type = this._graph.getNodeType(elementId);
-    await this._loadDetail(elementId, type === "AREA" || type === "DEVICE");
+    await this._loadDetail(elementId);
+    if (this._currentDetailId !== elementId) return;
+    await this._expandNodeNeighborhood(elementId);
   }
 
   async _search(rawTerm) {
@@ -471,23 +480,16 @@ class OntologyPanel extends HTMLElement {
   }
 
   async _focusSearchResult(match) {
-    if (!this._graph.hasNode(match.id)) await this._loadDetail(match.id, true);
-    this._graph.selectNode(match.id);
+    await this._selectionChanged(match.id);
   }
 
-  async _loadDetail(elementId, addConnections = false) {
+  async _loadDetail(elementId) {
     try {
       const detail = await this._hass.callWS({ type: "ontology/graph_detail", element_id: elementId });
       // Guard: if the user selected a different element while the WS call was in flight, discard this result
       if (this._currentDetailId !== elementId) return;
       const element = detail.node || detail.relationship;
       if (!element) return;
-      if (addConnections && detail.directConnections) {
-        this._mergeSnapshot(detail.directConnections);
-        this._graph.applySlice(detail.directConnections, this._hass, elementId);
-        this._renderNodeList(this._snapshot.nodes);
-        this._renderFilters();
-      }
       this._renderDetails(element);
     } catch (error) {
       this._showState(error?.code === "gateway_unavailable" ? "unavailable" : "error", true);
@@ -544,11 +546,17 @@ class OntologyPanel extends HTMLElement {
         }
       }
       const slice = this._combineSlices(slices);
+      const cachedFocusedNode = this._snapshot?.nodes.find((node) => node.id === nodeId);
+      if (cachedFocusedNode && !slice.nodes.some((node) => node.id === nodeId)) slice.nodes.unshift(cachedFocusedNode);
+      if (this._currentDetailId !== nodeId) return;
       this._mergeSnapshot(slice);
-      this._graph.applySlice(slice, this._hass);
-      this._graph.fitNodes(slice.nodes.map((node) => node.id));
-      this._renderNodeList(this._snapshot.nodes);
-      this._renderFilters();
+      this._focusSlice = slice;
+      await this._graph.setFocus(slice, this._hass, nodeId);
+      const visibleFocusedNode = slice.nodes.find((node) => node.id === nodeId);
+      this._nodeListHeading.textContent = `Nodes in ${visibleFocusedNode?.label || "focus"}`;
+      this._renderNodeList(slice.nodes);
+      this._syncSelection(nodeId);
+      this._renderFilters(slice);
       status.textContent = slice.truncated
         ? "Expansion reached its safety limit. Some relationships may not be shown."
         : "All available relationships loaded.";
@@ -605,9 +613,9 @@ class OntologyPanel extends HTMLElement {
     this._summary.textContent = `${nodes.size} nodes and ${relationships.size} relationships`;
   }
 
-  _renderFilters() {
-    const nodeTypes = [...new Set((this._snapshot?.nodes || []).map((node) => node.type))].sort();
-    const relationshipTypes = [...new Set((this._snapshot?.relationships || []).map((relationship) => relationship.type))].sort();
+  _renderFilters(context = this._focusSlice || this._snapshot) {
+    const nodeTypes = [...new Set((context?.nodes || []).map((node) => node.type))].sort();
+    const relationshipTypes = [...new Set((context?.relationships || []).map((relationship) => relationship.type))].sort();
     this._renderFilterGroup(this._nodeFilters, nodeTypes, this._hiddenNodeTypes, "node");
     this._renderFilterGroup(this._relationshipFilters, relationshipTypes, this._hiddenRelationshipTypes, "relationship");
   }

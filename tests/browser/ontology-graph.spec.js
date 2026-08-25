@@ -189,21 +189,25 @@ test("expands one hop and preserves selection and viewport", async ({ page }) =>
   expect(after.zoom).toBeCloseTo(before.zoom);
 });
 
-test("double-clicking an area loads all available relationships including dashboards", async ({ page }) => {
+test("single-clicking an area replaces the view with its complete focused context", async ({ page }) => {
   await openFixture(page, "double-click-expansion");
   await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
+  await expect(page.getByRole("button", { name: "Garage, area" })).toBeVisible();
   await page.locator("ontology-panel").evaluate((panel) => {
     const area = panel.graph._fg.graphData().nodes.find(({ id }) => id === "Area:kitchen");
-    const onNodeClick = panel.graph._fg.onNodeClick();
-    onNodeClick(area);
-    onNodeClick(area);
+    panel.graph._fg.onNodeClick()(area);
   });
 
+  await expect(page.locator(".details h2")).toHaveText("Kitchen");
+  await expect(page.locator(".detail-record")).toHaveText("AREA · kitchen");
+  await expect(page.getByRole("heading", { name: "Nodes in Kitchen" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Morning routine, automation" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Garage, area" })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen, area" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("All available relationships loaded.")).toBeVisible();
 
   const facts = await page.locator("ontology-panel").evaluate((panel) => ({
@@ -218,6 +222,7 @@ test("double-clicking an area loads all available relationships including dashbo
       source: source.id || source,
       target: target.id || target,
     })),
+    graphNodeIds: panel.graph._fg.graphData().nodes.map(({ id }) => id),
   }));
   expect(facts.expansionIds).toEqual([
     "Area:kitchen",
@@ -226,6 +231,17 @@ test("double-clicking an area loads all available relationships including dashbo
     "DashboardCard:lovelace::0::0",
   ]);
   expect(facts.expansionLimits).toEqual(facts.expansionIds.map(() => ({ nodeLimit: 250, edgeLimit: 500 })));
+  expect(facts.graphNodeIds).toEqual(expect.arrayContaining([
+    "Area:kitchen",
+    "Device:lamp",
+    "Entity:sensor.kitchen_temperature",
+    "Automation:morning",
+    "DashboardCard:lovelace::0::0",
+    "Dashboard:lovelace",
+  ]));
+  expect(facts.graphNodeIds).not.toContain("Area:garage");
+  expect(facts.graphNodeIds).not.toContain("presentation:home");
+  expect(facts.graphNodeIds).not.toContain("presentation:unassigned");
   expect(facts.links).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: "HAS_DEVICE:1", source: "Area:kitchen", target: "Device:lamp" }),
     expect.objectContaining({ id: "HAS_ENTITY:primary", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature" }),
@@ -234,7 +250,7 @@ test("double-clicking an area loads all available relationships including dashbo
     expect.objectContaining({ id: "CONTAINS_CARD:1", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0" }),
   ]));
 
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1800);
   const framing = await page.locator("ontology-panel").evaluate((panel) => {
     const graph = panel.graph;
     const width = graph.clientWidth;
@@ -259,16 +275,25 @@ test("double-clicking an area loads all available relationships including dashbo
     expect(node.y, `${node.id} should fit vertically`).toBeGreaterThan(0);
     expect(node.y, `${node.id} should fit vertically`).toBeLessThan(node.height);
   }
+  const focusedArea = framing.find(({ id }) => id === "Area:kitchen");
+  expect(Math.abs(focusedArea.x - focusedArea.width / 2)).toBeLessThan(focusedArea.width * 0.12);
+  expect(Math.abs(focusedArea.y - focusedArea.height / 2)).toBeLessThan(focusedArea.height * 0.12);
+
+  await page.getByRole("button", { name: "Kitchen lamp, device" }).click();
+  await expect(page.locator(".details h2")).toHaveText("Kitchen lamp");
+  await expect(page.locator(".detail-record")).toHaveText("DEVICE · lamp");
+  await expect(page.getByRole("heading", { name: "Nodes in Kitchen lamp" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kitchen lamp, device" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Kitchen temperature, entity" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Home dashboard, dashboard" })).not.toBeVisible();
 });
 
-test("double-clicking a dashboard loads every direct card relationship", async ({ page }) => {
+test("single-clicking a dashboard loads every direct card relationship", async ({ page }) => {
   await openFixture(page, "dashboard-focus");
   await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
   await page.locator("ontology-panel").evaluate((panel) => {
     const dashboard = panel.graph._fg.graphData().nodes.find(({ id }) => id === "Dashboard:lovelace");
-    const onNodeClick = panel.graph._fg.onNodeClick();
-    onNodeClick(dashboard);
-    onNodeClick(dashboard);
+    panel.graph._fg.onNodeClick()(dashboard);
   });
 
   await expect(page.getByRole("button", { name: "Kitchen card, dashboard card" })).toBeVisible();

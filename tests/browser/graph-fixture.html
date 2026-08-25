@@ -45,7 +45,10 @@
         revision: 8,
       };
       const areaOverview = {
-        nodes: [populated.nodes[0]],
+        nodes: [
+          populated.nodes[0],
+          { id: "Area:garage", haId: "garage", type: "AREA", label: "Garage", icon: "mdi:garage", unavailable: false, properties: [] },
+        ],
         relationships: [],
         truncated: false,
         next_cursor: null,
