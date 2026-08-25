@@ -53,7 +53,7 @@ const DOMAIN_ICONS = Object.freeze({
 
 const TYPE_FALLBACKS = Object.freeze({
   AREA: "mdi:sofa",
-  HOME: "mdi:home",
+  HOME: "mdi:home-assistant",
   FLOOR: "mdi:layers-outline",
   DEVICE: "mdi:devices",
   ENTITY: "mdi:home-assistant",

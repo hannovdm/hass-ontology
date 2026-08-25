@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b20";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b21";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -126,7 +126,7 @@ function _buildData(snapshot, hass, includePresentation = true) {
 
   const hasHome = snapshotNodes.some((n) => n.type === "HOME");
   if (includePresentation && !hasHome && areaNodes.length > 0) {
-    nodes.push({ id: SYNTHETIC_HOME_ID, haId: SYNTHETIC_HOME_ID, type: "HOME", label: hass?.config?.location_name || "Home", icon: "mdi:home", synthetic: true, fx: 0, fy: 0, fz: 0, x: 0, y: 0, z: 0 });
+    nodes.push({ id: SYNTHETIC_HOME_ID, haId: SYNTHETIC_HOME_ID, type: "HOME", label: hass?.config?.location_name || "Home", icon: "mdi:home-assistant", synthetic: true, fx: 0, fy: 0, fz: 0, x: 0, y: 0, z: 0 });
     for (const area of areaNodes) {
       const lid = `${SYNTHETIC_HOME_ID}\u2192${area.id}`;
       if (!seen.has(lid)) { seen.add(lid); links.push({ id: lid, source: SYNTHETIC_HOME_ID, target: area.id, type: "HAS_AREA", directed: false, synthetic: true }); }
@@ -145,6 +145,7 @@ class OntologyGraph extends HTMLElement {
   constructor() {
     super();
     this._fg = null; this._container = null;
+    this._iconLayer = null; this._iconElements = new Map();
     this._nodeMap = new Map(); this._linkMap = new Map();
     this._selectedId = null;
     this._hiddenNodeTypes = new Set(); this._hiddenLinkTypes = new Set();
@@ -162,7 +163,9 @@ class OntologyGraph extends HTMLElement {
     Object.assign(this.style, { display: "block", width: "100%", height: "100%", position: "relative" });
     this._container = document.createElement("div");
     Object.assign(this._container.style, { width: "100%", height: "100%", overflow: "hidden" });
-    this.append(this._container);
+    this._iconLayer = document.createElement("div");
+    Object.assign(this._iconLayer.style, { position: "absolute", inset: "0", overflow: "hidden", pointerEvents: "none", zIndex: "2" });
+    this.append(this._container, this._iconLayer);
     _loadLibs().catch(console.error);
   }
 
@@ -204,8 +207,9 @@ class OntologyGraph extends HTMLElement {
       this._linkMap = new Map(links.map((l) => [l.id, l]));
       this._selectedId = null;
       this._fg.graphData({ nodes: nodes.slice(), links: links.slice() });
+      this._rebuildIconOverlay();
       setTimeout(() => this._fg?.zoomToFit(500, 80), 300);
-      this._fg.onEngineStop(() => { this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
+      this._fg.onEngineStop(() => { this._syncIconPositions(); this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
       this._hideOverlay();
     } catch (err) {
       const msg = err?.message ?? String(err);
@@ -241,9 +245,15 @@ class OntologyGraph extends HTMLElement {
 
     add.forEach((n) => this._nodeMap.set(n.id, n));
     addL.forEach((l) => this._linkMap.set(l.id, l));
-    this._fg.graphData({ nodes: [...cur, ...add], links: [...curL.map(_normalise), ...addL] });
+    if (add.length || addL.length) {
+      this._fg.graphData({ nodes: [...cur, ...add], links: [...curL.map(_normalise), ...addL] });
+      this._rebuildIconOverlay();
+    } else {
+      this._fg.refresh();
+      this._syncIconPositions();
+    }
 
-    if (centerId) setTimeout(() => this.selectNode(centerId), 150);
+    if (centerId) setTimeout(() => this._focusNode(centerId), 150);
   }
 
   removeElements(ids) {
@@ -255,6 +265,7 @@ class OntologyGraph extends HTMLElement {
       nodes: nodes.filter((n) => !rm.has(n.id)),
       links: links.map(_normalise).filter((l) => !rm.has(l.id) && !rm.has(l.source) && !rm.has(l.target)),
     });
+    this._rebuildIconOverlay();
   }
 
   updateElements(elements, hass) {
@@ -267,6 +278,7 @@ class OntologyGraph extends HTMLElement {
     this._fg
       .nodeVisibility((n) => n.presentationOnly || !this._hiddenNodeTypes.has(n.type))
       .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type));
+    this._syncIconPositions();
   }
 
   zoomBy(factor) {
@@ -283,10 +295,49 @@ class OntologyGraph extends HTMLElement {
     if (!this._fg) return;
     this._setSelected(nodeId);
     if (nodeId) this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: nodeId }, bubbles: true }));
+    this._focusNode(nodeId);
+  }
+
+  _focusNode(nodeId) {
     const n = this._nodeMap.get(nodeId ?? "");
     if (!n) return;
     const { x = 0, y = 0, z = 0 } = n;
     this._fg.cameraPosition({ x: x + 100, y: y + 40, z: z + 100 }, { x, y, z }, 600);
+  }
+
+  _rebuildIconOverlay() {
+    this._iconLayer.replaceChildren();
+    this._iconElements.clear();
+    for (const node of this._nodeMap.values()) {
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", node.icon);
+      icon.setAttribute("aria-hidden", "true");
+      Object.assign(icon.style, {
+        position: "absolute", left: "0", top: "0", color: "white",
+        transform: "translate(-50%, -50%)", filter: "drop-shadow(0 1px 2px rgb(0 0 0 / 65%))",
+      });
+      icon.style.setProperty("--mdc-icon-size", node.type === "HOME" ? "28px" : "20px");
+      this._iconLayer.append(icon);
+      this._iconElements.set(node.id, icon);
+    }
+    this._syncIconPositions();
+  }
+
+  _syncIconPositions() {
+    if (!this._fg) return;
+    for (const [id, icon] of this._iconElements) {
+      const node = this._nodeMap.get(id);
+      const visible = node && (node.presentationOnly || !this._hiddenNodeTypes.has(node.type));
+      if (!visible || ![node.x, node.y, node.z].every(Number.isFinite)) {
+        icon.style.display = "none";
+        continue;
+      }
+      const { x, y } = this._fg.graph2ScreenCoords(node.x, node.y, node.z);
+      icon.style.display = "block";
+      icon.style.color = node._selected ? "#1565c0" : "white";
+      icon.style.left = `${x}px`;
+      icon.style.top = `${y}px`;
+    }
   }
 
   _setSelected(id) {
@@ -306,6 +357,7 @@ class OntologyGraph extends HTMLElement {
       .height(h)
       .backgroundColor("rgba(0,0,0,0)")
       .showNavInfo(false)
+      .cooldownTicks(120)
       .nodeId("id")
       .linkSource("source")
       .linkTarget("target")
@@ -333,6 +385,9 @@ class OntologyGraph extends HTMLElement {
         this._setSelected(null);
         this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: null }, bubbles: true }));
       });
+
+    this._fg.onEngineTick(() => this._syncIconPositions());
+    this._fg.controls().addEventListener("change", () => this._syncIconPositions());
 
     try {
       this._fg.d3Force("charge").strength(-250);
