@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b21";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b23";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -122,7 +122,7 @@ function _buildData(snapshot, hass, includePresentation = true) {
     nodes.push({ id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true });
   }
 
-  const links = rels.map((r) => ({ id: r.id, source: r.source, target: r.target, type: r.type, directed: !!r.directed }));
+  const links = rels.map((r) => ({ id: r.id, source: r.source, target: r.target, type: r.type, label: r.label, directed: !!r.directed }));
 
   const hasHome = snapshotNodes.some((n) => n.type === "HOME");
   if (includePresentation && !hasHome && areaNodes.length > 0) {
@@ -145,11 +145,13 @@ class OntologyGraph extends HTMLElement {
   constructor() {
     super();
     this._fg = null; this._container = null;
-    this._iconLayer = null; this._iconElements = new Map();
+    this._iconLayer = null; this._iconElements = new Map(); this._linkLabelElements = new Map();
     this._nodeMap = new Map(); this._linkMap = new Map();
     this._selectedId = null;
     this._hiddenNodeTypes = new Set(); this._hiddenLinkTypes = new Set();
     this._ro = null;
+    this._animationFrame = null; this._initialFitTimer = null;
+    this._viewInteracted = false; this._lastNodeClick = null;
   }
 
   // Public query API consumed by ontology-panel.js
@@ -171,6 +173,8 @@ class OntologyGraph extends HTMLElement {
 
   disconnectedCallback() {
     this._ro?.disconnect();
+    cancelAnimationFrame(this._animationFrame);
+    clearTimeout(this._initialFitTimer);
     if (this._fg) { this._fg.pauseAnimation(); this._fg._destructor?.(); this._fg = null; }
   }
 
@@ -206,10 +210,13 @@ class OntologyGraph extends HTMLElement {
       this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
       this._linkMap = new Map(links.map((l) => [l.id, l]));
       this._selectedId = null;
+      this._viewInteracted = false;
       this._fg.graphData({ nodes: nodes.slice(), links: links.slice() });
       this._rebuildIconOverlay();
-      setTimeout(() => this._fg?.zoomToFit(500, 80), 300);
-      this._fg.onEngineStop(() => { this._syncIconPositions(); this._fg.zoomToFit(500, 80); this._fg.onEngineStop(null); });
+      clearTimeout(this._initialFitTimer);
+      this._initialFitTimer = setTimeout(() => {
+        if (!this._viewInteracted) this._fg?.zoomToFit(500, 80);
+      }, 300);
       this._hideOverlay();
     } catch (err) {
       const msg = err?.message ?? String(err);
@@ -283,16 +290,23 @@ class OntologyGraph extends HTMLElement {
 
   zoomBy(factor) {
     if (!this._fg) return;
+    this._viewInteracted = true;
     const { x, y, z } = this._fg.camera().position;
+    const target = this._fg.controls().target ?? { x: 0, y: 0, z: 0 };
     const s = 1 / factor;
-    this._fg.cameraPosition({ x: x * s, y: y * s, z: z * s }, { x: 0, y: 0, z: 0 }, 200);
+    this._fg.cameraPosition({
+      x: target.x + (x - target.x) * s,
+      y: target.y + (y - target.y) * s,
+      z: target.z + (z - target.z) * s,
+    }, target, 200);
   }
 
-  fit() { this._fg?.zoomToFit(400, 80); }
-  resetView() { this._fg?.zoomToFit(400, 80); }
+  fit() { this._viewInteracted = true; this._fg?.zoomToFit(400, 80); }
+  resetView() { this._viewInteracted = true; this._fg?.zoomToFit(400, 80); }
 
   selectNode(nodeId) {
     if (!this._fg) return;
+    this._viewInteracted = true;
     this._setSelected(nodeId);
     if (nodeId) this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: nodeId }, bubbles: true }));
     this._focusNode(nodeId);
@@ -302,12 +316,34 @@ class OntologyGraph extends HTMLElement {
     const n = this._nodeMap.get(nodeId ?? "");
     if (!n) return;
     const { x = 0, y = 0, z = 0 } = n;
-    this._fg.cameraPosition({ x: x + 100, y: y + 40, z: z + 100 }, { x, y, z }, 600);
+    const camera = this._fg.camera().position;
+    const dx = camera.x - x, dy = camera.y - y, dz = camera.z - z;
+    const length = Math.hypot(dx, dy, dz) || 1;
+    const distance = n.type === "AREA" ? 130 : 90;
+    this._fg.cameraPosition({
+      x: x + (dx / length) * distance,
+      y: y + (dy / length) * distance,
+      z: z + (dz / length) * distance,
+    }, { x, y, z }, 600);
   }
 
   _rebuildIconOverlay() {
     this._iconLayer.replaceChildren();
     this._iconElements.clear();
+    this._linkLabelElements.clear();
+    for (const link of this._linkMap.values()) {
+      const label = document.createElement("span");
+      label.textContent = link.label ?? link.type ?? "relationship";
+      Object.assign(label.style, {
+        position: "absolute", left: "0", top: "0", display: "none",
+        transform: "translate(-50%, -50%)", padding: "2px 5px",
+        borderRadius: "3px", background: "rgb(255 255 255 / 88%)",
+        color: "#33474f", font: "600 10px/1.2 sans-serif",
+        whiteSpace: "nowrap", boxShadow: "0 1px 2px rgb(0 0 0 / 18%)",
+      });
+      this._iconLayer.append(label);
+      this._linkLabelElements.set(link.id, label);
+    }
     for (const node of this._nodeMap.values()) {
       const icon = document.createElement("ha-icon");
       icon.setAttribute("icon", node.icon);
@@ -325,6 +361,27 @@ class OntologyGraph extends HTMLElement {
 
   _syncIconPositions() {
     if (!this._fg) return;
+    for (const link of this._fg.graphData().links) {
+      const label = this._linkLabelElements.get(link.id);
+      if (!label) continue;
+      const source = link.source, target = link.target;
+      const sourceVisible = source && !this._hiddenNodeTypes.has(source.type);
+      const targetVisible = target && !this._hiddenNodeTypes.has(target.type);
+      const visible = sourceVisible && targetVisible && !this._hiddenLinkTypes.has(link.type)
+        && [source.x, source.y, source.z, target.x, target.y, target.z].every(Number.isFinite);
+      if (!visible) {
+        label.style.display = "none";
+        continue;
+      }
+      const { x, y } = this._fg.graph2ScreenCoords(
+        (source.x + target.x) / 2,
+        (source.y + target.y) / 2,
+        (source.z + target.z) / 2,
+      );
+      label.style.display = "block";
+      label.style.left = `${x}px`;
+      label.style.top = `${y}px`;
+    }
     for (const [id, icon] of this._iconElements) {
       const node = this._nodeMap.get(id);
       const visible = node && (node.presentationOnly || !this._hiddenNodeTypes.has(node.type));
@@ -378,16 +435,34 @@ class OntologyGraph extends HTMLElement {
       })
       .nodeThreeObjectExtend(true)
       .onNodeClick((n) => {
+        this._viewInteracted = true;
+        const now = performance.now();
+        const isDoubleClick = this._lastNodeClick?.id === n.id && now - this._lastNodeClick.time < 350;
+        this._lastNodeClick = { id: n.id, time: now };
         this._setSelected(n.id);
-        this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
+        if (isDoubleClick) {
+          this._focusNode(n.id);
+        } else {
+          this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: n.id }, bubbles: true }));
+        }
       })
       .onBackgroundClick(() => {
+        this._viewInteracted = true;
         this._setSelected(null);
         this.dispatchEvent(new CustomEvent("graph-selection-changed", { detail: { id: null }, bubbles: true }));
       });
 
-    this._fg.onEngineTick(() => this._syncIconPositions());
-    this._fg.controls().addEventListener("change", () => this._syncIconPositions());
+    const controls = this._fg.controls();
+    controls.enabled = true;
+    controls.enableZoom = true;
+    controls.enableRotate = true;
+    controls.enablePan = true;
+    controls.addEventListener("start", () => { this._viewInteracted = true; });
+    const syncOverlay = () => {
+      this._syncIconPositions();
+      this._animationFrame = requestAnimationFrame(syncOverlay);
+    };
+    this._animationFrame = requestAnimationFrame(syncOverlay);
 
     try {
       this._fg.d3Force("charge").strength(-250);
