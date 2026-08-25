@@ -64,7 +64,8 @@ jobs:
             "custom_components/ontology/panel/ontology-panel.js",
             "custom_components/ontology/panel/ontology-graph.js",
             "custom_components/ontology/panel/ontology-icons.js",
-            "custom_components/ontology/panel/vendor/cytoscape.esm.min.js",
+            "custom_components/ontology/panel/vendor/three.min.js",
+            "custom_components/ontology/panel/vendor/3d-force-graph.min.js",
           )
           missing_panel_assets = [path for path in required_panel_assets if not Path(path).is_file()]
           if missing_panel_assets:
