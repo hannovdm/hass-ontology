@@ -114,6 +114,7 @@
       };
 
       const searchMatches = {
+        "Kitchen lamp": [exploration.nodes[0]],
         "Entity:sensor.kitchen_temperature": [exploration.nodes[1]],
         "Kitchen temperature": [exploration.nodes[1]],
         "Shared sensor": [
@@ -177,7 +178,18 @@
             if (message.node_id === "DashboardCard:lovelace::0::0") return cardNeighborhood;
             throw { code: "not_found", message: "Graph element was not found" };
           }
-          if (type === "ontology/graph_expand" && state === "interactive") return exploration;
+          if (type === "ontology/graph_expand" && state === "interactive") {
+            if (message.node_id === "Device:lamp") {
+              return {
+                nodes: [populated.nodes[0], exploration.nodes[0], exploration.nodes[1]],
+                relationships: [populated.relationships[0], exploration.relationships[0]],
+                truncated: false,
+                next_cursor: null,
+                revision: 8,
+              };
+            }
+            return exploration;
+          }
           if (type !== "ontology/graph_snapshot") throw new Error(`Unexpected command: ${type}`);
           if (state === "loading") {
             return new Promise(() => {});

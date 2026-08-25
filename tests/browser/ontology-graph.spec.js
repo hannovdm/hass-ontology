@@ -129,10 +129,33 @@ test(`finds exact ${exactTerm.includes(":") ? "ID" : "name"} and focuses it with
   await search.fill(exactTerm);
   await page.getByRole("button", { name: "Search" }).click();
   await page.getByRole("option", { name: /Kitchen temperature.*sensor\.kitchen_temperature/i }).click();
-  await expect(page.getByRole("heading", { name: "Kitchen temperature" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kitchen temperature", exact: true })).toBeVisible();
   await expect(page.locator("ontology-panel")).toHaveAttribute("data-selected-id", "Entity:sensor.kitchen_temperature");
 });
 }
+
+test("keeps a searched device connected to its area and home", async ({ page }) => {
+  await openFixture(page, "interactive");
+  await page.getByRole("searchbox", { name: "Search ontology" }).fill("Kitchen lamp");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("option", { name: /Kitchen lamp.*lamp/i }).click();
+
+  await expect(page.locator(".details h2")).toHaveText("Kitchen lamp");
+  await expect(page.getByRole("button", { name: "Kitchen, area" })).toBeVisible();
+  const graph = await page.locator("ontology-panel").evaluate((panel) => ({
+    nodeIds: panel.graph._fg.graphData().nodes.map(({ id }) => id),
+    links: panel.graph._fg.graphData().links.map(({ source, target, type }) => ({
+      source: source.id || source,
+      target: target.id || target,
+      type,
+    })),
+  }));
+  expect(graph.nodeIds).toEqual(expect.arrayContaining(["presentation:home", "Area:kitchen", "Device:lamp"]));
+  expect(graph.links).toEqual(expect.arrayContaining([
+    expect.objectContaining({ source: "presentation:home", target: "Area:kitchen", type: "HAS_AREA" }),
+    expect.objectContaining({ source: "Area:kitchen", target: "Device:lamp", type: "HAS_DEVICE" }),
+  ]));
+});
 
 test("shows safe relationship details", async ({ page }) => {
   await openFixture(page, "interactive");
@@ -231,10 +254,11 @@ test("single-clicking an area replaces the view with its complete focused contex
     expansionLimits: panel._wsCalls
       .filter(({ type }) => type === "ontology/graph_expand")
       .map(({ node_limit: nodeLimit, edge_limit: edgeLimit }) => ({ nodeLimit, edgeLimit })),
-    links: panel.graph._fg.graphData().links.map(({ id, source, target }) => ({
+    links: panel.graph._fg.graphData().links.map(({ id, source, target, type }) => ({
       id,
       source: source.id || source,
       target: target.id || target,
+      type,
     })),
     graphNodeIds: panel.graph._fg.graphData().nodes.map(({ id }) => id),
   }));
@@ -256,9 +280,10 @@ test("single-clicking an area replaces the view with its complete focused contex
     "Dashboard:lovelace",
   ]));
   expect(facts.graphNodeIds).not.toContain("Area:garage");
-  expect(facts.graphNodeIds).not.toContain("presentation:home");
+  expect(facts.graphNodeIds).toContain("presentation:home");
   expect(facts.graphNodeIds).not.toContain("presentation:unassigned");
   expect(facts.links).toEqual(expect.arrayContaining([
+    expect.objectContaining({ source: "presentation:home", target: "Area:kitchen", type: "HAS_AREA" }),
     expect.objectContaining({ id: "HAS_DEVICE:1", source: "Area:kitchen", target: "Device:lamp" }),
     expect.objectContaining({ id: "HAS_ENTITY:primary", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "HAS_ENTITY:external", source: "Device:hall-display", target: "Entity:sensor.kitchen_temperature" }),

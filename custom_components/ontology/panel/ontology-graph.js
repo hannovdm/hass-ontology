@@ -1,4 +1,4 @@
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b30";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b31";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -56,7 +56,7 @@ function _nodeColor(node) {
 
 // ─── Graph data builder ──────────────────────────────────────────────────────
 
-function _buildData(snapshot, hass, includePresentation = true, knownNodeIds = new Set()) {
+function _buildData(snapshot, hass, includePresentation = true, knownNodeIds = new Set(), includeUnassigned = includePresentation) {
   const byId = new Map();
   for (const n of snapshot.nodes ?? []) if (n?.id && !byId.has(n.id)) byId.set(n.id, n);
   const snapshotNodes = [...byId.values()];
@@ -77,7 +77,7 @@ function _buildData(snapshot, hass, includePresentation = true, knownNodeIds = n
     if (t?.type === "AREA" && s?.type === "DEVICE") assigned.add(s.id);
   }
 
-  const unassigned = includePresentation
+  const unassigned = includeUnassigned
     ? new Set(snapshotNodes.filter((n) => n.type === "DEVICE" && !assigned.has(n.id)).map((n) => n.id))
     : new Set();
 
@@ -176,7 +176,7 @@ class OntologyGraph extends HTMLElement {
 
   _hideOverlay() { if (this._overlay) this._overlay.style.display = "none"; }
 
-  async setSnapshot(snapshot, hass, includePresentation = true) {
+  async setSnapshot(snapshot, hass, includePresentation = true, includeUnassigned = includePresentation) {
     this.connectedCallback();
     this._showOverlay("Loading 3D visualization…");
     try {
@@ -185,7 +185,7 @@ class OntologyGraph extends HTMLElement {
         throw new Error("vendor/3d-force-graph.min.js loaded but ForceGraph3D global is missing — check vendor deployment");
       }
       if (!this._fg) this._init();
-      const { nodes, links } = _buildData(snapshot, hass, includePresentation);
+      const { nodes, links } = _buildData(snapshot, hass, includePresentation, new Set(), includeUnassigned);
       this._nodeMap = new Map(nodes.map((n) => [n.id, n]));
       this._linkMap = new Map(links.map((l) => [l.id, l]));
       this._selectedId = null;
@@ -206,7 +206,7 @@ class OntologyGraph extends HTMLElement {
   }
 
   async setFocus(slice, hass, nodeId) {
-    await this.setSnapshot(slice, hass, false);
+    await this.setSnapshot(slice, hass, true, false);
     this._setSelected(nodeId);
     this.fitNodes((slice.nodes || []).map((node) => node.id), nodeId);
   }
