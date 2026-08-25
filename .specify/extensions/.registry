@@ -31,6 +31,39 @@
       },
       "registered_skills": [],
       "installed_at": "2026-08-11T15:04:43.160536+00:00"
+    },
+    "maqa": {
+      "version": "0.1.6",
+      "source": "local",
+      "manifest_hash": "sha256:1da96a2f97580010d984efa5375f71e2128078d35d29b6a107c4445bbfef9ed0",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "copilot": [
+          "speckit.maqa.coordinator",
+          "speckit.maqa",
+          "speckit.maqa.feature",
+          "speckit.maqa.qa",
+          "speckit.maqa.setup"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-25T07:21:14.562824+00:00"
+    },
+    "maqa-github-projects": {
+      "version": "0.1.0",
+      "source": "local",
+      "manifest_hash": "sha256:04dc23dcaebb6312fb9fcdfaea073cf68a7c67f44cf99af6725d82f652909c7a",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "copilot": [
+          "speckit.maqa-github-projects.setup",
+          "speckit.maqa-github-projects.populate"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-25T07:24:13.574579+00:00"
     }
   }
 }

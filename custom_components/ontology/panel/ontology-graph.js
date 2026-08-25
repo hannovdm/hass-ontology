@@ -2,6 +2,16 @@ import cytoscape from "./vendor/cytoscape.esm.min.js";
 import { resolveOntologyIcon } from "./ontology-icons.js";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
+export const SYNTHETIC_HOME_ID = "presentation:home";
+
+// MDI SVG path strings for types that need in-graph icons
+const _MDI_HOME = "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z";
+const _MDI_SOFA = "M21,9V7A2,2 0 0,0 19,5H5C3.89,5 3,5.89 3,7V9A2,2 0 0,0 1,11V17H3V19H5V17H19V19H21V17H23V11A2,2 0 0,0 21,9M5,7H19V9H5V7M23,15H1V11A1,1 0 0,1 2,10H22A1,1 0 0,1 23,11V15Z";
+
+function _svgUri(path, color) {
+  const fill = color.replace(/#/g, "%23");
+  return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='${fill}' d='${path}'/></svg>`;
+}
 
 function relationshipLabel(type, directed) {
   const words = String(type || "related to").replaceAll("_", " ").toLowerCase();
@@ -59,6 +69,29 @@ function graphElements(snapshot, hass, includePresentationGroups = true) {
     data: { ...relationship, label: relationshipLabel(relationship.type, relationship.directed) },
     classes: relationship.directed ? "directed" : "",
   }));
+
+  // Add synthetic HOME node + edges when the snapshot has no HOME node but has areas.
+  // This ensures the star layout always has a central hub regardless of backend.
+  const hasHomeNode = snapshotNodes.some((n) => n.type === "HOME");
+  const areaNodes = snapshotNodes.filter((n) => n.type === "AREA");
+  if (includePresentationGroups && !hasHomeNode && areaNodes.length > 0) {
+    const homeName = hass?.config?.location_name || "Home";
+    nodes.push({
+      data: { id: SYNTHETIC_HOME_ID, haId: SYNTHETIC_HOME_ID, type: "HOME", label: homeName, icon: "mdi:home", synthetic: true },
+      classes: "home synthetic",
+    });
+    for (const area of areaNodes) {
+      const edgeId = `${SYNTHETIC_HOME_ID}\u2192${area.id}`;
+      if (!elementIds.has(edgeId)) {
+        elementIds.add(edgeId);
+        edges.push({
+          data: { id: edgeId, source: SYNTHETIC_HOME_ID, target: area.id, type: "HAS_AREA", label: "", directed: false },
+          classes: "home-edge synthetic",
+        });
+      }
+    }
+  }
+
   return [...nodes, ...edges];
 }
 
@@ -89,19 +122,37 @@ class OntologyGraph extends HTMLElement {
     this.cy = cytoscape({
       container: this._container,
       elements: graphElements(snapshot, hass),
-      layout: { name: "breadthfirst", directed: true, padding: 36, spacingFactor: 1.25 },
+      layout: {
+        name: "concentric",
+        concentric: (node) => {
+          switch (node.data("type")) {
+            case "HOME": return 5;
+            case "FLOOR": return 4;
+            case "AREA": return 3;
+            case "DEVICE": return 2;
+            default: return 1;
+          }
+        },
+        levelWidth: () => 1,
+        minNodeSpacing: 60,
+        padding: 48,
+        startAngle: 3 * Math.PI / 2,
+      },
       minZoom: 0.2,
       maxZoom: 3,
       style: [
-        { selector: "node", style: { "background-color": "#e8f3f5", "border-color": "#236779", "border-width": 2, color: "#14252b", content: "data(label)", "font-size": 11, height: 42, shape: "round-rectangle", "text-background-color": "#fff", "text-background-opacity": 0.9, "text-background-padding": 3, "text-margin-y": 32, width: 52 } },
-        { selector: "node.area", style: { "background-color": "#dcebdc", "border-color": "#3b6f47", shape: "hexagon" } },
+        { selector: "node", style: { "background-color": "#e8f3f5", "border-color": "#236779", "border-width": 2, color: "#14252b", content: "data(label)", "font-size": 11, height: 46, shape: "round-rectangle", "text-background-color": "#fff", "text-background-opacity": 0.9, "text-background-padding": 3, "text-margin-y": 34, width: 56 } },
+        { selector: "node.home", style: { "background-color": "#e3f2fd", "border-color": "#1565c0", "border-width": 3, shape: "ellipse", width: 72, height: 72, "font-size": 13, "font-weight": 600, "text-margin-y": 40, "background-image": _svgUri(_MDI_HOME, "#1565c0"), "background-clip": "none", "background-fit": "none", "background-width": "48%", "background-height": "48%", "background-position-x": "50%", "background-position-y": "22%" } },
+        { selector: "node.area", style: { "background-color": "#dcebdc", "border-color": "#3b6f47", shape: "ellipse", width: 58, height: 58, "text-margin-y": 32, "background-image": _svgUri(_MDI_SOFA, "#3b6f47"), "background-clip": "none", "background-fit": "none", "background-width": "46%", "background-height": "46%", "background-position-x": "50%", "background-position-y": "20%" } },
         { selector: "node.device", style: { "background-color": "#dcecf4", "border-color": "#35697e" } },
+        { selector: "node.entity", style: { "background-color": "#f0eff8", "border-color": "#5c5fa6" } },
         { selector: "node.unavailable", style: { "border-style": "dashed", "border-width": 4, opacity: 0.65 } },
         { selector: "node.validation-finding", style: { "background-color": "#fff1c7", "border-color": "#9b6500", "border-width": 4, shape: "diamond" } },
         { selector: "node.severity-error, node.severity-critical", style: { "background-color": "#f9d7d5", "border-color": "#9e2f2a" } },
         { selector: "node.presentation-group", style: { "background-color": "#f7f8f8", "border-color": "#68777d", "border-style": "dotted", "text-valign": "top", padding: 18 } },
         { selector: "node:selected", style: { "border-color": "#111", "border-width": 5, "overlay-opacity": 0.08 } },
         { selector: "edge", style: { "curve-style": "bezier", "font-size": 9, label: "data(label)", "line-color": "#718087", "target-arrow-color": "#718087", "target-arrow-shape": "none", "text-background-color": "#fff", "text-background-opacity": 0.85, "text-background-padding": 2, width: 2 } },
+        { selector: "edge.home-edge", style: { "line-color": "#90caf9", "line-style": "solid", width: 1, label: "", opacity: 0.6 } },
         { selector: "edge:loop", style: { "curve-style": "bezier", "loop-direction": "45deg", "loop-sweep": "70deg" } },
         { selector: "edge.directed", style: { "target-arrow-shape": "triangle" } },
       ],
@@ -139,7 +190,8 @@ class OntologyGraph extends HTMLElement {
       return;
     }
     const selectedId = this.cy.$(":selected").first().id() || null;
-    const viewport = { pan: this.cy.pan(), zoom: this.cy.zoom() };
+    // Only preserve viewport when not centering on a specific element
+    const savedViewport = centerId ? null : { pan: this.cy.pan(), zoom: this.cy.zoom() };
     const center = centerId ? this.cy.getElementById(centerId) : null;
     const centerPosition = center?.nonempty() ? center.position() : { x: 0, y: 0 };
     const incoming = graphElements(slice, hass, false);
@@ -173,8 +225,15 @@ class OntologyGraph extends HTMLElement {
         y: centerPosition.y + Math.sin(angle) * 120,
       });
     });
-    this.cy.zoom(viewport.zoom);
-    this.cy.pan(viewport.pan);
+
+    if (savedViewport) {
+      this.cy.zoom(savedViewport.zoom);
+      this.cy.pan(savedViewport.pan);
+    } else if (center?.nonempty()) {
+      // Smoothly center the view on the area that was just expanded
+      const zoom = Math.max(this.cy.zoom(), 0.9);
+      this.cy.animate({ center: { eles: center }, zoom }, { duration: 280 });
+    }
   }
 
   removeElements(elementIds) {

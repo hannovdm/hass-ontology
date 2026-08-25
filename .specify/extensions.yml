@@ -1,5 +1,7 @@
 installed:
 - companion
+- maqa
+- maqa-github-projects
 settings:
   auto_execute_hooks: true
 hooks:
@@ -31,6 +33,14 @@ hooks:
     prompt: Execute speckit.companion.after-tasks?
     description: Record tasks completion (currentStep=tasks, status=ready-to-implement)
       into .spec-context.json
+    condition: null
+  - extension: maqa
+    command: speckit.maqa.coordinator
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Launch MAQA coordinator to start parallel implementation?
+    description: Optionally start the coordinator workflow after task breakdown
     condition: null
   after_implement:
   - extension: companion

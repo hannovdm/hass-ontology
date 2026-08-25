@@ -1,0 +1,37 @@
+schema_version: "1.0"
+
+extension:
+  id: "maqa-github-projects"
+  name: "MAQA GitHub Projects Integration"
+  version: "0.1.0"
+  description: "GitHub Projects v2 integration for the MAQA extension. Populates project items from specs, tracks status field, real-time task list ticking via issue body updates."
+  author: "GenieRobot"
+  repository: "https://github.com/GenieRobot/spec-kit-maqa-github-projects"
+  license: "MIT"
+  homepage: "https://github.com/GenieRobot/spec-kit-maqa-github-projects"
+
+requires:
+  speckit_version: ">=0.3.0"
+
+provides:
+  commands:
+    - name: "speckit.maqa-github-projects.setup"
+      file: "commands/speckit.maqa-github-projects.setup.md"
+      description: "Bootstrap GitHub Projects v2 config for MAQA. Reads project and status field options via GraphQL API."
+
+    - name: "speckit.maqa-github-projects.populate"
+      file: "commands/speckit.maqa-github-projects.populate.md"
+      description: "Populate GitHub Project from specs/*/tasks.md. Creates draft issues per feature with markdown task list. Skips existing. Safe to re-run."
+
+  config:
+    - name: "maqa-github-projects/github-projects-config.yml"
+      template: "config-template.yml"
+      description: "GitHub Projects v2 project and field option IDs for MAQA coordination"
+      required: true
+
+tags:
+  - "github"
+  - "github-projects"
+  - "project-management"
+  - "multi-agent"
+  - "maqa"

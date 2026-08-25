@@ -125,3 +125,23 @@
 **duration-ms:** 30
 
 ---
+
+## 2026-08-21T15:32:44 | WORK-013 | Ring-0 | @extension
+
+**Type:** WORK
+**action:** extension-activated
+**version:** 14.0.0
+**workspace:** hass-ontology
+**duration-ms:** 174
+
+---
+
+## 2026-08-25T07:07:30 | WORK-014 | Ring-0 | @extension
+
+**Type:** WORK
+**action:** extension-activated
+**version:** 14.0.0
+**workspace:** hass-ontology
+**duration-ms:** 16
+
+---

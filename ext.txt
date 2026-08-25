@@ -1,0 +1,2099 @@
+🔍 Searching extension catalog...
+
+Found 162 extension(s):
+
+Coding Agent Context (v1.0.0)
+  Manages coding agent context/instruction files (e.g., CLAUDE.md, copilot-instructions.md) with project-specific plan references and configurable markers
+
+  Author: spec-kit-core
+  Tags: agent, context, core
+  Catalog: default
+  Repository: https://github.com/github/spec-kit
+
+  Install: specify extension add agent-context
+
+Idea Assessment Pipeline (v1.0.0)
+  Assess an idea before Spec-Driven Development via intake, research, define, shape, and decide. A go verdict hands off to /speckit.specify; a kill closes it. Lives under .specify/assessments/<slug>/
+
+  Author: spec-kit-core
+  Tags: assessment, discovery, triage, product, workflow
+  Catalog: default
+  Repository: https://github.com/github/spec-kit
+
+  Install: specify extension add assess
+
+Bug Triage Workflow (v1.0.0)
+  Assess, fix, and validate bug reports against the codebase with per-bug reports stored under .specify/bugs/<slug>/
+
+  Author: spec-kit-core
+  Tags: bug, triage, workflow, qa
+  Catalog: default
+  Repository: https://github.com/github/spec-kit
+
+  Install: specify extension add bug
+
+Git Branching Workflow (v1.0.0)
+  Feature branch creation, numbering (sequential/timestamp), validation, and Git remote detection
+
+  Author: spec-kit-core
+  Tags: git, branching, workflow, core
+  Catalog: default
+  Repository: https://github.com/github/spec-kit
+
+  Install: specify extension add git
+
+adrkit — decision memory for spec-driven development (v0.1.2)
+  Pulls the decisions governing this work into agent context, checks produced plans against them, and drafts an ADR from a plan artifact.
+
+  Author: Mark Beacom (@mbeacom)
+  Tags: adr, governance, decision-records, architecture, compliance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mbeacom/adrkit
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add adrkit --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+AI-Driven Engineering (AIDE) (v1.0.0)
+  A structured 7-step workflow for building new projects from scratch with AI assistants — from vision through implementation.
+
+  Author: mnriem
+  Tags: workflow, project-management, ai-driven, new-project, planning, experimental
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mnriem/spec-kit-extensions
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add aide --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Agent Assign (v1.0.0)
+  Assign specialized Claude Code agents to spec-kit tasks for targeted execution
+
+  Author: xuyang
+  Tags: agent, automation, implementation, multi-agent, task-routing
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/xymelon/spec-kit-agent-assign
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add agent-assign --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Agent Governance (v1.2.0)
+  Generate agent-platform repository governance files from Spec Kit metadata.
+
+  Author: bigben
+  Tags: governance, agents, memory, context
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-agent-governance
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add agent-governance --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Intelligent Agent Orchestrator (v0.1.0)
+  Cross-catalog agent discovery and intelligent prompt-to-command routing
+
+  Author: pragya247
+  Tags: orchestrator, routing, discovery, agent, ai
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/pragya247/spec-kit-orchestrator
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add agent-orchestrator --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+AgentDocx (v0.0.3)
+  Full-stack multi-agent specification pipeline with VS Code extension control, automated Kanban/Jira sync, and React monitoring dashboard.
+
+  Author: Abir Ommezzine and Ahmed Aziz Ammar
+  Tags: issue-tracking, jira, automation, workflow, pipeline, agents
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/abir-ommezzine/extension-github-spec-kit
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add agentdocx-speckit --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Analytics (v0.1.0)
+  Measure what your AI builds, and how much time it saves you
+
+  Author: Fyloss
+  Tags: analytics, productivity, metrics, benchmarking, tracking
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Fyloss/spec-kit-analytics
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add analytics --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+API Evolve (v1.0.0)
+  Managed API contract evolution — breaking-change detection, semver enforcement, deprecation orchestration, and lifecycle gates across REST, GraphQL, and gRPC.
+
+  Author: Quratulain-bilal
+  Tags: api, contracts, versioning, openapi, graphql, grpc, deprecation, breaking-changes, semver, governance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-api-evolve
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add api-evolve --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Architecture Workflow (v1.2.2)
+  Generate or reverse project-level 4+1 architecture views with per-view and full-workflow commands
+
+  Author: bigsmartben
+  Tags: architecture, 4plus1, workflow, design
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-arch
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add arch --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Architecture Governance (v1.2.2)
+  Keep specs, code & ADRs in sync: citation slots + a read-only, fail-closed validator.
+
+  Author: Ash Brener
+  Tags: architecture, governance, adr, citations, spec-sync
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ashbrener/spec-kit-arch-governance
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add arch-governance --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Architect Impact Previewer (v1.0.0)
+  Predicts architectural impact, complexity, and risks of proposed changes before implementation.
+
+  Author: Umme Habiba
+  Tags: architecture, analysis, risk-assessment, planning, preview
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/UmmeHabiba1312/spec-kit-architect-preview
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add architect-preview --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Architecture Guard (v2.3.6)
+  Framework-agnostic architecture governance for Spec Kit workflows, detecting drift, enforcing architectural rules, and generating actionable refactor tasks.
+
+  Author: DyanGalih
+  Tags: architecture, governance, review, refactor, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/DyanGalih/architecture-guard
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add architecture-guard --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Archive Extension (v1.3.0)
+  Archive merged features into main project memory, resolving gaps and conflicts.
+
+  Author: Stanislav Deviatov
+  Tags: archive, memory, merge, changelog
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/stn1slv/spec-kit-archive
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add archive --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+ASCII Diagram Renderer (v1.1.0)
+  Renders hand-drawn ASCII/Unicode diagrams (state machine, architecture, flow, coverage map) of what spec/plan/tasks/analyze already say — plain text, no Mermaid renderer needed.
+
+  Author: MRZHUH
+  Tags: diagram, ascii, visualization, coverage, traceability
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/MRZHUH/spec-kit-ascii-diagram
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ascii-diagram --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Atlas (v0.1.0)
+  Synthesize spec-kit specs into faithful, interactive architecture storybooks & doc portals.
+
+  Author: Ash Brener
+  Tags: documentation, architecture, storybook, traceability, atlas
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ashbrener/spec-kit-atlas
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add atlas --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Azure DevOps Integration (v1.0.0)
+  Sync user stories and tasks to Azure DevOps work items using OAuth authentication.
+
+  Author: pragya247
+  Tags: azure, devops, project-management, work-items, issue-tracking
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/pragya247/spec-kit-azure-devops
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add azure-devops --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec-Kit BDD (v1.0.2)
+  ATDD/BDD extension: convert specs to Gherkin scenarios, scaffold step definitions, and verify acceptance test coverage.
+
+  Author: RSginer
+  Tags: bdd, gherkin, atdd, acceptance-testing, tdd
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/RSginer/spec-kit-bdd
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add bdd --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Blueprint (v1.0.0)
+  Stay code-literate in AI-driven development: review a complete code blueprint for every task from spec artifacts before /speckit.implement runs
+
+  Author: chordpli
+  Tags: blueprint, pre-implementation, review, scaffolding, code-literacy
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/chordpli/spec-kit-blueprint
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add blueprint --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Blueprint Index — Living Architecture Map (v0.2.0)
+  Living architecture map for brownfield and greenfield projects, with a deterministic CI gate that blocks contradictions between the map, specs, and code while warning on non-blocking drift.
+
+  Author: ogil109
+  Tags: blueprint, architecture, coherence, drift, brownfield, autonomous, ci
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ogil109/spec-kit-blueprint
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add blueprint-index --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Branch Convention (v1.0.0)
+  Configurable branch and folder naming conventions for /specify with presets and custom patterns.
+
+  Author: Quratulain-bilal
+  Tags: branch, naming, convention, gitflow, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-branch-convention
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add branch-convention --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Brownfield Bootstrap (v1.0.0)
+  Bootstrap spec-kit for existing codebases — auto-discover architecture and adopt SDD incrementally.
+
+  Author: Quratulain-bilal
+  Tags: brownfield, bootstrap, existing-project, migration, onboarding
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-brownfield
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add brownfield --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+BrownKit — Brownfield Discovery for Spec-Kit (v1.0.1)
+  Evidence-driven capability discovery, security and QA risk assessment for existing codebases.
+
+  Author: Maksim Shautsou
+  Tags: brownfield, discovery, security, qa, capabilities
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/MaksimShevtsov/BrownKit
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add brownkit --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Bugfix Workflow (v1.0.0)
+  Structured bugfix workflow — capture bugs, trace to spec artifacts, and patch specs surgically.
+
+  Author: Quratulain-bilal
+  Tags: bugfix, debugging, workflow, traceability, maintenance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-bugfix
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add bugfix --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Canon (v0.1.0)
+  Adds canon-driven (baseline-driven) workflows: spec-first, code-first, spec-drift. Requires Canon Core preset installation.
+
+  Author: Maxim Stupakov
+  Tags: process, baseline, canon, drift, spec-first, code-first, spec-drift, vibecoding
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/maximiliamus/spec-kit-canon
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add canon --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Catalog CI (v1.0.0)
+  Automated validation for spec-kit community catalog entries — structure, URLs, diffs, and linting.
+
+  Author: Quratulain-bilal
+  Tags: ci, validation, catalog, quality, automation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-catalog-ci
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add catalog-ci --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Changelog (v1.0.0)
+  Auto-generate changelogs and release notes from spec git history and requirement diffs.
+
+  Author: Quratulain-bilal
+  Tags: changelog, release-notes, documentation, git-history, notifications
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-changelog
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add changelog --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Charter (v0.5.1)
+  Compose modular project constitutions from shared fragment registries. Centralize governance rules, select per-project fragments, track upstream changes, and keep multi-project setups consistent.
+
+  Author: Fyloss
+  Tags: constitution, governance, modular, fragments, registry
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Fyloss/spec-kit-charter
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add charter --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+CI Guard (v1.0.0)
+  Spec compliance gates for CI/CD — verify specs exist, check drift, and block merges on gaps.
+
+  Author: Quratulain-bilal
+  Tags: ci-cd, compliance, governance, quality-gate, drift-detection, automation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-ci-guard
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ci-guard --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Checkpoint Extension (v1.0.0)
+  An extension to commit the changes made during the middle of the implementation, so you don't end up with just one very large commit at the end.
+
+  Author: aaronrsun
+  Tags: checkpoint, commit
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/aaronrsun/spec-kit-checkpoint
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add checkpoint --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Cleanup Extension (v1.0.0)
+  Post-implementation quality gate that reviews changes, fixes small issues (scout rule), creates tasks for medium issues, and generates analysis for large issues.
+
+  Author: dsrednicki
+  Tags: quality, tech-debt, review, cleanup, scout-rule
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/dsrednicki/spec-kit-cleanup
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add cleanup --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Coding Standards Drift Control (v0.4.0)
+  Generate coding-standards drift reports and remediation tasks for active Spec Kit features
+
+  Author: Igor Benicio de Mesquita
+  Tags: analysis, standards, quality, maintenance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/benizzio/spec-kit-coding-standards-drift-control
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add coding-standards-drift-control --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SpecKit Companion (v0.20.2)
+  Live spec-driven progress for SpecKit Companion — lifecycle capture, status, resume, living specs, and composable commands you can customize with hooks and recipes.
+
+  Author: alfredoperez
+  Tags: vscode, progress, living-specs, drift, hooks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/alfredoperez/speckit-companion
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add companion --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Conduct Extension (v1.0.1)
+  Executes a single spec-kit phase via sub-agent delegation to reduce context pollution.
+
+  Author: twbrandon7
+  Tags: conduct, workflow, automation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/twbrandon7/spec-kit-conduct-ext
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add conduct --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Critique Extension (v1.0.0)
+  Dual-lens critical review of spec and plan from product strategy and engineering risk perspectives.
+
+  Author: arunt14
+  Tags: docs, review, planning
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/arunt14/spec-kit-critique
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add critique --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Confluence Extension (v1.1.1)
+  Create, read, and update Confluence docs for your project
+
+  Author: aaronrsun
+  Tags: confluence
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/aaronrsun/spec-kit-confluence
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add confluence --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+ContextForge MCP (v0.1.0)
+  Integrates codebase-memory-mcp + headroom into Spec Kit — graph-based code intelligence and context compression for the implement phase.
+
+  Author: capatinore
+  Tags: mcp, code-intelligence, context-compression, tokens, claude, spec-driven-development
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/capatinore/contextforge-mcp
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add contextforge-mcp --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Azure Cosmos DB (v0.1.0)
+  Best-practice Azure Cosmos DB code generation and review for any AI coding agent
+
+  Author: Theo van Kraay (maintained on behalf of the Azure Cosmos DB team; hosted in the AzureCosmosDB org)
+  Tags: azure, cosmosdb, database, nosql, recommend-coding
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/AzureCosmosDB/spec-kit-cosmosdb
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add cosmosdb --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Cost Tracker (v1.0.0)
+  Track real LLM dollar cost across SDD workflows — per-feature budgets, per-integration comparison, and finance-ready exports.
+
+  Author: Quratulain-bilal
+  Tags: cost, budget, tokens, visibility, finance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-cost
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add cost --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Data Model Diagram (v0.2.2)
+  Generates Mermaid ER diagrams from Spec Kit data models after planning.
+
+  Author: Igor Benicio de Mesquita
+  Tags: diagram, documentation, mermaid
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/benizzio/spec-kit-data-model-diagram
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add data-model-diagram --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Diagram (v1.0.0)
+  Auto-generate Mermaid diagrams of SDD workflow state, feature progress, and task dependencies.
+
+  Author: Quratulain-bilal
+  Tags: diagram, mermaid, visualization, workflow, dependencies
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-diagram-
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add diagram --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit Discovery Extension (v0.2.0)
+  Run technical discovery commands for feasibility, technology selection, scenario-specific technical decisions, legacy codebase assessment, implementation understanding, and proof-of-concept validation.
+
+  Author: bigsmartben
+  Tags: discovery, workflow, validation, feasibility, decision
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-discovery
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add discovery --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+DocGuard — CDD Enforcement (v0.33.0)
+  The only doc-integrity engine with an MCP server, SARIF/JUnit output, and a deterministic zero-LLM core. Validates, scores, and traces documentation against code — 27 validators, stable finding codes, adoption baseline for 
+legacy repos, compliance-evidence reports, GitHub Action with PR annotations, spec-kit hooks. Pure Node.js, one pinned dep.
+
+  Author: raccioly
+  Tags: documentation, validation, quality, cdd, traceability, ai-agents, enforcement, spec-kit
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/raccioly/docguard
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add docguard --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Project Health Check (v1.0.0)
+  Diagnose a Spec Kit project and report health issues across structure, agents, features, scripts, extensions, and git.
+
+  Author: KhawarHabibKhan
+  Tags: diagnostics, health-check, validation, project-structure
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/KhawarHabibKhan/spec-kit-doctor
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add doctor --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Dotdog (v0.9.0)
+  Import GitHub Spec Kit artifacts into local knowledge graphs for validation, analysis, search, and MCP queries.
+
+  Author: specdog
+  Tags: specification, knowledge-graph, validation, mcp, local-first
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/specdog/dotdog
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add dotdog --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+DUBSAR Memory (v0.1.4)
+  Local project memory for Spec Kit with explicit checkpoints, cross-session resume, and SHA-256 freshness for recorded specification, plan, and task references.
+
+  Author: DUBSAR
+  Tags: memory, continuity, checkpoints, resume, offline
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/kotnisofiane-bit/dubsar-memory
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add dubsar --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+EARS Requirements Syntax (v1.0.0)
+  Author, lint, and convert requirements using EARS (Easy Approach to Requirements Syntax) - the five industry-standard sentence patterns for unambiguous, testable requirements.
+
+  Author: dhruv-15-03
+  Tags: ears, requirements, specification, quality
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/dhruv-15-03/spec-kit-ears
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ears --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Extensify (v1.1.0)
+  Create and validate extensions and extension catalogs.
+
+  Author: mnriem
+  Tags: extensions, workflow, validation, experimental
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mnriem/spec-kit-extensions
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add extensify --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit Figma (v1.6.0)
+  Agent-agnostic SpecKit extension that grounds spec, plan & task generation in Figma design context — REST + optional MCP, single/mono/multi-repo, macOS/Linux/Windows.
+
+  Author: Fyloss
+  Tags: figma, design, frontend, ui, design-system
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Fyloss/spec-kit-figma
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add figma --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Figma Starter (v1.0.0)
+  Turns a Figma section's screens into per-screen spec.md files, an app-level user-stories.md, and a build-order.md, then hands off to /speckit.specify.
+
+  Author: WaveMaker
+  Tags: figma, design, design-to-spec, ui, frontend
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/wavemaker/spec-kit-figma-starter
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add figma-starter --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Fix Findings (v1.0.0)
+  Automated analyze-fix-reanalyze loop that resolves spec findings until clean.
+
+  Author: Quratulain-bilal
+  Tags: code, analysis, quality, automation, findings
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-fix-findings
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add fix-findings --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+FixIt Extension (v1.0.0)
+  Spec-aware bug fixing: maps bugs to spec artifacts, proposes a plan, applies minimal changes.
+
+  Author: ismaelJimenez
+  Tags: debugging, fixit, spec-alignment, post-implementation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/speckit-community/spec-kit-fixit
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add fixit --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Fleet Orchestrator (v1.1.0)
+  Orchestrate a full feature lifecycle with human-in-the-loop gates across all SpecKit phases.
+
+  Author: sharathsatish
+  Tags: orchestration, workflow, human-in-the-loop, parallel
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/sharathsatish/spec-kit-fleet
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add fleet --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+.NET Framework to Modern .NET Migration (v0.8.0)
+  Orchestrate end-to-end .NET Framework to modern .NET migration across 7 phases, with SDD lifecycle integration.
+
+  Author: RogerBestMsft
+  Tags: dotnet, migration, modernization, framework, aspnet, shared-artifact
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/RogerBestMsft/spec-kit-FxToNet
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add fx-to-dotnet --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Quality Gates (Enforcement Layer) (v0.3.3)
+  Deterministic quality enforcement for Spec Kit across agent hooks, git checks, and CI pipelines with one policy file and one verify entrypoint for identical results at every boundary.
+
+  Author: schwichtgit
+  Tags: quality, enforcement, hooks, ci, governance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/schwichtgit/spec-gates
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add gates --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+GitHub Issues Integration 1 (v1.0.0)
+  Generate spec artifacts from GitHub Issues - import issues, sync updates, and maintain bidirectional traceability
+
+  Author: Fatima367
+  Tags: integration, github, issues, import, sync, traceability
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Fatima367/spec-kit-github-issues
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add github-issues --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Golden Demo (v0.3.0)
+  Deterministic behavioral drift oracle. Extracts acceptance criteria, generates fuzz test vectors (seed=42), compares golden Python implementations against real code in any language. CI/CD gatekeeper with warn/strict modes.
+
+  Author: jasstt
+  Tags: testing, drift-detection, behavioral-oracle, fuzzing, ci-cd, cross-language, tdd, quality
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/jasstt/spec-kit-golden-demo
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add golden-demo --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SpecKit Grill Me (v1.0.0)
+  Exhaustively resolve specification ambiguities and decisions before planning.
+
+  Author: yoshi1220
+  Tags: clarification, requirements, specification, elicitation, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/yoshi1220/speckit-grill-me
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add grill --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Research Harness (v1.0.0)
+  State-externalizing research harness: budgeted exploration, evidence curation, and claim verification for spec-driven development
+
+  Author: formin
+  Tags: research, verification, evidence, context-management, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/formin/spec-kit-harness
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add harness --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Improve Extension (v1.0.1)
+  Audits any codebase as a senior advisor and writes prioritized, self-contained spec prompts under specs/ that the spec-kit lifecycle can process.
+
+  Author: d0whc3r
+  Tags: advisor, audit, code-quality, code-review, improvement, performance, planning, refactoring, security, spec-kit, spec-kit-extension, specs, tech-debt, testing
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/d0whc3r/spec-kit-improve
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add improve --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Intake (v0.1.3)
+  Normalize PRD, design, HTML SSOT, and test-case evidence into SDD-ready intake artifacts.
+
+  Author: bigsmartben
+  Tags: intake, sdd, requirements, validation, figma
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-intake
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add intake --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Intent Reconciliation (v1.0.2)
+  Reconcile implementation-discovered decisions against approved feature intent
+
+  Author: SuhaibAslam
+  Tags: intent, decisions, reconciliation, drift, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/SuhaibAslam/spec-kit-reconcile
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add intent --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+GitHub Issues Integration 2 (v1.0.0)
+  Creates and syncs local specs based on an existing issue in GitHub
+
+  Author: aaronrsun
+  Tags: issue, integration, github, issues, sync
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/aaronrsun/spec-kit-issue
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add issue --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Iterate (v2.0.0)
+  Iterate on spec documents with a two-phase define-and-apply workflow — refine specs mid-implementation and go straight back to building
+
+  Author: Vianca Martinez
+  Tags: iteration, change-management, spec-maintenance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/imviancagrace/spec-kit-iterate
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add iterate --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Jira Integration (v2.1.0)
+  Create Jira Epics, Stories, and Issues from spec-kit specifications and task breakdowns with configurable hierarchy and custom field support.
+
+  Author: mbachorik
+  Tags: issue-tracking, jira, atlassian, project-management
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mbachorik/spec-kit-jira
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add jira --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Jira Integration (Sync Engine) (v0.4.0)
+  An idempotent, drift-aware, fail-closed reconcile engine that mirrors spec-kit specs into Jira (Epic per repo, Story per spec, Subtask per phase).
+
+  Author: Ash Brener
+  Tags: issue-tracking, jira, tasks-sync, reconcile, drift-aware
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ashbrener/spec-kit-jira-sync
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add jira-sync --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Keel Discovery (v0.2.0)
+  Evidence-backed discovery upstream of /speckit.specify, plus round-trip drift auditing after implementation.
+
+  Author: Keel Discovery
+  Tags: discovery, evidence, customer-research, validation, traceability
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/keeldiscovery/spec-kit-keel
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add keel --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Learning Extension (v1.0.0)
+  Generate educational guides from implementations and enhance clarifications with mentoring context.
+
+  Author: Vianca Martinez
+  Tags: learning, education, mentoring, knowledge-transfer
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/imviancagrace/spec-kit-learn
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add learn --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Linear Integration (v0.7.0)
+  Mirror spec-kit feature directories into Linear (filesystem → Linear, reconcile-based, unidirectional).
+
+  Author: Ash Brener
+  Tags: issue-tracking, linear, tasks-sync, lifecycle-mirror, memory, cross-repo
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ashbrener/spec-kit-linear-sync
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add linear --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Linear Weave (v1.0.1)
+  Weave Spec Kit into Linear: pull requirements, mirror tasks.md into sub-issues, sync statuses.
+
+  Author: Tony Woodhouse
+  Tags: linear, issue-tracking, integration, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/tonydwoodhouse/spec-kit-linear-weave
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add linear-weave --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Loop Engineering (v1.0.0)
+  Engineer safe autonomous agent loops for spec-driven development: a maker/checker split, externalized loop state, and stay-the-engineer guardrails against comprehension debt and cognitive surrender
+
+  Author: formin
+  Tags: loop-engineering, automation, verification, maker-checker, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/formin/spec-kit-loop
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add loop --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Microsoft 365 Integration (v1.0.0)
+  Fetch Teams messages, meeting transcripts, and SharePoint/OneDrive files as local Markdown for spec generation.
+
+  Author: BenBtg
+  Tags: microsoft-365, teams, transcripts, collaboration, summarization
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/BenBtg/spec-kit-m365
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add m365 --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA — Multi-Agent & Quality Assurance (v0.1.6)
+  Coordinator → feature → QA agent workflow with parallel worktree-based implementation. Language-agnostic. Auto-detects installed board plugins (Trello, Linear, GitHub Projects, Jira, Azure DevOps). Optional CI gate.
+
+  Author: GenieRobot
+  Tags: multi-agent, orchestration, quality-assurance, workflow, parallel, tdd
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-ext
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA Azure DevOps Integration (v0.1.0)
+  Azure DevOps Boards integration for the MAQA extension. Populates work items from specs, moves User Stories across columns as features progress, real-time Task child ticking.
+
+  Author: GenieRobot
+  Tags: azure-devops, project-management, multi-agent, maqa, kanban
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-azure-devops
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-azure-devops --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA CI/CD Gate (v0.1.0)
+  CI/CD pipeline gate for the MAQA extension. Auto-detects GitHub Actions, CircleCI, GitLab CI, and Bitbucket Pipelines. Blocks QA handoff until pipeline is green.
+
+  Author: GenieRobot
+  Tags: ci-cd, github-actions, circleci, gitlab-ci, quality-gate, maqa
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-ci
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-ci --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA GitHub Projects Integration (v0.1.0)
+  GitHub Projects v2 integration for the MAQA extension. Populates draft issues from specs, moves items across Status columns as features progress, real-time task list ticking.
+
+  Author: GenieRobot
+  Tags: github-projects, project-management, multi-agent, maqa, kanban
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-github-projects
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-github-projects --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA Jira Integration (v0.1.0)
+  Jira integration for the MAQA extension. Populates Stories from specs, moves issues across board columns as features progress, real-time Subtask ticking.
+
+  Author: GenieRobot
+  Tags: jira, project-management, multi-agent, maqa, kanban
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-jira
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-jira --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA Linear Integration (v0.1.0)
+  Linear integration for the MAQA extension. Populates issues from specs, moves items across workflow states as features progress, real-time sub-issue ticking.
+
+  Author: GenieRobot
+  Tags: linear, project-management, multi-agent, maqa, kanban
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-linear
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-linear --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MAQA Trello Integration (v0.1.1)
+  Trello board integration for the MAQA extension. Populates board from specs, moves cards between lists as features progress, real-time checklist ticking.
+
+  Author: GenieRobot
+  Tags: trello, project-management, multi-agent, maqa, kanban
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/GenieRobot/spec-kit-maqa-trello
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add maqa-trello --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MarkItDown Document Converter (v1.0.0)
+  Convert documents (PDF, Word, PowerPoint, Excel, and more) to Markdown for use as spec reference material in Spec Kit workflows.
+
+  Author: BenBtg
+  Tags: markdown, pdf, document-conversion, reference-material, extraction
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/BenBtg/spec-kit-markitdown
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add markitdown --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MDE (v0.5.1)
+  A Spec Kit extension that exposes a minimal model-driven engineering workflow with setup, next, and status commands.
+
+  Author: AI-MDE
+  Tags: mde, model-driven-engineering, workflow, process
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/AI-MDE/spec-kit-mde
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add mde --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit Memory (v0.3.0)
+  Recalls prior specs and decisions from configurable memory tools (e.g. memsearch) before SDLC stages, so planning and specification start from what the project already knows.
+
+  Author: Andrey Zaytsev
+  Tags: memory, recall, research, memsearch
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/zaytsevand/spec-kit-memory
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add memory --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Memory Loader (v1.0.0)
+  Loads .specify/memory/ files before spec-kit lifecycle commands so LLM agents have project governance context
+
+  Author: KevinBrown5280
+  Tags: context, memory, governance, hooks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/KevinBrown5280/spec-kit-memory-loader
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add memory-loader --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Memory MD (v0.8.5)
+  Spec Kit extension for repository-native Markdown memory that captures durable decisions, bugs, and project context
+
+  Author: DyanGalih
+  Tags: memory, workflow, docs, copilot, markdown, ai-context
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/DyanGalih/spec-kit-memory-hub
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add memory-md --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+MemoryLint (v1.5.1)
+  Evidence-driven instruction drift checker: audits agent memory files for boundary, reality, conflict, and redundancy drift.
+
+  Author: RbBtSn0w
+  Tags: memory, governance, constitution, agents-md, process
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/RbBtSn0w/spec-kit-extensions
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add memorylint --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Multi-Model Review (v0.1.2)
+  Cross-model Spec Kit handoffs for spec authoring, implementation routing, and review.
+
+  Author: formin
+  Tags: review, workflow, multi-model, spec-driven-development, code
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/formin/multi-model-review
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add multi-model-review --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Multi-Repo Branch Sync (v1.0.0)
+  Creates the feature branch in affected sub-repositories and git submodules via plan/tasks hooks
+
+  Author: Fyloss
+  Tags: git, branching, multi-repo, submodules, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/fyloss/spec-kit-multi-repo-sync
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add multi-repo-sync --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Multi-Sites Spec Kit (v1.0.0)
+  Multi-site aware specify command with per-site spec folders, auto-increment, and Drupal support
+
+  Author: teeyo
+  Tags: multi-site, drupal, workflow, process
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/teeyo/spec-kit-multi-sites
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add multi-sites --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+OKF Knowledge Bundle Generator (v0.3.0)
+  Generates and maintains an Open Knowledge Format (OKF v0.1) knowledge bundle from a source-code repository, mining git history for significance and rationale, and resolving open questions with the user.
+
+  Author: Alex Punnen
+  Tags: knowledge, okf, documentation, metadata, catalog
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/alexcpn/speckit_ofk
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add okf --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Onboard (v2.1.0)
+  Contextual onboarding and progressive growth for developers new to spec-kit projects. Explains specs, maps dependencies, validates understanding, and guides the next step.
+
+  Author: Rafael Sales
+  Tags: onboarding, learning, mentoring, developer-experience, gamification, knowledge-transfer
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/dmux/spec-kit-onboard
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add onboard --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Optimize Extension (v1.0.0)
+  Audits and optimizes AI governance for context efficiency
+
+  Author: sakitA
+  Tags: constitution, optimization, token-budget, governance, audit
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/sakitA/spec-kit-optimize
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add optimize --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Orchestration Task Context Management (v0.0.0)
+  Adds subagent work-unit orchestration to generated Spec Kit task files
+
+  Author: Igor Benicio de Mesquita
+  Tags: agent, orchestration, tasks, context
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/benizzio/spec-kit-orchestration-task-context-management
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add orchestration-task-context-management --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Orchestrator (v1.0.0)
+  Cross-feature orchestration — track state, select tasks, and detect conflicts across parallel specs.
+
+  Author: Quratulain-bilal
+  Tags: orchestration, multi-feature, coordination, workflow, parallel
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-orchestrator
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add orchestrator --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+PatchWarden Evidence Pack (v1.0.1)
+  Map Spec Kit tasks into a guarded PatchWarden Goal and export bounded, traceable evidence for an accepted lineage.
+
+  Author: Zengjie
+  Tags: verification, evidence, traceability, security
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/jiezeng2004-design/spec-kit-patchwarden
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add patchwarden-evidence --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+AgentPay x402 — Spend Controls for Spec Kit Agents (v1.0.0)
+  Set USDC spending caps and execute x402 payments to paid APIs during spec implementation. Zero platform fee on Base L2.
+
+  Author: AgentPay Team
+  Tags: payments, x402, budget, usdc, api
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/shawnhvac/spec-kit-pay-x402
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add pay-x402 --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Plan Review Gate (v1.0.0)
+  Require spec.md and plan.md to be merged via MR/PR before allowing task generation
+
+  Author: luno
+  Tags: review, quality, workflow, gate
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/luno/spec-kit-plan-review-gate
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add plan-review-gate --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+PR Bridge (v1.0.0)
+  Auto-generate pull request descriptions, checklists, and summaries from spec artifacts.
+
+  Author: Quratulain-bilal
+  Tags: pull-request, automation, traceability, workflow, review
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-pr-bridge-
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add pr-bridge --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Presetify (v1.0.0)
+  Create and validate presets and preset catalogs.
+
+  Author: mnriem
+  Tags: presets, workflow, templates, experimental
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mnriem/spec-kit-extensions
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add presetify --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit Preview (v1.1.0)
+  Generate evidence-backed low, mid, or high fidelity previews from Spec Kit artifacts as Markdown or self-contained HTML
+
+  Author: bigsmartben
+  Tags: preview, prototype, html, markdown, ux
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-preview
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add preview --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Product Spec Extension (v1.0.1)
+  Generates PRFAQ, Lean PRD, stakeholder summaries, and technical designs from engineering specs.
+
+  Author: d0whc3r
+  Tags: design, documentation, jtbd, lean-prd, planning, prd, prfaq, product, product-management, requirements, spec, spec-kit, spec-kit-extension, stakeholder, technical-design
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/d0whc3r/spec-kit-product
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add product --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Product Forge (v1.7.0)
+  Full product-lifecycle orchestrator for Spec Kit: research → product-spec → plan → tasks → implement → verify → test → release-readiness, across express/lite/standard/v-model modes with human-in-the-loop gates.
+
+  Author: Valentin Yakovlev
+  Tags: process, lifecycle, testing, sync-verify, release-readiness
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/VaiYav/speckit-product-forge
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add product-forge --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+QA Testing Extension (v1.0.0)
+  Systematic QA testing with browser-driven or CLI-based validation of acceptance criteria from spec.
+
+  Author: arunt14
+  Tags: code, testing, qa
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/arunt14/spec-kit-qa
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add qa --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+RAG Azure Builder (v1.2.0)
+  Spec Kit extension for onboarding and operating an Azure RAG stack with guided workflows.
+
+  Author: Sertxito
+  Tags: azure, rag, search, onboarding, cost-optimization
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Sertxito/spec-kit-extension-rag-azure-builder
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add rag-azure-builder --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Ralph Loop (v1.2.1)
+  Autonomous implementation loop using AI agent CLI
+
+  Author: Rubiss
+  Tags: implementation, automation, loop, copilot, codex, claude
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Rubiss-Projects/spec-kit-ralph
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ralph --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Reconcile Extension (v1.2.1)
+  Reconcile implementation drift by surgically updating the feature's own spec, plan, and tasks.
+
+  Author: Stanislav Deviatov
+  Tags: reconcile, drift, tasks, remediation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/stn1slv/spec-kit-reconcile
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add reconcile --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Red Team (v1.0.2)
+  Adversarial review of functional specs before /speckit.plan. Parallel adversarial lens agents catch hostile actors, silent failures, and regulatory blind spots that clarify/analyze cannot.
+
+  Author: Ash Brener
+  Tags: adversarial-review, quality-gate, spec-hardening, pre-plan, audit
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ashbrener/spec-kit-red-team
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add red-team --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Refine (v1.0.0)
+  Update specs in-place, propagate changes to plan and tasks, and diff impact across artifacts.
+
+  Author: Quratulain-bilal
+  Tags: refine, iterate, propagation, workflow, specifications
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-refine
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add refine --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Repository Index (v1.0.0)
+  Generate index of your repo for overview, architecture and module
+
+  Author: Yiyu Liu
+  Tags: utility, brownfield, analysis
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/liuyiyu/spec-kit-repoindex
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add repoindex --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Repository Governance (v3.0.1)
+  Generate project-governance projections from Spec Kit metadata
+
+  Author: bigben
+  Tags: governance, repository, agents, memory, context
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bigsmartben/spec-kit-agent-governance
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add repository-governance --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Reqnroll BDD (v1.1.0)
+  Adds Reqnroll BDD planning, Gherkin generation, traceability, safe task injection, handoff, and verification to Spec Kit.
+
+  Author: LoogaCY Studio
+  Tags: bdd, reqnroll, dotnet, gherkin, acceptance-testing
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/LoogacyStudio/spec-kit-reqnroll-bdd
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add reqnroll-bdd --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Retro Extension (v1.0.0)
+  Sprint retrospective analysis with metrics, spec accuracy assessment, and improvement suggestions.
+
+  Author: arunt14
+  Tags: process, retrospective, metrics
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/arunt14/spec-kit-retro
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add retro --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Retrospective Extension (v1.0.0)
+  Post-implementation retrospective with spec adherence scoring, drift analysis, and human-gated spec updates.
+
+  Author: emi-dm
+  Tags: retrospective, spec-drift, quality, analysis, governance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/emi-dm/spec-kit-retrospective
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add retrospective --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Review Extension (v1.0.1)
+  Post-implementation comprehensive code review with specialized agents for code quality, comments, tests, error handling, type design, and simplification.
+
+  Author: ismaelJimenez
+  Tags: code-review, quality, review, testing, error-handling, type-design, simplification
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ismaelJimenez/spec-kit-review
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add review --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Ripple (v1.1.0)
+  Detect side effects that tests can't catch after implementation — surface hidden ripple effects across 9 analysis categories
+
+  Author: chordpli
+  Tags: side-effects, post-implementation, analysis, quality, risk-detection
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/chordpli/spec-kit-ripple
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ripple --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Roadmap (v0.1.0)
+  Capture a durable spec roadmap after the constitution, then review specs against it before and after implementation so spec-specific decisions, outcomes, and constraints are never lost.
+
+  Author: srobroek
+  Tags: roadmap, planning, governance, review, spec-alignment
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/srobroek/speckit-roadmap
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add roadmap --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit Schedule — CP-SAT Agent Orchestrator (v0.6.2)
+  Optimal multi-agent task scheduling via CP-SAT solver with DAG precedence, hallucination-aware caps, file-conflict avoidance, stochastic durations, replanning, and interactive HTML output
+
+  Author: Julio César Franco Ardila
+  Tags: scheduling, optimization, multi-agent, cp-sat, operations-research
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/jfranc38/spec-kit-schedule
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add schedule --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Scope (v1.0.0)
+  Effort estimation and scope tracking — estimate work, detect creep, and budget time per phase.
+
+  Author: Quratulain-bilal
+  Tags: estimation, scope, effort, planning, project-management, tracking
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-scope-
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add scope --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Security Review (v2.0.0)
+  Full-project secure-by-design security audits plus staged, branch/PR, plan, task, follow-up, and apply reviews
+
+  Author: DyanGalih
+  Tags: security, audit, owasp, compliance, governance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/DyanGalih/security-review
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add security-review --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SFSpeckit — Salesforce Spec-Driven Development (v1.0.0)
+  Enterprise-Grade Spec-Driven Development (SDD) Framework for Salesforce.
+
+  Author: Sumanth Yanamala
+  Tags: salesforce, enterprise, sdlc, apex, devops
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ysumanth06/spec-kit-sf
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add sf --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Ship Release Extension (v1.0.0)
+  Automates release pipeline: pre-flight checks, branch sync, changelog generation, CI verification, and PR creation.
+
+  Author: arunt14
+  Tags: process, release, automation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/arunt14/spec-kit-ship
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add ship --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Reference Loader (v1.0.0)
+  Reads the ## References section from the current feature spec and loads the listed files into context
+
+  Author: KevinBrown5280
+  Tags: context, references, docs, hooks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/KevinBrown5280/spec-kit-spec-reference-loader
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add spec-reference-loader --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Validate (v1.0.1)
+  Comprehension validation, review gating, and approval state for spec-kit artifacts — staged-reveal quizzes, peer review SLA, and a hard gate before /speckit.implement.
+
+  Author: Ahmed Eltayeb
+  Tags: validation, review, quality, workflow, process
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/aeltayeb/spec-kit-spec-validate
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add spec-validate --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec2Cloud (v1.1.0)
+  Spec-driven workflow tuned for shipping to Azure: spec → plan → tasks → implement → deploy.
+
+  Author: Azure Samples
+  Tags: spec2cloud, azure, cloud, deploy, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Azure-Samples/Spec2Cloud
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add spec2cloud --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SpecAssay Check (v0.4.12)
+  Gate 2 refuses silent gaps and emits a trace-manifest (`trace-manifest.json`).
+
+  Author: Rik Dryfoos
+  Tags: traceability, gate, ci, governance, sdd
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/rdryfoos/specassay
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add specassay-check --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SpecJudge — right-size the model before you implement (v0.5.4)
+  Recommends the model that fits your tasks, citing the spec fragment behind every level.
+
+  Author: Joaquín Ruiz
+  Tags: cost, model-selection, local-first, ollama
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/JoaquinRuiz/SpecJudge
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add specjudge --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Inventory (v0.1.0)
+  Read-only inventory of live requirement and task IDs, with focused per-task context packs instead of whole-file dumps.
+
+  Author: Yash Chindam
+  Tags: inventory, requirements, context, traceability, alignment
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Yash-Chindam/spec-kit-inventory-alignment
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add speckit-inventory --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Superpowers Implementation Bridge (v1.2.0)
+  Thin orchestrator between Spec Kit (design) and Superpowers (implementation). Cross-agent.
+
+  Author: lihan3238
+  Tags: bridge, superpowers, cross-agent, tdd, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/lihan3238/speckit-superpowers-bridge
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add speckit-superpowers-bridge --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SDD Utilities (v1.0.0)
+  Resume interrupted workflows, validate project health, and verify spec-to-task traceability.
+
+  Author: mvanhorn
+  Tags: resume, doctor, validate, workflow, health-check
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mvanhorn/speckit-utils
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add speckit-utils --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+SpecTest (v1.0.0)
+  Auto-generate test scaffolds from spec criteria, map coverage, and find untested requirements.
+
+  Author: Quratulain-bilal
+  Tags: testing, test-generation, coverage, quality, automation, traceability
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-spectest
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add spectest --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Squad Bridge (v1.3.0)
+  Bootstrap and synchronize a Squad agent team from your Speckit spec and tasks.
+
+  Author: jwill824
+  Tags: multi-agent, agents, orchestration, process, integration
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/jwill824/spec-kit-squad
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add squad --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Staff Review Extension (v1.0.0)
+  Staff-engineer-level code review that validates implementation against spec, checks security, performance, and test coverage.
+
+  Author: arunt14
+  Tags: code, review, quality
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/arunt14/spec-kit-staff-review
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add staff-review --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Project Status (v1.0.0)
+  Show current SDD workflow progress — active feature, artifact status, task completion, workflow phase, and extensions summary.
+
+  Author: KhawarHabibKhan
+  Tags: status, workflow, progress, feature-tracking, task-progress
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/KhawarHabibKhan/spec-kit-status
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add status --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Status Report (v1.2.5)
+  Project status, feature progress, and next-action recommendations for spec-driven workflows.
+
+  Author: Open-Agent-Tools
+  Tags: workflow, project-management, status
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Open-Agent-Tools/spec-kit-status
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add status-report --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Superpowers Bridge (v1.6.0)
+  Bridges selected Superpowers disciplines into Spec Kit as evidence-first trust gates for agent workflows.
+
+  Author: RbBtSn0w
+  Tags: quality-gates, tdd, code-review, workflow, superpowers, verification, debugging, branch-management
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/RbBtSn0w/spec-kit-extensions
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add superb --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Superspec (v1.0.2)
+  Bridges spec-kit workflows with obra/superpowers capabilities for brainstorming, TDD, code review, and resumable execution.
+
+  Author: WangX0111
+  Tags: superpowers, brainstorming, tdd, code-review, subagent, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/WangX0111/superspec
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add superspec --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Sync (v0.1.0)
+  Detect and resolve drift between specs and implementation. AI-assisted resolution with human approval.
+
+  Author: bgervin
+  Tags: sync, drift, validation, bidirectional, backfill
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/bgervin/spec-kit-sync
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add sync --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Tasks to GitHub Project (v0.2.0)
+  Publish and synchronize Spec Kit tasks as cards on a GitHub Project (v2) kanban board, with priority and status sync between spec.md/tasks.md and the board.
+
+  Author: Alessandro Mancini
+  Tags: github, project, kanban, automation, tasks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/mancioshell/spec-kit-tasks-to-project
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add tasks-to-project --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+TDD Extension (v1.1.2)
+  Drives spec-kit implementation with tests: a language-agnostic red-green-refactor loop with a per-feature test list, recorded red and green evidence, and mutation-checked test strength.
+
+  Author: d0whc3r
+  Tags: acceptance-tests, mutation-testing, property-based-testing, quality, red-green-refactor, spec-kit, spec-kit-extension, tdd, test-driven-development, test-first, testing, unit-tests
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/d0whc3r/spec-kit-tdd
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add tdd --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Team Assign (v1.0.0)
+  Assign tasks.md items to human engineers, split into subtasks, and generate a per-engineer workboard
+
+  Author: tarunkumarbhati
+  Tags: team, assignment, process, planning, subtasks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/tarunkumarbhati/spec-kit-team-assign
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add team-assign --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Test Coverage Drift Control (v0.3.0)
+  Generate incremental coverage drift reports and planned remediation tasks after implementation
+
+  Author: Igor Benicio de Mesquita
+  Tags: analysis, coverage, testing, quality, maintenance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/benizzio/spec-kit-test-coverage-drift-control
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add test-coverage-drift-control --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Time Machine (v1.1.0)
+  Retroactively apply the full SDD workflow to existing codebases — analyse, spec, and ship feature-by-feature
+
+  Author: te3yo
+  Tags: brownfield, automation, workflow, process
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/teeyo/spec-kit-time-machine
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add time-machine --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+TinySpec (v1.0.0)
+  Lightweight single-file workflow for small tasks — skip the heavy multi-step SDD process.
+
+  Author: Quratulain-bilal
+  Tags: lightweight, small-tasks, workflow, productivity, efficiency
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-tinyspec
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add tinyspec --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+OWASP LLM Threat Model (v1.0.0)
+  OWASP Top 10 for LLM Applications 2025 threat analysis on agent artifacts
+
+  Author: NaviaSamal
+  Tags: security, owasp, threat-model, llm, analysis
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/NaviaSamal/spec-kit-threatmodel
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add threatmodel --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Kit TLDR (v0.3.0)
+  Render a feature's spec.md / plan.md into a review-oriented TLDR (self-contained HTML dashboard + PR-native Markdown) that surfaces risks for faster PR review.
+
+  Author: Qurore
+  Tags: review, pr-review, sdd, spec, visibility
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/qurore/speckit-tldr
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add tldr --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Token Consumption Analyzer (v0.1.0)
+  Captures, analyzes, and compares token consumption across SDD workflows
+
+  Author: Chris Roberts | coderandhiker
+  Tags: tokens, measurement, optimization, analysis
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/coderandhiker/spec-kit-token-analyzer
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add token-analyzer --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Token Budget (v1.0.1)
+  Reduces LLM token consumption in Spec Kit workflows: compact artifacts in-place, scope per-phase reading, suppress prose padding, and report token usage.
+
+  Author: Tine Kondo
+  Tags: tokens, budget, context, efficiency, cost-optimization
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/tinesoft/spec-kit-token-budget
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add token-budget --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Token Economy (v1.0.0)
+  Token routing, measured savings, and context audit workflows.
+
+  Author: formin
+  Tags: tokens, routing, reporting, context
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/formin/spec-kit-token-economy
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add token-economy --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Spec Trace (v1.0.0)
+  Build a requirement → test traceability matrix from spec.md and the test suite — surface untested requirements and orphan tests
+
+  Author: Quratulain-bilal
+  Tags: traceability, testing, coverage, compliance, requirements
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-trace
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add trace --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+V-Model Extension Pack (v0.6.0)
+  Enforces V-Model paired generation of development specs and test specs with full traceability.
+
+  Author: leocamello
+  Tags: v-model, traceability, testing, compliance, safety-critical
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 21
+  Repository: https://github.com/leocamello/spec-kit-v-model
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add v-model --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Verify Extension (v1.0.3)
+  Post-implementation quality gate that validates implemented code against specification artifacts.
+
+  Author: ismaelJimenez
+  Tags: verification, quality-gate, implementation, spec-adherence, compliance
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/ismaelJimenez/spec-kit-verify
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add verify --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Verify Review Ship (v0.4.2)
+  Post-convergence operational verification, technical review, learning governance, and transactional delivery.
+
+  Author: Carlos Eduardo Gevaerd Araujo
+  Tags: quality, review, shipping, merge, cleanup, learning, governance, agent-skills
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/cadugevaerd/spec-kit-verify-review-ship
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add verify-review-ship --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Verify Tasks Extension (v1.0.0)
+  Detect phantom completions: tasks marked [X] in tasks.md with no real implementation.
+
+  Author: Dave Sharpe
+  Tags: verification, quality, phantom-completion, tasks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/datastone-inc/spec-kit-verify-tasks
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add verify-tasks --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Version Guard (v1.2.0)
+  Verify tech stack versions against live registries before planning and implementation
+
+  Author: KevinBrown5280
+  Tags: versioning, npm, validation, hooks
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/KevinBrown5280/spec-kit-version-guard
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add version-guard --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+What-if Analysis (v1.0.0)
+  Preview the downstream impact (complexity, effort, tasks, risks) of requirement changes before committing to them.
+
+  Author: DevAbdullah90
+  Tags: analysis, planning, simulation
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/DevAbdullah90/spec-kit-whatif
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add whatif --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+LLM Wiki (v1.0.0)
+  LLM-maintained compounding project wiki: source ingestion, cited answers, and consistency linting
+
+  Author: formin
+  Tags: wiki, knowledge-base, docs, memory, context-management
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/formin/spec-kit-wiki
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add wiki --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Wireframe Visual Feedback Loop (v0.1.1)
+  SVG wireframe generation, review, and sign-off for spec-driven development. Approved wireframes become spec constraints honored by /speckit.plan, /speckit.tasks, and /speckit.implement.
+
+  Author: TortoiseWolfe
+  Tags: wireframe, visual, design, ui, mockup, svg, feedback-loop, sign-off
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/TortoiseWolfe/spec-kit-extension-wireframe
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add wireframe --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Work IQ (v1.0.0)
+  Integrate Microsoft 365 organizational knowledge into spec-driven development workflows
+
+  Author: sakitA
+  Tags: microsoft-365, work-iq, context, integration, productivity
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/sakitA/spec-kit-workiq
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add workiq --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Worktree Isolation (v1.0.0)
+  Spawn isolated git worktrees for parallel feature development without checkout switching.
+
+  Author: Quratulain-bilal
+  Tags: worktree, git, parallel, isolation, workflow
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/Quratulain-bilal/spec-kit-worktree
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add worktree --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+
+Worktrees (v1.0.0)
+  Default-on worktree isolation for parallel agents — sibling or nested layout
+
+  Author: dango85
+  Tags: worktree, git, parallel, isolation, agents
+  Catalog: community (discovery only — not installable)
+  Downloads: 0 | Stars: 0
+  Repository: https://github.com/dango85/spec-kit-worktree-parallel
+
+  ⚠  Not directly installable from 'community' (discovery-only).
+  Once vetted, install it directly: specify extension add worktrees --from <archive-url>
+  Don't flip a discovery-only catalog to install_allowed — that's the vetting boundary.
+

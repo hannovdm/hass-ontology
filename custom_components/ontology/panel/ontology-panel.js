@@ -1,6 +1,6 @@
 import "./ontology-graph.js";
 import { resolveOntologyIcon } from "./ontology-icons.js";
-import { UNASSIGNED_ID } from "./ontology-graph.js";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -230,10 +230,10 @@ class OntologyPanel extends HTMLElement {
     }
   }
 
-  async _loadSnapshot(force = false) {
+  async _loadSnapshot(force = false, silent = false) {
     if (this._loadStarted && !force) return;
     this._loadStarted = true;
-    this._showState("loading");
+    if (!silent) this._showState("loading");
     this._unsubscribe();
     try {
       const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
@@ -245,7 +245,8 @@ class OntologyPanel extends HTMLElement {
         return;
       }
       this._graph.setSnapshot(snapshot, this._hass);
-      this._summary.textContent = `${snapshot.nodes.length} nodes and ${snapshot.relationships?.length || 0} relationships`;
+      const homeName = this._hass?.config?.location_name || "Home";
+      this._summary.textContent = `${snapshot.nodes.length} nodes · ${snapshot.relationships?.length || 0} relationships · ${homeName}`;
       this._renderNodeList(snapshot.nodes);
       this._renderFilters();
       this._showState(snapshot.truncated ? "partial" : null);
@@ -314,7 +315,8 @@ class OntologyPanel extends HTMLElement {
     if (!event || !this._graph) return;
     const { kind, node_ids = [], relationship_ids = [] } = event;
     if (kind === "reconcile") {
-      this._loadSnapshot(true);
+      // Reload silently — no flashing loading banner when graph is already visible
+      this._loadSnapshot(true, true);
       return;
     }
     if (kind === "remove") {
@@ -378,6 +380,8 @@ class OntologyPanel extends HTMLElement {
       ? [...uniqueNodes, { id: UNASSIGNED_ID, haId: UNASSIGNED_ID, type: "PRESENTATION_GROUP", label: "Unassigned", icon: "mdi:folder-question-outline", presentationOnly: true }]
       : uniqueNodes;
     for (const node of visibleNodes) {
+      // Synthetic nodes (HOME hub, unassigned group) don't belong in the nav list
+      if (node.synthetic) continue;
       const item = document.createElement("li");
       const button = document.createElement("button");
       button.type = "button";
@@ -417,8 +421,9 @@ class OntologyPanel extends HTMLElement {
   }
 
   async _selectionChanged(elementId) {
+    this._currentDetailId = elementId;
     this._syncSelection(elementId);
-    if (!elementId || elementId === UNASSIGNED_ID) {
+    if (!elementId || elementId === UNASSIGNED_ID || elementId === SYNTHETIC_HOME_ID) {
       this._details.hidden = true;
       return;
     }
@@ -458,6 +463,8 @@ class OntologyPanel extends HTMLElement {
   async _loadDetail(elementId, addConnections = false) {
     try {
       const detail = await this._hass.callWS({ type: "ontology/graph_detail", element_id: elementId });
+      // Guard: if the user selected a different element while the WS call was in flight, discard this result
+      if (this._currentDetailId !== elementId) return;
       const element = detail.node || detail.relationship;
       if (!element) return;
       if (addConnections && detail.directConnections) {
