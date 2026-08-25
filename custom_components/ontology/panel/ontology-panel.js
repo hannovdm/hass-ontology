@@ -1,5 +1,5 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b11";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b11";
+import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b12";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b12";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -243,7 +243,13 @@ class OntologyPanel extends HTMLElement {
         this._showState("empty", true);
         return;
       }
-      this._graph.setSnapshot(snapshot, this._hass);
+      if (silent && this._graph.cy?.elements().length > 0) {
+        // Silent reconcile: refresh base-node data without rebuilding the graph.
+        // Preserves device/entity nodes the user expanded by clicking areas.
+        this._graph.updateElements(snapshot.nodes, this._hass);
+      } else {
+        this._graph.setSnapshot(snapshot, this._hass);
+      }
       const homeName = this._hass?.config?.location_name || "Home";
       this._summary.textContent = `${snapshot.nodes.length} nodes · ${snapshot.relationships?.length || 0} relationships · ${homeName}`;
       this._renderNodeList(snapshot.nodes);
@@ -251,7 +257,7 @@ class OntologyPanel extends HTMLElement {
       this._showState(snapshot.truncated ? "partial" : null);
       this._subscriptionReconnectAttempt = 0;
       this._startSubscription(snapshot.revision ?? 0);
-      this._loadLabStatus();
+      if (!silent) this._loadLabStatus();
     } catch (error) {
       this._showState(error?.code === "gateway_unavailable" ? "unavailable" : "error", true);
     }
@@ -259,19 +265,38 @@ class OntologyPanel extends HTMLElement {
 
   _startSubscription(fromRevision) {
     if (!this._hass?.connection?.subscribeMessage) return;
-    this._subscriptionUnsubscribe = this._hass.connection.subscribeMessage(
-      (event) => this._handleLiveEvent(event),
+    // Generation counter: events from a superseded subscription are silently dropped
+    const gen = (this._subscriptionGeneration = (this._subscriptionGeneration || 0) + 1);
+    this._hass.connection.subscribeMessage(
+      (event) => {
+        if (gen !== this._subscriptionGeneration) return;
+        this._handleLiveEvent(event);
+      },
       { type: "ontology/graph_subscribe", from_revision: fromRevision },
     ).then(
-      (unsubscribe) => { this._subscriptionUnsubscribe = unsubscribe; },
-      () => { this._setSubscriptionState("stale"); this._scheduleReconnect(); },
+      (unsubscribe) => {
+        if (gen !== this._subscriptionGeneration) {
+          // A newer subscription started before this promise resolved — cancel this one
+          try { unsubscribe(); } catch { }
+        } else {
+          this._subscriptionUnsubscribe = unsubscribe;
+        }
+      },
+      () => {
+        if (gen === this._subscriptionGeneration) {
+          this._setSubscriptionState("stale");
+          this._scheduleReconnect();
+        }
+      },
     );
     this._setSubscriptionState("live");
   }
 
   _unsubscribe() {
+    // Invalidate all pending subscription promise callbacks before cancelling
+    this._subscriptionGeneration = (this._subscriptionGeneration || 0) + 1;
     if (typeof this._subscriptionUnsubscribe === "function") {
-      try { this._subscriptionUnsubscribe(); } catch { /* ignore */ }
+      try { this._subscriptionUnsubscribe(); } catch { }
     }
     this._subscriptionUnsubscribe = null;
     if (this._subscriptionReconnectTimer != null) {

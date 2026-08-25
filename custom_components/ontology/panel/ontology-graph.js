@@ -1,5 +1,5 @@
 import cytoscape from "./vendor/cytoscape.esm.min.js";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b11";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b12";
 
 export const UNASSIGNED_ID = "presentation:unassigned";
 export const SYNTHETIC_HOME_ID = "presentation:home";
@@ -229,9 +229,8 @@ class OntologyGraph extends HTMLElement {
       this.cy.zoom(savedViewport.zoom);
       this.cy.pan(savedViewport.pan);
     } else if (center?.nonempty()) {
-      // Smoothly center the view on the area that was just expanded
-      const zoom = Math.max(this.cy.zoom(), 0.9);
-      this.cy.animate({ center: { eles: center }, zoom }, { duration: 280 });
+      // Zoom in and center on the clicked area so it fills the viewport comfortably
+      this.cy.animate({ center: { eles: center }, zoom: 1.5 }, { duration: 300 });
     }
   }
 
