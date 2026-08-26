@@ -1,7 +1,7 @@
 # Home Assistant Ontology
 
 <p align="center">
-  <img src="custom_components/ontology/brand/logo.png" alt="Home Assistant Ontology logo" width="256">
+  <img src="./custom_components/ontology/brand/logo.png" alt="Home Assistant Ontology logo" width="256">
 </p>
 
 A local-first Home Assistant custom integration that discovers your smart home's
