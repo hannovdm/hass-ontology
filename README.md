@@ -196,6 +196,26 @@ In ontology terms, Home Assistant becomes a **home digital twin**, where Areas, 
 See [specs/001-ha-ontology-integration/quickstart.md](specs/001-ha-ontology-integration/quickstart.md)
 for detailed end-to-end validation scenarios.
 
+## Sample dashboard
+
+The repository includes a ready-to-import [sample Ontology dashboard](dashboard.yaml)
+for monitoring and operating the integration from Home Assistant. It uses a
+responsive Sections view organized into three groups:
+
+- **Ontology Control** provides buttons to rebuild the graph, validate its
+  contents, and resynchronize Home Assistant data with Memgraph.
+- **Nodes** shows the current node and relationship totals. Color-coded
+  [Bubble Cards](https://github.com/Clooos/Bubble-Card) highlight empty graphs,
+  while statistics graphs show the mean, minimum, and maximum counts over the
+  previous seven days.
+- **Health** reports the integration's current health, last synchronization,
+  most recent error, and graph schema version.
+
+Before importing the YAML, install Bubble Card through HACS. The built-in tile,
+heading, and statistics graph cards require no additional frontend components.
+Entity IDs in the example are intentionally concise; update them if Home
+Assistant assigns different IDs to your Ontology entities.
+
 ## Development
 
 ```sh
