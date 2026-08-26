@@ -1,5 +1,5 @@
-import { ontologyNodeColor, UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b31";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b31";
+import { ontologyNodeColor, UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b32";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b32";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
