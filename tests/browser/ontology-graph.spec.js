@@ -122,6 +122,54 @@ for (const state of ["loading", "empty", "partial", "unavailable", "error"]) {
   });
 }
 
+test("shows a graph overlay while nodes and relationships are being fetched", async ({ page }) => {
+  await openFixture(page, "loading");
+  await expect(page.locator(".graph-busy")).toBeVisible();
+  await expect(page.locator(".graph-busy")).toHaveText("Fetching nodes and relationships…");
+});
+
+test("colors links by their connected node types and reports displayed totals", async ({ page }) => {
+  await openFixture(page);
+  await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
+  const facts = await page.locator("ontology-panel").evaluate((panel) => {
+    const { nodes, links } = panel.graph._fg.graphData();
+    const colorFor = panel.graph._fg.linkColor();
+    return {
+      nodeCount: nodes.length,
+      linkCount: links.length,
+      colors: Object.fromEntries(links.map((link) => [link.type, colorFor(link)])),
+    };
+  });
+
+  expect(facts.colors.HAS_AREA).not.toBe(facts.colors.HAS_DEVICE);
+  await expect(page.locator(".ontology-summary")).toHaveText(
+    `${facts.nodeCount} nodes · ${facts.linkCount} relationships · Home`,
+  );
+});
+
+test("keeps the desktop graph stage at the top with an independently scrolling sidebar", async ({ page }) => {
+  await openFixture(page, "double-click-expansion");
+  const layout = await page.locator("ontology-panel").evaluate((panel) => {
+    const stage = panel.querySelector(".graph-stage");
+    const sidebar = panel.querySelector(".ontology-sidebar");
+    const stageBox = stage.getBoundingClientRect();
+    const sidebarBox = sidebar.getBoundingClientRect();
+    return {
+      stageTop: stageBox.top,
+      stageBottom: stageBox.bottom,
+      sidebarTop: sidebarBox.top,
+      sidebarBottom: sidebarBox.bottom,
+      sidebarOverflow: getComputedStyle(sidebar).overflowY,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(layout.stageTop).toBeCloseTo(layout.sidebarTop, 0);
+  expect(layout.stageBottom).toBeLessThanOrEqual(layout.viewportHeight);
+  expect(layout.sidebarBottom).toBeLessThanOrEqual(layout.viewportHeight);
+  expect(layout.sidebarOverflow).toBe("auto");
+});
+
 for (const exactTerm of ["Entity:sensor.kitchen_temperature", "Kitchen temperature"]) {
 test(`finds exact ${exactTerm.includes(":") ? "ID" : "name"} and focuses it within three interactions`, async ({ page }) => {
   await openFixture(page, "interactive");
@@ -212,7 +260,7 @@ test("expands one hop and preserves selection and viewport", async ({ page }) =>
   expect(after.zoom).toBeCloseTo(before.zoom);
 });
 
-test("single-clicking an area replaces the view with its complete focused context", async ({ page }) => {
+test("single-clicking an area preserves the overview while adding its complete focused context", async ({ page }) => {
   test.setTimeout(60_000);
   await openFixture(page, "double-click-expansion");
   await expect.poll(() => page.locator("ontology-panel").evaluate((panel) => Boolean(panel.graph._fg))).toBe(true);
@@ -279,11 +327,12 @@ test("single-clicking an area replaces the view with its complete focused contex
     "DashboardCard:lovelace::0::0",
     "Dashboard:lovelace",
   ]));
-  expect(facts.graphNodeIds).not.toContain("Area:garage");
+  expect(facts.graphNodeIds).toContain("Area:garage");
   expect(facts.graphNodeIds).toContain("presentation:home");
   expect(facts.graphNodeIds).not.toContain("presentation:unassigned");
   expect(facts.links).toEqual(expect.arrayContaining([
     expect.objectContaining({ source: "presentation:home", target: "Area:kitchen", type: "HAS_AREA" }),
+    expect.objectContaining({ source: "presentation:home", target: "Area:garage", type: "HAS_AREA" }),
     expect.objectContaining({ id: "HAS_DEVICE:1", source: "Area:kitchen", target: "Device:lamp" }),
     expect.objectContaining({ id: "HAS_ENTITY:primary", source: "Device:lamp", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "HAS_ENTITY:external", source: "Device:hall-display", target: "Entity:sensor.kitchen_temperature" }),
@@ -291,6 +340,8 @@ test("single-clicking an area replaces the view with its complete focused contex
     expect.objectContaining({ id: "DISPLAYS_ENTITY:1", source: "DashboardCard:lovelace::0::0", target: "Entity:sensor.kitchen_temperature" }),
     expect.objectContaining({ id: "CONTAINS_CARD:1", source: "Dashboard:lovelace", target: "DashboardCard:lovelace::0::0" }),
   ]));
+  await expect(page.locator(".ontology-summary")).toContainText(`${facts.graphNodeIds.length} nodes`);
+  await expect(page.locator(".ontology-summary")).toContainText(`${facts.links.length} relationships`);
 
   await page.waitForTimeout(1800);
   const framing = await page.locator("ontology-panel").evaluate((panel) => {

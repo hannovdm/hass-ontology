@@ -1,4 +1,4 @@
-import { UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b31";
+import { ontologyNodeColor, UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b31";
 import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b31";
 
 const STATE_MESSAGES = {
@@ -39,16 +39,20 @@ class OntologyPanel extends HTMLElement {
     this.innerHTML = `
       <style>
         ontology-panel { display: block; min-height: 100vh; background: var(--primary-background-color, #f4f7f8); color: var(--primary-text-color, #172126); }
-        .ontology-shell { display: grid; grid-template-rows: auto minmax(420px, 1fr); min-height: 100vh; }
+        .ontology-shell { display: grid; grid-template-rows: auto minmax(420px, 1fr); height: 100vh; overflow: hidden; }
         .ontology-header { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 20px 24px 14px; border-bottom: 1px solid var(--divider-color, #d5dddf); background: var(--card-background-color, #fff); }
         .ontology-header h1 { margin: 0; font: 600 24px/1.2 var(--paper-font-headline_-_font-family, sans-serif); }
         .ontology-summary { margin: 5px 0 0; color: var(--secondary-text-color, #56666d); font-size: 14px; }
         .graph-toolbar { display: flex; gap: 6px; }
         .icon-button { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--divider-color, #cbd5d8); border-radius: 4px; background: var(--card-background-color, #fff); color: var(--primary-text-color, #172126); cursor: pointer; }
         .icon-button:hover, .icon-button:focus-visible { border-color: var(--primary-color, #23728a); outline: 2px solid color-mix(in srgb, var(--primary-color, #23728a) 35%, transparent); outline-offset: 1px; }
-        .ontology-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 290px; min-height: 0; }
+        .ontology-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 290px; min-height: 0; align-items: stretch; }
         .graph-stage { position: relative; min-height: 420px; background: var(--card-background-color, #fff); }
         ontology-graph { position: absolute; inset: 0; }
+        .graph-busy { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; gap: 12px; padding: 24px; background: color-mix(in srgb, var(--card-background-color, #fff) 88%, transparent); color: var(--primary-text-color, #172126); text-align: center; font-size: 14px; font-weight: 600; }
+        .graph-busy::before { content: ""; width: 34px; height: 34px; margin: 0 auto; border: 3px solid var(--divider-color, #cbd5d8); border-top-color: var(--primary-color, #23728a); border-radius: 50%; animation: ontology-spin .8s linear infinite; }
+        .graph-busy[hidden] { display: none; }
+        @keyframes ontology-spin { to { transform: rotate(360deg); } }
         .graph-state { position: absolute; z-index: 2; top: 18px; left: 50%; transform: translateX(-50%); max-width: min(460px, calc(100% - 32px)); padding: 10px 14px; border: 1px solid var(--divider-color, #cbd5d8); border-radius: 6px; background: var(--card-background-color, #fff); box-shadow: 0 3px 12px rgb(20 37 43 / 14%); text-align: center; }
         .graph-state[hidden] { display: none; }
         .graph-state strong, .graph-state span { display: block; }
@@ -78,7 +82,7 @@ class OntologyPanel extends HTMLElement {
         .filter-group { display: grid; gap: 7px; margin-bottom: 12px; }
         .filter-group label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .legend { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; margin: 0 0 20px; font-size: 13px; }
-        .legend ha-icon { color: var(--primary-text-color, #172126); }
+        .legend ha-icon { color: var(--ontology-node-color, var(--primary-text-color, #172126)); }
         .legend small { color: var(--secondary-text-color, #56666d); }
         .node-list, .relationship-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
         .node-list button, .relationship-list button { width: 100%; min-height: 42px; padding: 7px 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
@@ -87,7 +91,7 @@ class OntologyPanel extends HTMLElement {
         .node-list small, .relationship-list small { display: block; color: var(--secondary-text-color, #56666d); overflow-wrap: anywhere; }
         .relationship-list strong { display: block; font-size: 12px; font-weight: 600; }
         @media (max-width: 720px) {
-          .ontology-shell { grid-template-rows: auto auto; }
+          .ontology-shell { grid-template-rows: auto auto; height: auto; min-height: 100vh; overflow: visible; }
           .ontology-header { align-items: start; padding: 16px; }
           .graph-toolbar { flex-wrap: wrap; justify-content: end; }
           .ontology-workspace { grid-template-columns: 1fr; grid-template-rows: minmax(420px, 62vh) auto; }
@@ -107,6 +111,7 @@ class OntologyPanel extends HTMLElement {
         <div class="ontology-workspace">
           <section class="graph-stage" aria-label="Ontology graph visualization">
             <ontology-graph></ontology-graph>
+            <div class="graph-busy" role="status" aria-live="polite" hidden>Fetching nodes and relationships…</div>
             <div class="graph-state" data-state="loading" role="status" aria-live="polite"><strong></strong><span></span></div>
             <div class="subscription-indicator" data-subscription-state="live" aria-live="polite" aria-atomic="true"></div>
           </section>
@@ -156,6 +161,7 @@ class OntologyPanel extends HTMLElement {
     `;
     this._graph = this.querySelector("ontology-graph");
     this._summary = this.querySelector(".ontology-summary");
+    this._busyOverlay = this.querySelector(".graph-busy");
     this._state = this.querySelector(".graph-state");
     this._subscriptionIndicator = this.querySelector(".subscription-indicator");
     this._list = this.querySelector(".node-list");
@@ -174,6 +180,7 @@ class OntologyPanel extends HTMLElement {
     this._labRetryButton = this.querySelector(".lab-retry-button");
     this._hiddenNodeTypes = new Set();
     this._hiddenRelationshipTypes = new Set();
+    this._busyRequestCount = 0;
     this._subscriptionUnsubscribe = null;
     this._subscriptionReconnectAttempt = 0;
     this._subscriptionReconnectTimer = null;
@@ -225,6 +232,7 @@ class OntologyPanel extends HTMLElement {
     if (this._loadStarted && !force) return;
     this._loadStarted = true;
     if (!silent) this._showState("loading");
+    this._beginBusy("Fetching nodes and relationships…");
     this._unsubscribe();
     try {
       const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
@@ -245,8 +253,7 @@ class OntologyPanel extends HTMLElement {
       } else {
         await this._graph.setSnapshot(snapshot, this._hass);
       }
-      const homeName = this._hass?.config?.location_name || "Home";
-      this._summary.textContent = `${snapshot.nodes.length} nodes · ${snapshot.relationships?.length || 0} relationships · ${homeName}`;
+      this._updateSummary();
       const visibleContext = this._focusSlice || snapshot;
       this._renderNodeList(visibleContext.nodes, visibleContext);
       this._renderRelationshipList(visibleContext);
@@ -257,7 +264,26 @@ class OntologyPanel extends HTMLElement {
       if (!silent) this._loadLabStatus();
     } catch (error) {
       this._showState(error?.code === "gateway_unavailable" ? "unavailable" : "error", true);
+    } finally {
+      this._endBusy();
     }
+  }
+
+  _beginBusy(message) {
+    this._busyRequestCount += 1;
+    this._busyOverlay.textContent = message;
+    this._busyOverlay.hidden = false;
+  }
+
+  _endBusy() {
+    this._busyRequestCount = Math.max(0, this._busyRequestCount - 1);
+    if (this._busyRequestCount === 0) this._busyOverlay.hidden = true;
+  }
+
+  _updateSummary() {
+    const { nodes, relationships } = this._graph.getVisibleCounts();
+    const homeName = this._hass?.config?.location_name || "Home";
+    this._summary.textContent = `${nodes} nodes · ${relationships} relationships · ${homeName}`;
   }
 
   _startSubscription(fromRevision) {
@@ -317,17 +343,21 @@ class OntologyPanel extends HTMLElement {
     const delay = SUBSCRIPTION_RECONNECT_DELAYS_MS[Math.min(attempt, SUBSCRIPTION_RECONNECT_DELAYS_MS.length - 1)];
     this._subscriptionReconnectTimer = setTimeout(async () => {
       this._subscriptionReconnectTimer = null;
+      this._beginBusy("Fetching nodes and relationships…");
       try {
         const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
         this._snapshot = snapshot;
         await this._graph.setSnapshot(snapshot, this._hass);
         this._renderNodeList(snapshot.nodes);
         this._renderFilters();
+        this._updateSummary();
         this._subscriptionReconnectAttempt = 0;
         this._startSubscription(snapshot.revision ?? 0);
       } catch {
         this._setSubscriptionState("stale");
         this._scheduleReconnect();
+      } finally {
+        this._endBusy();
       }
     }, delay);
   }
@@ -355,7 +385,7 @@ class OntologyPanel extends HTMLElement {
         };
         this._renderNodeList(this._snapshot.nodes);
         this._renderFilters();
-        this._summary.textContent = `${this._snapshot.nodes.length} nodes and ${this._snapshot.relationships.length} relationships`;
+        this._updateSummary();
       }
       return;
     }
@@ -468,6 +498,7 @@ class OntologyPanel extends HTMLElement {
       const icon = document.createElement("ha-icon");
       icon.setAttribute("icon", iconName);
       icon.setAttribute("aria-hidden", "true");
+      icon.style.setProperty("--ontology-node-color", ontologyNodeColor(node.type));
       const label = document.createElement("span");
       label.textContent = `${node.type.toLowerCase().replaceAll("_", " ")} · ${node.label}`;
       this._legend.append(icon, label);
@@ -506,6 +537,7 @@ class OntologyPanel extends HTMLElement {
         this._relationshipListHeading.textContent = "Graph relationships";
       if (this._snapshot?.nodes?.length) {
         await this._graph.setSnapshot(this._snapshot, this._hass);
+          this._updateSummary();
           this._renderNodeList(this._snapshot.nodes, this._snapshot);
           this._renderRelationshipList(this._snapshot);
         this._renderFilters();
@@ -582,6 +614,7 @@ class OntologyPanel extends HTMLElement {
   async _expandNodeNeighborhood(nodeId) {
     if (!nodeId || nodeId === UNASSIGNED_ID) return;
     const status = this._details.querySelector(".expansion-status");
+    this._beginBusy("Fetching connected nodes and relationships…");
     try {
       const slices = [await this._requestExpansion(nodeId)];
       const focusedType = this._graph.getNodeType(nodeId) || this._snapshot?.nodes.find((node) => node.id === nodeId)?.type;
@@ -630,6 +663,7 @@ class OntologyPanel extends HTMLElement {
       this._mergeSnapshot(slice);
       this._focusSlice = slice;
       await this._graph.setFocus(slice, this._hass, nodeId);
+      this._updateSummary();
       const visibleFocusedNode = slice.nodes.find((node) => node.id === nodeId);
       this._nodeListHeading.textContent = `Nodes in ${visibleFocusedNode?.label || "focus"}`;
       this._relationshipListHeading.textContent = `Relationships in ${visibleFocusedNode?.label || "focus"}`;
@@ -642,6 +676,8 @@ class OntologyPanel extends HTMLElement {
         : "All available relationships loaded.";
     } catch (error) {
       status.textContent = error?.code === "stale_cursor" ? "The graph changed. Start this expansion again." : "Expansion could not be completed.";
+    } finally {
+      this._endBusy();
     }
   }
 
@@ -690,7 +726,6 @@ class OntologyPanel extends HTMLElement {
     for (const node of slice.nodes || []) nodes.set(node.id, node);
     for (const relationship of slice.relationships || []) relationships.set(relationship.id, relationship);
     this._snapshot = { ...this._snapshot, ...slice, nodes: [...nodes.values()], relationships: [...relationships.values()] };
-    this._summary.textContent = `${nodes.size} nodes and ${relationships.size} relationships`;
   }
 
   _renderFilters(context = this._focusSlice || this._snapshot) {
@@ -714,6 +749,7 @@ class OntologyPanel extends HTMLElement {
         if (input.checked) hiddenTypes.delete(type);
         else hiddenTypes.add(type);
         this._graph.setFilters(this._hiddenNodeTypes, this._hiddenRelationshipTypes);
+        this._updateSummary();
       });
       label.append(input, document.createTextNode(`${kind === "node" ? "" : "Relationship: "}${type.toLowerCase().replaceAll("_", " ")}`));
       container.append(label);
@@ -724,6 +760,7 @@ class OntologyPanel extends HTMLElement {
     this._hiddenNodeTypes.clear();
     this._hiddenRelationshipTypes.clear();
     this._graph.setFilters(this._hiddenNodeTypes, this._hiddenRelationshipTypes);
+    this._updateSummary();
     this._renderFilters();
   }
 }

@@ -54,6 +54,18 @@ function _nodeColor(node) {
   return NODE_COLORS[node.type] ?? "#718087";
 }
 
+export function ontologyNodeColor(type) {
+  return NODE_COLORS[type] ?? "#718087";
+}
+
+function _linkColor(link, nodeMap) {
+  const targetId = link.target?.id ?? link.target;
+  const sourceId = link.source?.id ?? link.source;
+  const target = nodeMap.get(targetId);
+  const source = nodeMap.get(sourceId);
+  return ontologyNodeColor(target?.type ?? source?.type);
+}
+
 // ─── Graph data builder ──────────────────────────────────────────────────────
 
 function _buildData(snapshot, hass, includePresentation = true, knownNodeIds = new Set(), includeUnassigned = includePresentation) {
@@ -138,6 +150,30 @@ class OntologyGraph extends HTMLElement {
   hasNode(id) { return this._nodeMap.has(id); }
   hasNodes() { return this._nodeMap.size > 0; }
   getNodeType(id) { return this._nodeMap.get(id)?.type; }
+  _isNodeVisible(node) {
+    return Boolean(node) && (node.presentationOnly || !this._hiddenNodeTypes.has(node.type));
+  }
+  _isLinkVisible(link) {
+    const source = typeof link.source === "object" ? link.source : this._nodeMap.get(link.source);
+    const target = typeof link.target === "object" ? link.target : this._nodeMap.get(link.target);
+    return this._isNodeVisible(source) && this._isNodeVisible(target)
+      && !this._hiddenLinkTypes.has(link.type);
+  }
+  getVisibleCounts() {
+    if (!this._fg) return { nodes: 0, relationships: 0 };
+    const { nodes, links } = this._fg.graphData();
+    const visibleNodeIds = new Set(nodes
+      .filter((node) => this._isNodeVisible(node))
+      .map((node) => node.id));
+    return {
+      nodes: visibleNodeIds.size,
+      relationships: links.filter((link) => {
+        const sourceId = link.source?.id ?? link.source;
+        const targetId = link.target?.id ?? link.target;
+        return visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId) && this._isLinkVisible(link);
+      }).length,
+    };
+  }
 
   connectedCallback() {
     if (this._container) return;
@@ -206,7 +242,11 @@ class OntologyGraph extends HTMLElement {
   }
 
   async setFocus(slice, hass, nodeId) {
-    await this.setSnapshot(slice, hass, true, false);
+    if (!this._fg || !this.hasNodes()) {
+      await this.setSnapshot(slice, hass, true, false);
+    } else {
+      this.applySlice(slice, hass, nodeId);
+    }
     this._setSelected(nodeId);
     this.fitNodes((slice.nodes || []).map((node) => node.id), nodeId);
   }
@@ -303,7 +343,7 @@ class OntologyGraph extends HTMLElement {
     if (!this._fg) return;
     this._fg
       .nodeVisibility((n) => n.presentationOnly || !this._hiddenNodeTypes.has(n.type))
-      .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type));
+      .linkVisibility((l) => this._isLinkVisible(l));
     this._syncIconPositions();
   }
 
@@ -460,12 +500,12 @@ class OntologyGraph extends HTMLElement {
       .nodeColor((n) => _nodeColor(n))
       .nodeVal((n) => NODE_VALS[n.type] ?? 2)
       .nodeVisibility((n) => !this._hiddenNodeTypes.has(n.type))
-      .linkColor((l) => l.synthetic ? "#6aa7c8" : "#547984")
+      .linkColor((l) => _linkColor(l, this._nodeMap))
       .linkWidth((l) => l.synthetic ? 1.2 : (l.directed ? 2.2 : 1.7))
       .linkOpacity(0.9)
       .linkDirectionalArrowLength((l) => l.directed ? 4 : 0)
       .linkDirectionalArrowRelPos(1)
-      .linkVisibility((l) => !this._hiddenLinkTypes.has(l.type))
+      .linkVisibility((l) => this._isLinkVisible(l))
       .onNodeClick((n) => {
         this._viewInteracted = true;
         this._setSelected(n.id);
