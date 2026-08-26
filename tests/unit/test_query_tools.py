@@ -68,6 +68,41 @@ async def test_search_reports_truncated_as_a_warning() -> None:
     assert result["warnings"]
 
 
+async def test_unassigned_area_items_returns_devices_and_effectively_unassigned_sensors() -> None:
+    rows = [
+        {"item_type": "device", "ha_id": "device-1", "name": "Portable sensor"},
+        {"item_type": "sensor", "ha_id": "sensor.loft", "name": "Loft temperature"},
+    ]
+    client = _client_with_rows(rows)
+
+    result = await query_tools.unassigned_area_items(client, limit=25)
+
+    assert result["result"]["devices"] == [rows[0]]
+    assert result["result"]["sensors"] == [rows[1]]
+    query, parameters, limit = client.run_query_limited.await_args.args
+    assert f"(item:{LABEL_ENTITY})-[:{REL_IN_DOMAIN}]->" in query
+    assert f"(:{LABEL_DOMAIN} {{ha_id: 'sensor'}})" in query
+    assert f"-[:{REL_HAS_AREA}]->(:{LABEL_AREA})" in query
+    assert f"(:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(:{LABEL_DEVICE})" in query
+    assert parameters == {}
+    assert limit == 25
+
+
+async def test_unassigned_area_items_reports_empty_and_truncated_results() -> None:
+    client = _client_with_rows([])
+    empty = await query_tools.unassigned_area_items(client)
+    assert empty["outcome"] == "empty"
+    assert empty["result"] == {"devices": [], "sensors": [], "truncated": False}
+
+    client.run_query_limited.return_value = (
+        [{"item_type": "device", "ha_id": "device-1", "name": "Portable"}],
+        True,
+    )
+    truncated = await query_tools.unassigned_area_items(client, limit=1)
+    assert truncated["result"]["truncated"] is True
+    assert truncated["warnings"] == ["unassigned area results truncated to 1 items"]
+
+
 @pytest.mark.parametrize(
     ("func_name", "row"),
     [

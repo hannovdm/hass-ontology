@@ -1,5 +1,5 @@
-import { ontologyNodeColor, UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b32";
-import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b32";
+import { ontologyNodeColor, UNASSIGNED_ID, SYNTHETIC_HOME_ID } from "./ontology-graph.js?v=4.0.0b33";
+import { resolveOntologyIcon } from "./ontology-icons.js?v=4.0.0b33";
 
 const STATE_MESSAGES = {
   loading: ["Loading ontology graph", "Preparing areas."],
@@ -232,7 +232,7 @@ class OntologyPanel extends HTMLElement {
     if (this._loadStarted && !force) return;
     this._loadStarted = true;
     if (!silent) this._showState("loading");
-    this._beginBusy("Fetching nodes and relationships…");
+    if (!silent) this._beginBusy("Fetching nodes and relationships…");
     this._unsubscribe();
     try {
       const snapshot = await this._hass.callWS({ type: "ontology/graph_snapshot", limit: 100, cursor: null });
@@ -265,7 +265,7 @@ class OntologyPanel extends HTMLElement {
     } catch (error) {
       this._showState(error?.code === "gateway_unavailable" ? "unavailable" : "error", true);
     } finally {
-      this._endBusy();
+      if (!silent) this._endBusy();
     }
   }
 

@@ -517,7 +517,10 @@ test("reconcile event triggers a full graph reload", async ({ page }) => {
   await panel.evaluate((element) => {
     const original = element._hass.callWS.bind(element._hass);
     element._hass.callWS = async (message) => {
-      if (message.type === "ontology/graph_snapshot") element._snapshotCallCount = (element._snapshotCallCount || 0) + 1;
+      if (message.type === "ontology/graph_snapshot") {
+        element._snapshotCallCount = (element._snapshotCallCount || 0) + 1;
+        await new Promise((resolve) => { element._releaseReconcileSnapshot = resolve; });
+      }
       return original(message);
     };
   });
@@ -525,7 +528,8 @@ test("reconcile event triggers a full graph reload", async ({ page }) => {
   await panel.evaluate((element) => {
     element._dispatchLiveEvent({ revision: 10, kind: "reconcile", node_ids: [], relationship_ids: [], changed_properties: [], occurred_at: new Date().toISOString() });
   });
-  await page.waitForTimeout(200);
+  await expect(page.locator(".graph-busy")).toBeHidden();
+  await panel.evaluate((element) => element._releaseReconcileSnapshot());
 
   const callCount = await panel.evaluate((element) => element._snapshotCallCount || 0);
   expect(callCount).toBeGreaterThanOrEqual(1);

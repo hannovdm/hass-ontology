@@ -127,6 +127,38 @@ async def test_graph_snapshot_passes_cursor_and_requested_limit(hass) -> None:
     connection.send_result.assert_called_once()
 
 
+async def test_graph_snapshot_uses_live_change_buffer_revision(hass) -> None:
+    gateway = AsyncMock()
+    gateway.initial_graph.return_value = {
+        "nodes": [],
+        "relationships": [],
+        "truncated": False,
+        "nextCursor": None,
+        "revision": 0,
+    }
+    coordinator = MagicMock()
+    coordinator.change_buffer.current_revision = 41
+    connection = MagicMock()
+    message = {
+        "id": 1,
+        "type": "ontology/graph_snapshot",
+        "limit": GRAPH_INITIAL_NODE_LIMIT,
+        "cursor": None,
+    }
+
+    with (
+        patch.object(ontology_ws, "_first_loaded_gateway", return_value=gateway),
+        patch.object(
+            ontology_ws, "_first_loaded_coordinator", return_value=coordinator
+        ),
+    ):
+        ontology_ws._handle_graph_snapshot(hass, connection, message)
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    response = connection.send_result.call_args.args[1]
+    assert response["revision"] == 41
+
+
 async def test_graph_snapshot_reports_gateway_unavailability_without_details(hass) -> None:
     connection, _gateway = await _call_snapshot(
         hass,

@@ -48,6 +48,7 @@ INTENT_DEVICE_CONTEXT = "OntologyDeviceContext"
 INTENT_IMPACT_ANALYSIS = "OntologyImpactAnalysis"
 INTENT_SEARCH = "OntologySearch"
 INTENT_ACTIVE_CONSUMERS = "OntologyActiveConsumers"
+INTENT_UNASSIGNED_AREA_ITEMS = "OntologyUnassignedAreaItems"
 
 _SENTENCES_SOURCE_PATH = Path(__file__).parent / "intents" / "en.yaml"
 _CUSTOM_SENTENCES_FILENAME = "hass-ontology-managed.yaml"
@@ -393,9 +394,43 @@ class OntologyActiveConsumers(_OntologyIntentHandler):
         return speech
 
 
+class OntologyUnassignedAreaItems(_OntologyIntentHandler):
+    """List devices and sensors without a direct or inherited area."""
+
+    intent_type = INTENT_UNASSIGNED_AREA_ITEMS
+    slot_name = None
+
+    async def _async_call_tool(self, hass, client, value):
+        entry = _first_loaded_entry(hass)
+        options = entry.options if entry is not None else {}
+        return await query_tools.unassigned_area_items(
+            client,
+            limit=options.get(
+                CONF_RELATIONSHIP_RESULT_LIMIT, DEFAULT_RELATIONSHIP_RESULT_LIMIT
+            ),
+        )
+
+    def _speech_for_found(self, tool_result):
+        result = tool_result.get("result") or {}
+        devices = result.get("devices") or []
+        sensors = result.get("sensors") or []
+        if not (devices or sensors):
+            return "All known devices and sensors are linked to an area."
+        sections = []
+        if devices:
+            sections.append(f"Devices without an area:\n{_bullet_list(devices)}")
+        if sensors:
+            sections.append(f"Sensors without an area:\n{_bullet_list(sensors)}")
+        speech = "\n".join(sections)
+        if result.get("truncated"):
+            speech += " Additional results were omitted."
+        return speech
+
+
 ALL_INTENT_HANDLERS: tuple[_OntologyIntentHandler, ...] = (
     OntologyLowBatteryAreas(),
     OntologyActiveConsumers(),
+    OntologyUnassignedAreaItems(),
     OntologyAutomationDependencies(),
     OntologyAreaContents(),
     OntologyEntityContext(),

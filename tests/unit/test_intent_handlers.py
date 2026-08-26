@@ -118,6 +118,35 @@ async def test_impact_analysis_intent_delegates_to_impact_analysis_analyze(
     assert response.response_type == intent.IntentResponseType.ACTION_DONE
 
 
+async def test_unassigned_area_intent_lists_devices_and_sensors(
+    hass, mock_memgraph_client, mock_config_entry_data
+) -> None:
+    await _setup_loaded_entry(hass, mock_memgraph_client, mock_config_entry_data)
+    handler = intent_handlers.OntologyUnassignedAreaItems()
+    intent_obj = _make_slotless_intent(hass, handler.intent_type)
+    fake_result = query_tools.build_tool_result(
+        "home",
+        "unassigned_area_items",
+        {
+            "devices": [{"ha_id": "device-1", "name": "Portable sensor"}],
+            "sensors": [{"ha_id": "sensor.loft", "name": "Loft temperature"}],
+            "truncated": False,
+        },
+    )
+
+    with patch.object(
+        query_tools, "unassigned_area_items", AsyncMock(return_value=fake_result)
+    ) as mocked:
+        response = await handler.async_handle(intent_obj)
+
+    mocked.assert_awaited_once()
+    speech = str(response.speech)
+    assert "Devices without an area" in speech
+    assert "Portable sensor" in speech
+    assert "Sensors without an area" in speech
+    assert "Loft temperature" in speech
+
+
 async def test_intent_exception_audits_sanitized_error_category(
     hass, mock_memgraph_client, mock_config_entry_data
 ) -> None:
@@ -195,6 +224,7 @@ async def test_ensure_custom_sentences_writes_into_config_custom_sentences_dir(h
     assert target_path.is_file()
     content = target_path.read_text(encoding="utf-8")
     assert "OntologyAutomationDependencies" in content
+    assert "list devices and sensors that aren't linked to an area" in content
     assert "ontology_entity" in content
 
 

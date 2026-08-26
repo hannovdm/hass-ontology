@@ -128,6 +128,12 @@ async def _handle_graph_snapshot(
         )
         return
 
+    coordinator = _first_loaded_coordinator(hass)
+    snapshot_revision = (
+        coordinator.change_buffer.current_revision
+        if coordinator is not None
+        else None
+    )
     result = await gateway.initial_graph(msg["limit"], msg["cursor"])
     if result.get("available") is False:
         connection.send_error(
@@ -142,7 +148,11 @@ async def _handle_graph_snapshot(
             "relationships": list(result.get("relationships") or []),
             "truncated": bool(result.get("truncated")),
             "next_cursor": result.get("nextCursor"),
-            "revision": int(result.get("revision") or 0),
+            "revision": (
+                snapshot_revision
+                if snapshot_revision is not None
+                else int(result.get("revision") or 0)
+            ),
         },
     )
 

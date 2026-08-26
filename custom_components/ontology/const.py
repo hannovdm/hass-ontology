@@ -388,6 +388,7 @@ RESULT_TYPE_EXPORT_CONTEXT = "export_context"
 RESULT_TYPE_NOT_FOUND = "not_found"
 RESULT_TYPE_LOW_BATTERY_AREAS = "low_battery_areas"
 RESULT_TYPE_ACTIVE_CONSUMERS = "active_consumers"
+RESULT_TYPE_UNASSIGNED_AREA_ITEMS = "unassigned_area_items"
 RESULT_TYPE_SUPPLIED_TARGETS = "supplied_targets"
 
 OUTCOME_OK = "ok"

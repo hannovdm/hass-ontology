@@ -54,6 +54,7 @@ from .const import (
     RESULT_TYPE_LOW_BATTERY_AREAS,
     RESULT_TYPE_NOT_FOUND,
     RESULT_TYPE_SEARCH,
+    RESULT_TYPE_UNASSIGNED_AREA_ITEMS,
     SOURCE_INFERRED,
     SOURCE_USER,
 )
@@ -233,6 +234,43 @@ def count_results(result: dict[str, Any] | list[Any] | None) -> int:
                 return len(value)
         return 1
     return 1
+
+
+async def unassigned_area_items(
+    client: MemgraphClient, limit: int | None = None
+) -> dict[str, Any]:
+    """Return devices and sensor entities without an effective area."""
+    effective_limit = _effective_limit(limit)
+    query = (
+        f"MATCH (item:{LABEL_DEVICE}) "
+        f"WHERE NOT EXISTS {{ MATCH (:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->(item) }} "
+        "RETURN 'device' AS item_type, item.ha_id AS ha_id, "
+        "coalesce(item.name, item.ha_id) AS name "
+        "UNION ALL "
+        f"MATCH (item:{LABEL_ENTITY})-[:{REL_IN_DOMAIN}]->"
+        f"(:{LABEL_DOMAIN} {{ha_id: 'sensor'}}) "
+        f"WHERE NOT EXISTS {{ MATCH (item)-[:{REL_HAS_AREA}]->(:{LABEL_AREA}) }} "
+        f"AND NOT EXISTS {{ MATCH (:{LABEL_AREA})-[:{REL_HAS_DEVICE}]->"
+        f"(:{LABEL_DEVICE})-[:{REL_HAS_ENTITY}]->(item) }} "
+        "RETURN 'sensor' AS item_type, item.ha_id AS ha_id, "
+        "coalesce(item.name, item.ha_id) AS name "
+        "ORDER BY item_type, toLower(name), ha_id"
+    )
+    rows, truncated = await client.run_query_limited(query, {}, effective_limit)
+    devices = [row for row in rows if row.get("item_type") == "device"]
+    sensors = [row for row in rows if row.get("item_type") == "sensor"]
+    warnings = (
+        [f"unassigned area results truncated to {effective_limit} items"]
+        if truncated
+        else []
+    )
+    return build_tool_result(
+        "home",
+        RESULT_TYPE_UNASSIGNED_AREA_ITEMS,
+        {"devices": devices, "sensors": sensors, "truncated": truncated},
+        warnings,
+        outcome=OUTCOME_EMPTY if not rows else OUTCOME_OK,
+    )
 
 
 async def low_battery_areas(

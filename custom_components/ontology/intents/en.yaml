@@ -10,6 +10,12 @@ intents:
       - sentences:
           - "what appliances currently consume electricity"
           - "which devices are using power"
+  OntologyUnassignedAreaItems:
+    data:
+      - sentences:
+          - "list devices and sensors that aren't linked to an area"
+          - "which devices and sensors are not linked to an area"
+          - "show devices and sensors without an area"
   OntologyAutomationDependencies:
     data:
       - sentences:
