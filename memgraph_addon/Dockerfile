@@ -7,7 +7,7 @@ COPY graphql/package.json graphql/package-lock.json ./
 RUN npm ci --omit=dev
 COPY graphql/schema.graphql graphql/resolvers.js graphql/server.js ./
 
-FROM memgraph/memgraph:3.12.0@sha256:c162cb9a6f76dac6080119da919d9b36e69c8b982af7bf34dd7df2b3723bd69c
+FROM memgraph/memgraph:3.13.0@sha256:a1dc375774ed0a6f844d05cf1d7bb661e5e552e436dbe34e9033e376558fe4e6
 
 USER root
 RUN apt-get update \
