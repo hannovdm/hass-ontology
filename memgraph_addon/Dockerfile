@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM memgraph/lab:latest@sha256:f288113adc4a30c7a59fcf064af729dffa728ae6c4b8a7d9287286de0ec41cd6 AS lab
-FROM node:26.6.0-bookworm-slim@sha256:81502e860176e63695d769d3d1a2d3a403abc1c27c6a02169b765f3e43b60ede AS graphql
+FROM node:26.8-bookworm-slim@sha256:cd9f682fa2885cd1056e830424764158570061c59736a1da836bc3d73df095ae AS graphql
 
 WORKDIR /opt/ontology-graphql
 COPY graphql/package.json graphql/package-lock.json ./
